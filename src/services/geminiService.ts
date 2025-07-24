@@ -1,32 +1,82 @@
 
-import React from 'react';
-import { useLanguage } from '../context/LanguageContext';
-import { SpanishFlag, BritishFlag } from './Icons';
+import { GoogleGenAI, Type } from "@google/genai";
+import { SummaryType, PresentationStyle, Slide } from '../types';
+import { getPrompts } from '../lib/i18n';
+import type { Language } from '../context/LanguageContext';
 
-const LanguageSwitcher: React.FC = () => {
-    const { language, setLanguage, t } = useLanguage();
+if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable is not set.");
+}
 
-    const buttonClass = (isActive: boolean) =>
-        `p-1.5 rounded-full transition-all duration-200 ${isActive ? 'bg-slate-600 ring-2 ring-brand-primary' : 'hover:bg-slate-700'}`;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const textModel = 'gemini-2.5-flash';
 
-    return (
-        <div className="flex items-center space-x-2 bg-slate-800 p-1 rounded-full">
-            <button
-                onClick={() => setLanguage('es')}
-                className={buttonClass(language === 'es')}
-                aria-label={t.switchToSpanish}
-            >
-                <SpanishFlag className="w-6 h-6 rounded-full" />
-            </button>
-            <button
-                onClick={() => setLanguage('en')}
-                className={buttonClass(language === 'en')}
-                aria-label={t.switchToEnglish}
-            >
-                <BritishFlag className="w-6 h-6 rounded-full" />
-            </button>
-        </div>
-    );
-};
+export async function getTextFromImage(base64Image: string, language: Language): Promise<string> {
+    const prompts = getPrompts(language);
+    
+    const imagePart = {
+        inlineData: {
+            mimeType: 'image/jpeg',
+            data: base64Image,
+        },
+    };
+    const textPart = {
+        text: prompts.textExtraction,
+    };
 
-export default LanguageSwitcher;
+    const response = await ai.models.generateContent({
+        model: textModel,
+        contents: { parts: [imagePart, textPart] },
+        config: {
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+    });
+
+    return response.text;
+}
+
+export async function generateSummary(text: string, type: SummaryType, language: Language): Promise<string> {
+    const prompts = getPrompts(language);
+    const prompt = prompts.summary(type, text);
+
+    if (!prompt) {
+        throw new Error('Invalid summary type');
+    }
+
+    const response = await ai.models.generateContent({
+        model: textModel,
+        contents: prompt
+    });
+
+    return response.text;
+}
+
+export async function generatePresentation(
+    summary: string, 
+    style: PresentationStyle, 
+    language: Language
+): Promise<Slide[]> {
+    const prompts = getPrompts(language);
+    const { systemInstruction, userPrompt, responseSchema } = prompts.presentation(style, summary, language);
+    
+    const response = await ai.models.generateContent({
+        model: textModel,
+        contents: userPrompt,
+        config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema
+        }
+    });
+
+    const jsonText = response.text;
+    try {
+        // The AI can sometimes return markdown ```json ... ```, so we extract it.
+        const cleanedJson = jsonText.replace(/^```json\s*|```\s*$/g, '');
+        const slides = JSON.parse(cleanedJson) as Slide[];
+        return slides;
+    } catch (e) {
+        console.error("Failed to parse presentation JSON:", jsonText);
+        throw new Error("The AI returned an invalid format for the presentation. Please try again.");
+    }
+}
