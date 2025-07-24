@@ -64,7 +64,7 @@ declare module 'nuxt/schema' {
    },
   }
   interface PublicRuntimeConfig {
-
+   geminiApiKey: string,
   }
 }
 declare module 'vue' {
