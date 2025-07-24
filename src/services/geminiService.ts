@@ -1,9 +1,9 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai"; // Eliminado 'Type'
 import { SummaryType, PresentationStyle, Slide } from '../types';
 import { getPrompts } from '../lib/i18n';
 import type { Language } from '../context/LanguageContext';
 
+// **¡Importante!** Asegúrate de haber ejecutado: npm install --save-dev @types/node
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
 }
@@ -32,6 +32,10 @@ export async function getTextFromImage(base64Image: string, language: Language):
         }
     });
 
+    // Manejo de 'undefined' para response.text
+    if (response.text === undefined) {
+        throw new Error("API did not return text content for image extraction.");
+    }
     return response.text;
 }
 
@@ -48,6 +52,10 @@ export async function generateSummary(text: string, type: SummaryType, language:
         contents: prompt
     });
 
+    // Manejo de 'undefined' para response.text
+    if (response.text === undefined) {
+        throw new Error("API did not return text content for summary generation.");
+    }
     return response.text;
 }
 
@@ -70,6 +78,11 @@ export async function generatePresentation(
     });
 
     const jsonText = response.text;
+    // Manejo de 'undefined' para jsonText
+    if (jsonText === undefined) {
+        throw new Error("API did not return JSON content for presentation generation.");
+    }
+
     try {
         // The AI can sometimes return markdown ```json ... ```, so we extract it.
         const cleanedJson = jsonText.replace(/^```json\s*|```\s*$/g, '');
