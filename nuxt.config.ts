@@ -16,14 +16,21 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    public: {
-      geminiApiKey: process.env.NUXT_PUBLIC_GEMINI_API_KEY,
-    }
+    // Elimina 'public' si solo tenías geminiApiKey aquí
+    // O deja 'public' si tienes otras variables públicas que NO son secretas
+    // public: {
+    //   geminiApiKey: process.env.NUXT_PUBLIC_GEMINI_API_KEY, // <-- ¡ELIMINA ESTA LÍNEA!
+    // }
   },
 
-  // *** CAMBIO CRÍTICO AQUÍ ***
   nitro: {
-    preset: 'static', // <-- ¡Cambiado a 'static' para una generación puramente estática!
+    preset: 'netlify', // Puedes usar 'netlify' o 'static'. 'netlify' es mejor si usas Netlify Functions.
+    // Si quieres probar las funciones localmente con `npm run dev`
+    dev: {
+      // proxy: {
+      //   '/.netlify/functions/': { target: 'http://localhost:9000/.netlify/functions/', changeOrigin: true }
+      // }
+    }
   },
 
   modules: [

@@ -1,49 +1,23 @@
 <!-- pages/index.vue -->
 <template>
-  <div class="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
-    <h1 class="text-4xl font-bold mb-4 text-gradient">Bienvenido a ResumeTexto.com</h1>
-    <p class="text-lg mb-8 text-center max-w-2xl">
-      Sube un documento PDF para obtener un resumen conciso y rápido utilizando la inteligencia artificial.
-    </p>
-
-    <div class="flex items-center space-x-4">
-      <input 
-        type="file" 
-        accept=".pdf" 
-        @change="handleFileUpload"
-        class="block w-full text-sm text-gray-500
-               file:mr-4 file:py-2 file:px-4
-               file:rounded-md file:border-0
-               file:text-sm file:font-semibold
-               file:bg-brand-primary file:text-white
-               hover:file:bg-brand-secondary cursor-pointer"
-      />
-      <button 
-        @click="summarizePdf"
-        class="py-2 px-4 bg-brand-primary text-white font-semibold rounded-md
-               hover:bg-brand-secondary transition-colors duration-200"
-      >
-        Resumir PDF
-      </button>
-    </div>
-
-    <!-- Puedes agregar aquí un indicador de carga, área para mostrar el resumen, etc. -->
-  </div>
+  <!-- ... (tu template se mantiene igual) ... -->
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// const { GoogleGenerativeAI } = await import("@google/generative-ai"); // <-- ¡ELIMINA ESTA LÍNEA!
 
-// Accede a la API Key desde las variables de entorno de Nuxt
-const config = useRuntimeConfig();
-const geminiApiKey = config.public.geminiApiKey;
+// Accede a la API Key (ya no la necesitamos directamente aquí para Gemini)
+// const config = useRuntimeConfig();
+// const geminiApiKey = config.public.geminiApiKey; // <-- ¡YA NO SE USA DIRECTAMENTE AQUÍ!
 
-// Inicializa el modelo Gemini (esto está bien, puede ser SSR)
-const genAI = new GoogleGenerativeAI(geminiApiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+// Inicializa el modelo Gemini (¡ELIMINA ESTO DE AQUÍ!)
+// const genAI = new GoogleGenerativeAI(geminiApiKey);
+// const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 const selectedFile = ref<File | null>(null);
+const summaryOutput = ref<string>(''); // Para mostrar el resumen
+const isLoading = ref<boolean>(false); // Para mostrar un spinner
 
 const handleFileUpload = (event: Event) => {
   const input = event.target as HTMLInputElement;
@@ -58,53 +32,72 @@ const summarizePdf = async () => {
     return;
   }
 
-  // **** CAMBIO CLAVE AQUÍ: Importación dinámica de pdfjs-dist ****
+  isLoading.value = true;
+  summaryOutput.value = '';
+
+  // **** Importación dinámica de pdfjs-dist (se mantiene como estaba) ****
   let pdfjsLib;
-  if (process.client) { // Solo si estamos en el cliente (navegador)
-    pdfjsLib = await import('pdfjs-dist/build/pdf'); // Ruta recomendada para la importación
-    // Puedes necesitar configurar el worker si no usas el CDN por defecto
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  if (process.client) {
+    pdfjsLib = await import('pdfjs-dist/build/pdf');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`; // Usar un CDN
   } else {
-    // Si estamos en el servidor durante el build/prerrender, no podemos procesar PDFs.
     console.warn("PDF.js no está disponible en el servidor durante la construcción.");
-    alert("El procesamiento de PDF requiere un entorno de navegador. Por favor, intente después de que la aplicación se cargue completamente.");
+    alert("El procesamiento de PDF requiere un entorno de navegador.");
+    isLoading.value = false;
     return;
   }
-  // **** FIN DEL CAMBIO CLAVE ****
 
-  // Asegúrate de que pdfjsLib y su método getDocument estén disponibles
   if (!pdfjsLib || !pdfjsLib.getDocument) {
     console.error("Error: pdfjs-dist no se pudo cargar correctamente.");
     alert("Hubo un problema al inicializar la librería de PDF.");
+    isLoading.value = false;
     return;
   }
 
   console.log("Iniciando resumen del archivo:", selectedFile.value.name);
-  console.log("Usando API Key:", geminiApiKey ? "CONFIGURADA" : "NO CONFIGURADA");
 
   try {
-    // Aquí iría tu lógica para leer el PDF, extraer el texto y enviarlo a Gemini
-    // Ejemplo de cómo usar pdfjs-dist para cargar un PDF (esto es solo un esqueleto)
-    // const loadingTask = pdfjsLib.getDocument(URL.createObjectURL(selectedFile.value));
-    // const pdf = await loadingTask.promise;
-    // let fullText = '';
-    // for (let i = 1; i <= pdf.numPages; i++) {
-    //   const page = await pdf.getPage(i);
-    //   const textContent = await page.getTextContent();
-    //   fullText += textContent.items.map(item => item.str).join(' ') + '\n';
-    // }
+    // Lógica para leer el PDF y extraer texto
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const arrayBuffer = e.target?.result as ArrayBuffer;
+      const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+      const pdf = await loadingTask.promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+      }
 
-    const prompt = `Resume el siguiente texto:\n\n${"TEXTO_DEL_PDF_EXTRAIDO_AQUI"}`; // <--- ¡Asegúrate de reemplazar esto con el texto real del PDF!
-    // const result = await model.generateContent(prompt);
-    // const response = await result.response;
-    // const text = response.text();
-    // console.log("Resumen:", text);
+      // **** CAMBIO CLAVE: Llamar a la función Netlify ****
+      const response = await fetch('/.netlify/functions/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ textToSummarize: fullText }),
+      });
 
-    alert("Lógica de resumen en desarrollo. Archivo seleccionado: " + selectedFile.value.name);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Fallo la llamada a la función de resumen.');
+      }
 
+      const data = await response.json();
+      summaryOutput.value = data.summary;
+      alert("¡Resumen listo!");
+    };
+    reader.onerror = (e) => {
+      console.error("Error leyendo archivo:", e);
+      alert("Error leyendo el archivo PDF.");
+    };
+    reader.readAsArrayBuffer(selectedFile.value); // Lee el archivo como ArrayBuffer
   } catch (error) {
     console.error("Error al intentar resumir:", error);
     alert("Ocurrió un error al intentar resumir el PDF: " + (error as Error).message);
+  } finally {
+    isLoading.value = false;
   }
 };
 </script>
