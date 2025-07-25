@@ -1,157 +1,379 @@
 <!-- pages/index.vue -->
 <template>
-  <div class="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
-    <h1 class="text-4xl font-bold mb-4 text-gradient">Bienvenido a ResumeTexto.com</h1>
-    <p class="text-lg mb-8 text-center max-w-2xl">
-      Sube un documento PDF para obtener un resumen conciso y rápido utilizando la inteligencia artificial.
-    </p>
+  <div class="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
+    <!-- Encabezado de la aplicación -->
+    <header class="w-full max-w-4xl p-4 flex justify-between items-center mb-8">
+      <div class="flex items-center space-x-2">
+        <!-- Logo: Un ordenador sencillo como icono -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-brand-primary border-2 border-red-500 rounded-full p-1" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h16V8H4zM4 16h16v2H4v-2z"></path>
+        </svg>
+        <h1 class="text-4xl font-bold text-gradient border-2 border-red-500 rounded-lg px-2 py-1">Resúmelo!</h1>
+      </div>
+      <!-- Toggle de idioma -->
+      <button @click="toggleLanguage" class="py-1 px-3 rounded-md bg-slate-700 hover:bg-slate-600">
+        {{ currentLanguage === 'es' ? 'EN' : 'ES' }}
+      </button>
+    </header>
 
-    <div class="flex items-center space-x-4">
-      <input 
-        type="file" 
-        accept=".pdf" 
-        @change="handleFileUpload"
-        class="block w-full text-sm text-gray-500
-               file:mr-4 file:py-2 file:px-4
-               file:rounded-md file:border-0
-               file:text-sm file:font-semibold
-               file:bg-brand-primary file:text-white
-               hover:file:bg-brand-secondary cursor-pointer"
-      />
-      <button 
-        @click="summarizePdf"
-        :disabled="isLoading"
-        class="py-2 px-4 bg-brand-primary text-white font-semibold rounded-md
-               hover:bg-brand-secondary transition-colors duration-200"
+    <main class="w-full max-w-4xl p-6 bg-slate-800 rounded-lg shadow-xl flex flex-col items-center">
+      <p class="text-lg mb-8 text-center">
+        {{ currentPrompts.ui.uploadFilePlaceholder }}
+      </p>
+
+      <!-- Área de Carga/Drop de Archivos -->
+      <div 
+        @dragover.prevent="handleDragOver" 
+        @dragleave="handleDragLeave" 
+        @drop.prevent="handleDrop"
+        @click="triggerFileInput"
+        :class="['border-2 border-dashed rounded-lg p-10 text-center cursor-pointer mb-6 w-full',
+                 isDragging ? 'border-brand-primary bg-slate-700' : 'border-slate-600 hover:border-slate-500']"
       >
-        {{ isLoading ? 'Resumiendo...' : 'Resumir PDF' }}
+        <input type="file" ref="fileInput" accept=".pdf,image/jpeg,image/png" @change="handleFileUpload" class="hidden"/>
+        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+        <p class="mt-1 text-slate-400">{{ currentPrompts.ui.dragAndDropHint }}</p>
+        <p class="text-sm text-slate-500">{{ currentPrompts.ui.pdfOrImageHint }}</p>
+        <p v-if="selectedFile" class="mt-2 text-slate-300">{{ currentPrompts.ui.selectedFilePrefix }} {{ selectedFile.name }}</p>
+      </div>
+
+      <!-- Opciones de Contenido a Generar (Resumen o Presentación) -->
+      <div class="mb-6 w-full">
+        <label class="block text-lg font-semibold mb-2 text-white">{{ currentPrompts.ui.contentGeneratedTitle }}</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 rounded-lg bg-slate-700 p-1">
+          <button 
+            v-for="option in contentOptions" :key="option.value"
+            @click="selectedContentOption = option.value"
+            :class="['w-full py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary',
+                     selectedContentOption === option.value ? 'bg-brand-primary text-white shadow' : 'text-slate-300 hover:bg-slate-600']"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Botón Principal para Generar -->
+      <button 
+        @click="generateContent"
+        :disabled="isLoading || !selectedFile"
+        class="w-full flex items-center justify-center py-3 px-4 bg-brand-primary text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+      >
+        <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        {{ isLoading ? currentPrompts.ui.processingMessage : currentPrompts.ui.generateContentBtn }}
+      </button>
+    </main>
+
+    <!-- Área para mostrar el resumen/presentación -->
+    <div v-if="summaryOutput || generatedHtmlContent" class="mt-8 p-6 bg-slate-800 rounded-lg shadow-lg max-w-3xl w-full">
+      <h2 class="text-2xl font-semibold mb-4 text-white">{{ currentPrompts.ui.contentGeneratedTitle }}</h2>
+      <pre v-if="summaryOutput" class="text-gray-200 whitespace-pre-wrap font-mono">{{ summaryOutput }}</pre>
+      
+      <!-- Botón de descarga de HTML para presentaciones -->
+      <button 
+        v-if="generatedHtmlContent" 
+        @click="downloadPresentationHtml" 
+        class="mt-4 py-2 px-4 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700"
+      >
+        {{ currentPrompts.ui.downloadHtmlBtn }}
       </button>
     </div>
-
-    <!-- Área para mostrar el resumen -->
-    <div v-if="summaryOutput" class="mt-8 p-6 bg-slate-800 rounded-lg shadow-lg max-w-3xl w-full">
-      <h2 class="text-2xl font-semibold mb-4 text-white">Resumen:</h2>
-      <p class="text-gray-200 whitespace-pre-wrap">{{ summaryOutput }}</p>
-    </div>
-    <p v-if="isLoading" class="mt-4 text-gray-400">Procesando el documento...</p>
-    <p v-if="errorMessage" class="mt-4 text-red-500">{{ errorMessage }}</p> <!-- Para mostrar errores -->
+    
+    <p v-if="errorMessage" class="mt-4 text-red-500">{{ errorMessage }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { getPrompts } from '../lib/i18n'; // Importa la función de prompts
 
-// Referencias reactivas
+// Referencias reactivas para el estado de la UI y los datos
+const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
-const summaryOutput = ref<string>('');
+const summaryOutput = ref<string>(''); // Para el texto de resumen o de la presentación (JSON)
 const isLoading = ref<boolean>(false);
-const errorMessage = ref<string>(''); // Para mostrar mensajes de error al usuario
+const errorMessage = ref<string>('');
+const isDragging = ref<boolean>(false); // Estado para el efecto de drag-and-drop
 
-// Manejador para cuando el usuario selecciona un archivo
-const handleFileUpload = (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  if (input.files && input.files.length > 0) {
-    selectedFile.value = input.files[0];
-    errorMessage.value = ''; // Limpiar cualquier error previo al seleccionar nuevo archivo
+// Idioma actual, se usa para obtener los prompts correctos
+const currentLanguage = ref<'es' | 'en'>('es'); 
+// Propiedad computada para obtener los prompts del idioma actual
+const currentPrompts = computed(() => getPrompts(currentLanguage.value));
+
+const generatedHtmlContent = ref<string | null>(null); // Para el HTML de la presentación que se va a descargar
+
+// Opciones de contenido a generar (se mapean a SummaryType y PresentationStyle de types.ts)
+const contentOptions = computed(() => [
+  { label: currentPrompts.value.ui.summaryShortLabel, value: 'summary_short', type: 'summary', summaryType: 'short' },
+  { label: currentPrompts.value.ui.summaryDetailedLabel, value: 'summary_detailed', type: 'summary', summaryType: 'detailed' },
+  { label: currentPrompts.value.ui.summaryPointsLabel, value: 'summary_points', type: 'summary', summaryType: 'points' },
+  { label: currentPrompts.value.ui.presentationExtensiveLabel, value: 'presentation_extensive', type: 'presentation', presentationStyle: 'extensive' },
+  { label: currentPrompts.value.ui.presentationInformativeLabel, value: 'presentation_informative', type: 'presentation', presentationStyle: 'informative' },
+  { label: currentPrompts.value.ui.presentationForKidsLabel, value: 'presentation_kids', type: 'presentation', presentationStyle: 'kids' },
+]);
+const selectedContentOption = ref<'summary_short' | 'summary_detailed' | 'summary_points' | 'presentation_extensive' | 'presentation_informative' | 'presentation_kids'>('summary_short');
+
+// --- Métodos para el Drag-and-Drop y Selección de Archivos ---
+const triggerFileInput = () => { fileInput.value?.click(); };
+const handleFileUpload = (event: Event | DragEvent) => {
+  const files = (event as DragEvent).dataTransfer?.files || (event.target as HTMLInputElement).files;
+  if (files && files.length > 0) {
+    selectedFile.value = files[0];
+    errorMessage.value = '';
+    summaryOutput.value = ''; // Limpiar salida previa
+    generatedHtmlContent.value = null; // Limpiar HTML si se selecciona nuevo archivo
   }
+  isDragging.value = false;
 };
+const handleDragOver = () => { isDragging.value = true; };
+const handleDragLeave = () => { isDragging.value = false; };
+const handleDrop = (event: DragEvent) => { handleFileUpload(event); };
 
-// Función principal para resumir el PDF
-const summarizePdf = async () => {
+// --- Lógica de Procesamiento Principal (Lectura de Archivo y Llamada a Netlify Function) ---
+const generateContent = async () => {
   if (!selectedFile.value) {
-    errorMessage.value = "Por favor, selecciona un archivo PDF primero.";
+    errorMessage.value = currentPrompts.value.ui.selectFileError;
     return;
   }
 
   isLoading.value = true;
   summaryOutput.value = '';
   errorMessage.value = '';
+  generatedHtmlContent.value = null;
 
-  let pdfjsLib;
   try {
-    // Importación dinámica de pdfjs-dist, SOLO si estamos en el cliente (navegador)
-    if (process.client) {
-      pdfjsLib = await import('pdfjs-dist/build/pdf');
-      // Configura el worker de PDF.js usando un CDN. ¡Esto es CRÍTICO!
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-    } else {
-      // Si estamos en el servidor durante el build/prerrender, esta parte no se ejecutará si ssr:false
-      // Pero es una buena práctica tener un fallback.
-      console.warn("PDF.js no está disponible en el servidor durante la construcción/prerenderizado.");
-      errorMessage.value = "El procesamiento de PDF requiere un entorno de navegador. Por favor, intente después de que la aplicación se cargue completamente.";
+    let extractedText = '';
+    const fileType = selectedFile.value.type;
+    
+    if (fileType === 'application/pdf') {
+      let pdfjsLib;
+      if (process.client) { // Solo en el navegador
+        pdfjsLib = await import('pdfjs-dist/build/pdf');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      } else {
+        throw new Error(currentPrompts.value.ui.pdfJsNotAvailable);
+      }
+
+      const reader = new FileReader();
+      reader.readAsArrayBuffer(selectedFile.value);
+      extractedText = await new Promise((resolve, reject) => {
+        reader.onload = async (e) => {
+          try {
+            const arrayBuffer = e.target?.result as ArrayBuffer;
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            let text = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              text += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+            }
+            resolve(text);
+          } catch (innerError) { reject(new Error(currentPrompts.value.ui.pdfJsLoadError + ": " + (innerError as Error).message)); }
+        };
+        reader.onerror = (e) => reject(new Error(currentPrompts.value.ui.pdfJsLoadError + ": " + (e.target?.error?.message || 'Error desconocido')));
+      });
+
+    } 
+    else if (fileType.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.readAsDataURL(selectedFile.value);
+        const base64Image = await new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
+            reader.onerror = (e) => reject(new Error(currentPrompts.value.ui.fileTypeError + ": " + (e.target?.error?.message || 'Error desconocido')));
+        });
+
+        const ocrResponse = await fetch('/.netlify/functions/gemini-api', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operation: 'extractTextFromImage',
+                payload: { base64Image: base64Image, language: currentLanguage.value }
+            }),
+        });
+        if (!ocrResponse.ok) {
+            const errorData = await ocrResponse.json();
+            throw new Error(errorData.error || `${currentPrompts.value.ui.apiCallFailed} (OCR): ${ocrResponse.status} ${ocrResponse.statusText}`);
+        }
+        const ocrData = await ocrResponse.json();
+        extractedText = ocrData.text;
+        if (!extractedText) {
+            throw new Error(currentPrompts.value.ui.ocrMissingText);
+        }
+
+    } 
+    else {
+      errorMessage.value = currentPrompts.value.ui.fileTypeError;
       isLoading.value = false;
       return;
     }
-    
-    // Verifica si pdfjs-dist se cargó correctamente
-    if (!pdfjsLib || !pdfjsLib.getDocument) {
-      throw new Error("La librería PDF.js no se pudo cargar o inicializar correctamente.");
+
+    const selectedOption = contentOptions.value.find(opt => opt.value === selectedContentOption.value);
+    if (!selectedOption) {
+        throw new Error(currentPrompts.value.ui.invalidOption);
     }
 
-    console.log("Iniciando resumen del archivo:", selectedFile.value.name);
+    let apiOperation: string;
+    let apiPayload: any;
 
-    // Lógica para leer el PDF y extraer el texto
-    const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        const arrayBuffer = e.target?.result as ArrayBuffer;
-        // Carga el documento PDF
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-        
-        let fullText = '';
-        // Itera sobre cada página para extraer el texto
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          // Une los strings de texto de la página y añade un salto de línea
-          fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
-        }
+    if (selectedOption.type === 'summary') {
+        apiOperation = 'generateSummary';
+        apiPayload = { 
+            text: extractedText, 
+            type: selectedOption.summaryType, 
+            language: currentLanguage.value 
+        };
+    } else if (selectedOption.type === 'presentation') {
+        apiOperation = 'generatePresentation';
+        apiPayload = { 
+            summary: extractedText,
+            style: selectedOption.presentationStyle, 
+            language: currentLanguage.value 
+        };
+    } else {
+        throw new Error(currentPrompts.value.ui.invalidOption);
+    }
 
-        // ***** AQUÍ ES DONDE LLAMAMOS A TU FUNCIÓN NETLIFY CON EL TEXTO EXTRAÍDO *****
-        const response = await fetch('/.netlify/functions/summarize', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ textToSummarize: fullText }), // Envía el texto completo del PDF
-        });
+    const apiResponse = await fetch('/.netlify/functions/gemini-api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation: apiOperation, payload: apiPayload }),
+    });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Falló la llamada a la función de resumen: ${response.status} ${response.statusText}`);
-        }
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.json();
+      throw new Error(errorData.error || `${currentPrompts.value.ui.apiCallFailed}: ${apiResponse.status} ${apiResponse.statusText}`);
+    }
 
-        const data = await response.json();
-        summaryOutput.value = data.summary; // Muestra el resumen
-        errorMessage.value = ''; // Limpia errores si todo fue bien
-      } catch (innerError) {
-        console.error("Error procesando PDF o llamando a Gemini:", innerError);
-        errorMessage.value = "Ocurrió un error al procesar el PDF o al obtener el resumen: " + (innerError as Error).message;
-      } finally {
-        isLoading.value = false; // Asegura que el estado de carga finaliza
+    const resultData = await apiResponse.json();
+
+    if (selectedOption.type === 'summary') {
+      summaryOutput.value = resultData.summary;
+    } else if (selectedOption.type === 'presentation') {
+      if (resultData.slides && Array.isArray(resultData.slides)) {
+        summaryOutput.value = JSON.stringify(resultData.slides, null, 2); // Muestra el JSON de slides
+        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle);
+      } else {
+        throw new Error(currentPrompts.value.ui.invalidSlidesFormat);
       }
-    };
+    }
 
-    reader.onerror = (e) => {
-      console.error("Error leyendo archivo:", e);
-      errorMessage.value = "Error leyendo el archivo PDF: " + (e.target?.error?.message || 'Error desconocido');
-      isLoading.value = false;
-    };
-
-    reader.readAsArrayBuffer(selectedFile.value); // Inicia la lectura del archivo como ArrayBuffer
-                                                // que es el formato que pdfjs-dist necesita.
+    errorMessage.value = '';
+    alert(currentPrompts.value.ui.contentGeneratedTitle);
 
   } catch (outerError) {
-    console.error("Error general en summarizePdf:", outerError);
-    errorMessage.value = "Ocurrió un error inesperado: " + (outerError as Error).message;
+    console.error("Error general al generar contenido:", outerError);
+    errorMessage.value = `${currentPrompts.value.ui.apiCallFailed}: ${(outerError as Error).message}`;
+  } finally {
     isLoading.value = false;
   }
+};
+
+// --- Lógica para la Internacionalización ---
+const toggleLanguage = () => {
+  currentLanguage.value = currentLanguage.value === 'es' ? 'en' : 'es';
+};
+
+// --- Lógica de Generación de HTML para Presentaciones (adaptado de tu original) ---
+import type { Slide } from '../types'; // Importa el tipo Slide
+function generateHtmlPresentation(slides: Slide[], style: string): string {
+    let htmlContent = `
+        <!DOCTYPE html>
+        <html lang="${currentLanguage.value}">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Presentación Resúmelo! (${style})</title>
+            <style>
+                body { font-family: sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                .slide { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 20px; }
+                .slide h2 { color: #00A9FF; margin-top: 0; }
+                .slide ul { list-style: none; padding: 0; }
+                .slide ul li { margin-bottom: 10px; }
+                .collapsible { cursor: pointer; background-color: #eee; padding: 10px; border-radius: 5px; margin-top: 10px; }
+                .collapsible:hover { background-color: #ddd; }
+                .content { padding: 0 18px; display: none; overflow: hidden; background-color: #f1f1f1; }
+                .content.active { display: block; }
+                .emoji { font-size: 1.2em; vertical-align: middle; }
+            </style>
+        </head>
+        <body>
+            <h1>Presentación Generada por Resúmelo! (${style})</h1>
+    `;
+
+    slides.forEach((slide, index) => {
+        htmlContent += `
+            <div class="slide">
+                <h2>${slide.title || `Diapositiva ${index + 1}`} <span class="emoji">${slide.emoji || ''}</span></h2>
+        `;
+        // Los estilos 'extensive', 'informative', 'kids' siempre tienen secciones
+        slide.sections.forEach((section) => {
+            htmlContent += `
+                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active'); this.classList.toggle('active')">
+                    ${section.heading}
+                </div>
+                <div class="content">
+                    <p>${section.content}</p>
+                </div>
+            `;
+        });
+        htmlContent += `</div>`;
+    });
+
+    htmlContent += `
+            <script>
+                // JavaScript para la funcionalidad de desplegables
+                var coll = document.getElementsByClassName("collapsible");
+                var i;
+                for (i = 0; i < coll.length; i++) {
+                    coll[i].addEventListener("click", function() {
+                        this.classList.toggle("active");
+                        var content = this.nextElementSibling;
+                        if (content.style.display === "block") {
+                            content.style.display = "none";
+                        } else {
+                            content.style.display = "block";
+                        }
+                    });
+                }
+            </script>
+        </body>
+        </html>
+    `;
+    return htmlContent;
+}
+
+// Lógica de descarga de la presentación HTML
+const downloadPresentationHtml = () => {
+    if (!generatedHtmlContent.value) {
+        errorMessage.value = currentPrompts.value.ui.downloadNoContent;
+        return;
+    }
+    const blob = new Blob([generatedHtmlContent.value], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `resumenlo_presentacion_${selectedFile.value?.name.replace(/\.[^/.]+$/, "") || 'document'}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
 </script>
 
 <style scoped>
 /* Estilos específicos de esta página */
 /* Los estilos de .text-gradient se definen en main.css */
+.text-gradient {
+    background-image: linear-gradient(45deg, #00A9FF, #A0E9FF); 
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+.border-red-500 {
+    border-color: #EF4444; /* Usar el color hexadecimal de Tailwind CSS */
+}
 </style>
