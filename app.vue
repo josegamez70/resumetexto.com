@@ -1,7 +1,8 @@
 <!-- app.vue -->
 <template>
   <div>
-    <!-- Esto renderiza la página activa desde la carpeta `pages/` -->
+    <!-- ESTA ES LA LÍNEA CLAVE: Asegúrate de que solo contenga <NuxtPage /> -->
+    <!-- NO DEBE HABER <NuxtWelcome /> AQUÍ -->
     <NuxtPage />
   </div>
 </template>
@@ -18,5 +19,5 @@ useHead({
 
 <style>
 /* Estilos globales que afecten a toda la aplicación, si los hay */
-/* El main.css se encargará de Tailwind y estilos de body */
+/* El main.css se encargará de Tailwind y estilos del body */
 </style>
