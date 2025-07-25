@@ -25,14 +25,13 @@ function getGeminiModel() {
         aiInstance = new GoogleGenerativeAI(apiKey);
     }
     if (!generativeModel) {
-        // Obtenemos el modelo específico que usas
         generativeModel = aiInstance.getGenerativeModel({ model: "gemini-2.5-flash" });
     }
     return generativeModel;
 }
 
-// Función auxiliar para limitar el texto de entrada a un número seguro de caracteres/tokens.
-// Los modelos Flash son más pequeños, 10,000 caracteres es un buen límite conservador.
+// Función auxiliar para limitar el texto de entrada. 
+// 10,000 caracteres es un límite conservador para modelos flash en español.
 function truncateText(text: string, maxLength: number = 10000): string {
     if (text.length > maxLength) {
         console.warn(`Text truncated from ${text.length} to ${maxLength} characters.`);
@@ -58,9 +57,9 @@ async function extractTextFromImage(base64Image: string, language: Language): Pr
         text: prompts.textExtraction,
     };
 
-    // *** CAMBIO CLAVE AQUÍ: Envolver las partes en un objeto 'Content' con 'parts' ***
+    // *** CAMBIO CLAVE AQUÍ: Agregar role: 'user' y envolver las partes en un objeto Content ***
     const response = await model.generateContent({ 
-        contents: [{ parts: [imagePart, textPart] }] // Formato correcto para imagen + texto
+        contents: [{ role: 'user', parts: [imagePart, textPart] }] 
     });
 
     return response.text;
@@ -75,11 +74,11 @@ async function generateTextSummary(text: string, type: SummaryType, language: La
         throw new Error('Invalid summary type or prompt not found for summary generation.');
     }
     
-    const truncatedText = truncateText(text); // Limitar el texto de entrada
+    const truncatedText = truncateText(text);
 
-    // *** CAMBIO CLAVE AQUÍ: Envolver instrucción y texto en un objeto 'Content' con 'parts' ***
+    // *** CAMBIO CLAVE AQUÍ: Agregar role: 'user' y envolver instrucción y texto en un objeto Content ***
     const response = await model.generateContent({ 
-        contents: [{ parts: [{ text: instruction }, { text: truncatedText }] }] // Formato correcto
+        contents: [{ role: 'user', parts: [{ text: instruction }, { text: truncatedText }] }] 
     });
 
     return response.text;
@@ -90,11 +89,11 @@ async function generatePresentationSlides(summary: string, style: PresentationSt
     const prompts = getPrompts(language);
     const { systemInstruction, userPrompt, responseSchema } = prompts.presentation(style, summary, language);
 
-    const truncatedSummary = truncateText(summary); // Limitar el resumen de entrada para la presentación
+    const truncatedSummary = truncateText(summary);
 
-    // *** CAMBIO CLAVE AQUÍ: Envolver el userPrompt en un objeto 'Content' con 'parts' ***
+    // *** CAMBIO CLAVE AQUÍ: Agregar role: 'user' al userPrompt en el objeto Content ***
     const response = await model.generateContent({ 
-        contents: [{ parts: [{ text: userPrompt }] }], // Formato correcto para un solo userPrompt
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }], 
         config: {
             systemInstruction,
             responseMimeType: "application/json",
