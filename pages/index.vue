@@ -40,12 +40,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-// Referencias reactivas para el archivo seleccionado, el resumen y el estado de carga
 const selectedFile = ref<File | null>(null);
 const summaryOutput = ref<string>('');
 const isLoading = ref<boolean>(false);
 
-// Manejador para cuando el usuario selecciona un archivo
 const handleFileUpload = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
@@ -53,7 +51,6 @@ const handleFileUpload = (event: Event) => {
   }
 };
 
-// Función principal para resumir el PDF
 const summarizePdf = async () => {
   if (!selectedFile.value) {
     alert("Por favor, selecciona un archivo PDF primero.");
@@ -61,23 +58,19 @@ const summarizePdf = async () => {
   }
 
   isLoading.value = true;
-  summaryOutput.value = ''; // Limpiar resumen anterior
+  summaryOutput.value = '';
 
-  // Importación dinámica de pdfjs-dist para asegurar que solo se carga en el cliente (navegador)
   let pdfjsLib;
   if (process.client) {
     pdfjsLib = await import('pdfjs-dist/build/pdf');
-    // Configura el worker de PDF.js usando un CDN. ¡Esto es CRÍTICO para que pdfjs-dist funcione en el navegador!
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
   } else {
-    // Si estamos en el servidor durante el build/prerrender, no podemos procesar PDFs.
     console.warn("PDF.js no está disponible en el servidor durante la construcción.");
-    alert("El procesamiento de PDF requiere un entorno de navegador. Por favor, intente después de que la aplicación se cargue completamente.");
+    alert("El procesamiento de PDF requiere un entorno de navegador.");
     isLoading.value = false;
     return;
   }
   
-  // Verifica si pdfjs-dist se cargó correctamente
   if (!pdfjsLib || !pdfjsLib.getDocument) {
     console.error("Error: pdfjs-dist no se pudo cargar correctamente.");
     alert("Hubo un problema al inicializar la librería de PDF.");
@@ -88,7 +81,6 @@ const summarizePdf = async () => {
   console.log("Iniciando resumen del archivo:", selectedFile.value.name);
 
   try {
-    // Lógica para leer el PDF y extraer el texto
     const reader = new FileReader();
     reader.onload = async (e) => {
       const arrayBuffer = e.target?.result as ArrayBuffer;
@@ -101,7 +93,6 @@ const summarizePdf = async () => {
         fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
       }
 
-      // Llamar a la función Netlify para obtener el resumen (seguro para la API Key)
       const response = await fetch('/.netlify/functions/summarize', {
         method: 'POST',
         headers: {
@@ -123,17 +114,16 @@ const summarizePdf = async () => {
       console.error("Error leyendo archivo:", e);
       alert("Error leyendo el archivo PDF.");
     };
-    reader.readAsArrayBuffer(selectedFile.value); // Inicia la lectura del archivo
+    reader.readAsArrayBuffer(selectedFile.value);
   } catch (error) {
     console.error("Error al intentar resumir:", error);
     alert("Ocurrió un error al intentar resumir el PDF: " + (error as Error).message);
   } finally {
-    isLoading.value = false; // Finaliza el estado de carga
+    isLoading.value = false;
   }
 };
 </script>
 
 <style scoped>
 /* Estilos específicos de esta página */
-/* Los estilos de .text-gradient se definen en main.css */
 </style>
