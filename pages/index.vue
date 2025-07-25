@@ -89,8 +89,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { getPrompts } from '../lib/i18n';
-import { SummaryType, PresentationStyle } from '../types'; // Solo importamos los tipos necesarios
-import { generateHtmlPresentation } from '../utils/htmlGenerator'; // *** NUEVA IMPORTACIÓN ***
+import { SummaryType, PresentationStyle } from '../types'; 
+import { generateHtmlPresentation } from '../utils/htmlGenerator'; // Importación correcta
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
@@ -251,7 +251,7 @@ const generateContent = async () => {
     } else if (selectedOption.type === 'presentation') {
       if (resultData.slides && Array.isArray(resultData.slides)) {
         summaryOutput.value = JSON.stringify(resultData.slides, null, 2);
-        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle, currentLanguage.value); // Pasar currentLanguage
+        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle, currentLanguage.value);
       } else {
         throw new Error(currentPrompts.value.ui.invalidSlidesFormat);
       }

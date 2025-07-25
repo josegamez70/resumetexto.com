@@ -1,7 +1,7 @@
 // lib/i18n.ts
 // Este archivo contiene los prompts para la IA y las traducciones de texto de la UI.
 
-import { SummaryType, PresentationStyle, Language, Slide } from './types'; // Ajusta la ruta si es necesario
+import { SummaryType, PresentationStyle, Language, Slide } from './types'; // Ajusta la ruta a types.ts si es necesario
 
 interface Prompts {
   textExtraction: string;
@@ -14,8 +14,8 @@ interface Prompts {
   ui: {
     generateContentBtn: string;
     summaryShortLabel: string;
-    summaryDetailedLabel: string; // Etiqueta para SummaryType.Long
-    summaryPointsLabel: string;   // Etiqueta para SummaryType.Bullets
+    summaryDetailedLabel: string; 
+    summaryPointsLabel: string;   
     presentationExtensiveLabel: string;
     presentationInformativeLabel: string;
     presentationForKidsLabel: string;
@@ -49,7 +49,6 @@ const prompts_es: Prompts = {
     }
   },
   presentation: (style, summary) => {
-    // Definimos el esquema JSON que esperamos de Gemini
     const responseSchema = {
       type: "ARRAY",
       items: {
