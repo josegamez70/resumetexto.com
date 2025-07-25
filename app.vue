@@ -1,6 +1,7 @@
 <!-- app.vue -->
 <template>
   <div>
+    <!-- Esto renderiza la página activa desde la carpeta `pages/` -->
     <NuxtPage />
   </div>
 </template>
@@ -17,5 +18,5 @@ useHead({
 
 <style>
 /* Estilos globales que afecten a toda la aplicación, si los hay */
-/* Asegúrate de que tu `main.css` se encarga de Tailwind */
+/* El main.css se encargará de Tailwind y estilos de body */
 </style>
