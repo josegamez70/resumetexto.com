@@ -5,38 +5,35 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Handler } from '@netlify/functions';
 
-// Asegúrate de que las rutas a tus tipos y prompts son correctas desde esta ubicación
-// netlify/functions/gemini-api.ts -> TU_PROYECTO_RAIZ/types.ts (necesita ../../types)
-// netlify/functions/gemini-api.ts -> TU_PROYECTO_RAIZ/lib/i18n.ts (necesita ../../lib/i18n)
-import { SummaryType, PresentationStyle, Slide, Language } from '../../types'; // Ajusta la ruta si es necesario
-import { getPrompts } from '../../lib/i18n'; // Ajusta la ruta si es necesario
+import { SummaryType, PresentationStyle, Slide, Language } from '../../types'; 
+import { getPrompts } from '../../lib/i18n'; 
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-// Instancia global de GoogleGenerativeAI y del modelo
-// Se inicializarán una vez cuando la función se "caliente" (cold start)
-let aiInstance: GoogleGenerativeAI | undefined;
-let generativeModel: any | undefined; // Usamos 'any' para flexibilidad con el tipo de modelo
+if (!apiKey) {
+    console.error("GEMINI_API_KEY environment variable is not set for Netlify Function.");
+}
 
-// Función auxiliar para obtener el modelo, asegurando que se inicializa solo una vez
+let aiInstance: GoogleGenerativeAI | undefined;
+let generativeModel: any | undefined;
+
 function getGeminiModel() {
-    if (!apiKey) { // Si por alguna razón la API Key no está, lanzamos un error claro
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY environment variable is not set for Netlify Function.');
     }
-    if (!aiInstance) { // Si la instancia de la IA no existe, la creamos
+    if (!aiInstance) {
         aiInstance = new GoogleGenerativeAI(apiKey);
     }
-    if (!generativeModel) { // Si el modelo específico no existe, lo obtenemos
-        // Aquí especificamos el modelo que usas ('gemini-2.5-flash')
+    if (!generativeModel) {
         generativeModel = aiInstance.getGenerativeModel({ model: "gemini-2.5-flash" });
     }
-    return generativeModel; // Retornamos la instancia del modelo
+    return generativeModel;
 }
 
 // --- Funciones auxiliares para encapsular la lógica de tu geminiService.ts original ---
 
 async function extractTextFromImage(base64Image: string, language: Language): Promise<string> {
-    const model = getGeminiModel(); // Obtiene la instancia del modelo ya inicializada
+    const model = getGeminiModel();
     const prompts = getPrompts(language);
     const imagePart = {
         inlineData: {
@@ -48,7 +45,6 @@ async function extractTextFromImage(base64Image: string, language: Language): Pr
         text: prompts.textExtraction,
     };
 
-    // ¡CAMBIO CLAVE AQUÍ! Llamamos a generateContent directamente en la instancia del modelo
     const response = await model.generateContent({ 
         contents: [imagePart, textPart],
     });
@@ -57,28 +53,27 @@ async function extractTextFromImage(base64Image: string, language: Language): Pr
 }
 
 async function generateTextSummary(text: string, type: SummaryType, language: Language): Promise<string> {
-    const model = getGeminiModel(); // Obtiene la instancia del modelo
+    const model = getGeminiModel();
     const prompts = getPrompts(language);
-    const prompt = prompts.summary(type, text);
+    const instruction = prompts.summaryInstruction(type); // *** CAMBIO CLAVE AQUÍ: Obtener solo la instrucción ***
 
-    if (!prompt) {
+    if (!instruction) {
         throw new Error('Invalid summary type or prompt not found for summary generation.');
     }
 
-    // ¡CAMBIO CLAVE AQUÍ! Llamamos a generateContent directamente en la instancia del modelo
+    // *** CAMBIO CLAVE AQUÍ: Enviar la instrucción y el texto como un ARRAY de partes ***
     const response = await model.generateContent({ 
-        contents: prompt // prompt es una cadena de texto, lo cual es válido para 'contents'
+        contents: [{ text: instruction }, { text: text }] // Formato [instruction, text]
     });
 
     return response.text;
 }
 
 async function generatePresentationSlides(summary: string, style: PresentationStyle, language: Language): Promise<Slide[]> {
-    const model = getGeminiModel(); // Obtiene la instancia del modelo
+    const model = getGeminiModel();
     const prompts = getPrompts(language);
     const { systemInstruction, userPrompt, responseSchema } = prompts.presentation(style, summary, language);
 
-    // ¡CAMBIO CLAVE AQUÍ! Llamamos a generateContent directamente en la instancia del modelo
     const response = await model.generateContent({ 
         contents: userPrompt,
         config: {
@@ -102,7 +97,6 @@ async function generatePresentationSlides(summary: string, style: PresentationSt
 // --- Handler principal de la función Netlify ---
 export const handler: Handler = async (event, context) => {
     try {
-        // Aseguramos que el modelo esté inicializado (y que la API Key exista) antes de cualquier operación
         getGeminiModel(); 
 
         if (event.httpMethod !== 'POST') {
@@ -156,7 +150,6 @@ export const handler: Handler = async (event, context) => {
         }
     } catch (error) {
         console.error('Error in gemini-api function:', error);
-        // Manejo de errores más específico
         if ((error as Error).message.includes('API Key is not set')) {
              return {
                 statusCode: 500,

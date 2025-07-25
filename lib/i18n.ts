@@ -1,12 +1,12 @@
 // lib/i18n.ts
 // Este archivo contiene los prompts para la IA y las traducciones de texto de la UI.
 
-// *** CAMBIO CRÍTICO AQUÍ: Ajustar la ruta a types.ts a '../types' ***
-import { SummaryType, PresentationStyle, Language, Slide } from '../types'; 
+import { SummaryType, PresentationStyle, Language, Slide } from './types'; 
 
 interface Prompts {
   textExtraction: string;
-  summary: (type: SummaryType, text: string) => string | null;
+  // *** CAMBIO CRÍTICO AQUÍ: La función summary ahora solo devuelve la instrucción ***
+  summaryInstruction: (type: SummaryType) => string | null; 
   presentation: (style: PresentationStyle, summary: string, language: Language) => {
     systemInstruction: string;
     userPrompt: string;
@@ -41,11 +41,12 @@ interface Prompts {
 
 const prompts_es: Prompts = {
   textExtraction: "Extrae todo el texto visible de esta imagen. No incluyas comentarios ni explicaciones adicionales, solo el texto puro.",
-  summary: (type, text) => {
+  // *** CAMBIO CLAVE: Solo devuelve la instrucción, el texto se envía como parte separada ***
+  summaryInstruction: (type) => { 
     switch (type) {
-      case SummaryType.Short: return `Resume este texto en 3-5 oraciones, de forma concisa y directa. Resumen: ${text}`;
-      case SummaryType.Long: return `Genera un resumen detallado y exhaustivo de este texto, cubriendo todos los puntos importantes en 10-15 oraciones. Resumen: ${text}`;
-      case SummaryType.Bullets: return `Extrae los 5 a 10 puntos clave o ideas principales de este texto y preséntalos como una lista numerada o con viñetas. Puntos clave: ${text}`;
+      case SummaryType.Short: return `Resume el siguiente texto en 3-5 oraciones, de forma concisa y directa.`;
+      case SummaryType.Long: return `Genera un resumen detallado y exhaustivo del siguiente texto, cubriendo todos los puntos importantes en 10-15 oraciones.`;
+      case SummaryType.Bullets: return `Extrae los 5 a 10 puntos clave o ideas principales del siguiente texto y preséntalos como una lista numerada o con viñetas.`;
       default: return null;
     }
   },
@@ -124,11 +125,11 @@ const prompts_es: Prompts = {
 
 const prompts_en: Prompts = {
   textExtraction: "Extract all visible text from this image. Do not include comments or additional explanations, just the pure text.",
-  summary: (type, text) => {
+  summaryInstruction: (type) => {
     switch (type) {
-      case SummaryType.Short: return `Summarize this text in 3-5 sentences, concisely and directly. Summary: ${text}`;
-      case SummaryType.Long: return `Generate a detailed and comprehensive summary of this text, covering all important points in 10-15 sentences. Summary: ${text}`;
-      case SummaryType.Bullets: return `Extract 5-10 key points or main ideas from this text and present them as a numbered or bulleted list. Key points: ${text}`;
+      case SummaryType.Short: return `Summarize the following text in 3-5 sentences, concisely and directly.`;
+      case SummaryType.Long: return `Generate a detailed and comprehensive summary of the following text, covering all important points in 10-15 sentences.`;
+      case SummaryType.Bullets: return `Extract 5-10 key points or main ideas from the following text and present them as a numbered or bulleted list.`;
       default: return null;
     }
   },
