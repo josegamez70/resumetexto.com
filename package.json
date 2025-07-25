@@ -4,25 +4,25 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "build": "nuxt build",        
+    "dev": "nuxt dev",           
+    "generate": "nuxt generate", 
+    "preview": "vite preview",   
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.14.1",
-    "pdfjs-dist": "^3.11.174",
-    "nuxt": "^3.12.3"
+    "@google/generative-ai": "^0.14.1", 
+    "pdfjs-dist": "^3.11.174",        
+    "nuxt": "^3.12.3"                  
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.13",
-    "@types/node": "^20.14.10",
-    "@nuxt/devtools": "^1.2.0",
-    "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.4",
-    "typescript": "^5.5.3",
-    "vue-tsc": "^1.8.8"
+    "@types/node": "^20.14.10",      
+    "@nuxt/devtools": "^1.2.0",       
+    "autoprefixer": "^10.4.19",      
+    "postcss": "^8.4.38",            
+    "tailwindcss": "^3.4.4",         
+    "typescript": "^5.5.3",          
+    "vue-tsc": "^1.8.8"              
   }
 }

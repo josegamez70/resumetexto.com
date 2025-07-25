@@ -1,24 +1,51 @@
 <!-- pages/index.vue -->
 <template>
-  <!-- ... (tu template se mantiene igual) ... -->
+  <div class="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
+    <h1 class="text-4xl font-bold mb-4 text-gradient">Bienvenido a ResumeTexto.com</h1>
+    <p class="text-lg mb-8 text-center max-w-2xl">
+      Sube un documento PDF para obtener un resumen conciso y rápido utilizando la inteligencia artificial.
+    </p>
+
+    <div class="flex items-center space-x-4">
+      <input 
+        type="file" 
+        accept=".pdf" 
+        @change="handleFileUpload"
+        class="block w-full text-sm text-gray-500
+               file:mr-4 file:py-2 file:px-4
+               file:rounded-md file:border-0
+               file:text-sm file:font-semibold
+               file:bg-brand-primary file:text-white
+               hover:file:bg-brand-secondary cursor-pointer"
+      />
+      <button 
+        @click="summarizePdf"
+        :disabled="isLoading"
+        class="py-2 px-4 bg-brand-primary text-white font-semibold rounded-md
+               hover:bg-brand-secondary transition-colors duration-200"
+      >
+        {{ isLoading ? 'Resumiendo...' : 'Resumir PDF' }}
+      </button>
+    </div>
+
+    <!-- Área para mostrar el resumen -->
+    <div v-if="summaryOutput" class="mt-8 p-6 bg-slate-800 rounded-lg shadow-lg max-w-3xl w-full">
+      <h2 class="text-2xl font-semibold mb-4 text-white">Resumen:</h2>
+      <p class="text-gray-200 whitespace-pre-wrap">{{ summaryOutput }}</p>
+    </div>
+    <p v-if="isLoading" class="mt-4 text-gray-400">Procesando el documento...</p>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-// const { GoogleGenerativeAI } = await import("@google/generative-ai"); // <-- ¡ELIMINA ESTA LÍNEA!
 
-// Accede a la API Key (ya no la necesitamos directamente aquí para Gemini)
-// const config = useRuntimeConfig();
-// const geminiApiKey = config.public.geminiApiKey; // <-- ¡YA NO SE USA DIRECTAMENTE AQUÍ!
-
-// Inicializa el modelo Gemini (¡ELIMINA ESTO DE AQUÍ!)
-// const genAI = new GoogleGenerativeAI(geminiApiKey);
-// const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
+// Referencias reactivas para el archivo seleccionado, el resumen y el estado de carga
 const selectedFile = ref<File | null>(null);
-const summaryOutput = ref<string>(''); // Para mostrar el resumen
-const isLoading = ref<boolean>(false); // Para mostrar un spinner
+const summaryOutput = ref<string>('');
+const isLoading = ref<boolean>(false);
 
+// Manejador para cuando el usuario selecciona un archivo
 const handleFileUpload = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
@@ -26,6 +53,7 @@ const handleFileUpload = (event: Event) => {
   }
 };
 
+// Función principal para resumir el PDF
 const summarizePdf = async () => {
   if (!selectedFile.value) {
     alert("Por favor, selecciona un archivo PDF primero.");
@@ -33,20 +61,23 @@ const summarizePdf = async () => {
   }
 
   isLoading.value = true;
-  summaryOutput.value = '';
+  summaryOutput.value = ''; // Limpiar resumen anterior
 
-  // **** Importación dinámica de pdfjs-dist (se mantiene como estaba) ****
+  // Importación dinámica de pdfjs-dist para asegurar que solo se carga en el cliente (navegador)
   let pdfjsLib;
   if (process.client) {
     pdfjsLib = await import('pdfjs-dist/build/pdf');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`; // Usar un CDN
+    // Configura el worker de PDF.js usando un CDN. ¡Esto es CRÍTICO para que pdfjs-dist funcione en el navegador!
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
   } else {
+    // Si estamos en el servidor durante el build/prerrender, no podemos procesar PDFs.
     console.warn("PDF.js no está disponible en el servidor durante la construcción.");
-    alert("El procesamiento de PDF requiere un entorno de navegador.");
+    alert("El procesamiento de PDF requiere un entorno de navegador. Por favor, intente después de que la aplicación se cargue completamente.");
     isLoading.value = false;
     return;
   }
-
+  
+  // Verifica si pdfjs-dist se cargó correctamente
   if (!pdfjsLib || !pdfjsLib.getDocument) {
     console.error("Error: pdfjs-dist no se pudo cargar correctamente.");
     alert("Hubo un problema al inicializar la librería de PDF.");
@@ -57,11 +88,11 @@ const summarizePdf = async () => {
   console.log("Iniciando resumen del archivo:", selectedFile.value.name);
 
   try {
-    // Lógica para leer el PDF y extraer texto
+    // Lógica para leer el PDF y extraer el texto
     const reader = new FileReader();
     reader.onload = async (e) => {
       const arrayBuffer = e.target?.result as ArrayBuffer;
-      const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       let fullText = '';
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -70,7 +101,7 @@ const summarizePdf = async () => {
         fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
       }
 
-      // **** CAMBIO CLAVE: Llamar a la función Netlify ****
+      // Llamar a la función Netlify para obtener el resumen (seguro para la API Key)
       const response = await fetch('/.netlify/functions/summarize', {
         method: 'POST',
         headers: {
@@ -81,7 +112,7 @@ const summarizePdf = async () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Fallo la llamada a la función de resumen.');
+        throw new Error(errorData.error || 'Falló la llamada a la función de resumen.');
       }
 
       const data = await response.json();
@@ -92,16 +123,17 @@ const summarizePdf = async () => {
       console.error("Error leyendo archivo:", e);
       alert("Error leyendo el archivo PDF.");
     };
-    reader.readAsArrayBuffer(selectedFile.value); // Lee el archivo como ArrayBuffer
+    reader.readAsArrayBuffer(selectedFile.value); // Inicia la lectura del archivo
   } catch (error) {
     console.error("Error al intentar resumir:", error);
     alert("Ocurrió un error al intentar resumir el PDF: " + (error as Error).message);
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Finaliza el estado de carga
   }
 };
 </script>
 
 <style scoped>
-/* Puedes añadir estilos específicos de esta página aquí */
+/* Estilos específicos de esta página */
+/* Los estilos de .text-gradient se definen en main.css */
 </style>

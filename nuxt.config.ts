@@ -2,12 +2,15 @@
 import { defineNuxtConfig } from 'nuxt/config';
 
 export default defineNuxtConfig({
+  // Habilita las herramientas de desarrollo de Nuxt (útil en desarrollo local)
   devtools: { enabled: true },
 
+  // Incluye tu CSS global
   css: [
     '~/assets/css/main.css',
   ],
 
+  // Configuración de PostCSS para Tailwind CSS y Autoprefixer
   postcss: {
     plugins: {
       tailwindcss: {},
@@ -15,35 +18,32 @@ export default defineNuxtConfig({
     },
   },
 
+  // Configuración de tiempo de ejecución (runtimeConfig)
+  // ¡IMPORTANTE! Aquí ya NO se expone la API Key de Gemini al cliente
   runtimeConfig: {
-    // Asegúrate de que no haya ninguna referencia a NUXT_PUBLIC_GEMINI_API_KEY aquí
+    // Si tienes otras variables públicas NO secretas para el cliente, puedes ponerlas aquí
     public: {
-      // Otras variables públicas que NO son secretos y que necesites en el cliente
+      // Por ejemplo: myPublicApiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL,
     }
   },
 
-  // *** ESTO ES LO CRÍTICO ***
-  // Definir explícitamente el preset de Nitro para despliegue
+  // Configuración de Nitro (el motor de servidor de Nuxt)
   nitro: {
-    preset: 'netlify', // ¡Debe ser 'netlify' para Netlify Functions!
-    // Para el warning de compatibilidad, aunque no es el error principal
+    // Establece el preset para despliegue en Netlify
+    preset: 'netlify', 
+    // Añade la compatibilidad para Nitro, como sugiere el warning ocasional
     prerender: {
-      compatibilityDate: '2025-07-25'
+      compatibilityDate: '2025-07-25' // Usa la fecha actual o una futura cercana.
     }
   },
 
-  // Si tu proyecto sigue usando `src` internamente o algo en tu `package.json`
-  // lo indica, podemos añadir esto para asegurar que Nuxt solo use las carpetas raíz.
-  // srcDir: './', // Asegura que la raíz sea el directorio de código fuente
-
+  // Módulos de Nuxt (si usas @nuxtjs/tailwindcss, descomenta la línea)
   modules: [
-    // '@nuxtjs/tailwindcss',
+    // '@nuxtjs/tailwindcss', 
   ],
 
-  // Renderizado: Si solo es una SPA generada estáticamente, no necesita SSR completo
-  // Puedes intentar deshabilitar SSR si es un SPA puro
-  // ssr: false, // Deshabilitar SSR si no es absolutamente necesario.
-                // Si la deshabilitas, el getDocument de pdfjs-dist no fallará en el servidor.
-                // PERO esto cambiará la forma en que se construye tu aplicación.
-                // Por ahora, asumamos que SSR está activo o que la generación funciona.
+  // Puedes añadir esto si solo tienes una página principal para generar estáticamente
+  // generate: {
+  //   routes: ['/'], 
+  // }
 });
