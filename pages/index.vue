@@ -1,8 +1,6 @@
 <!-- pages/index.vue -->
 <template>
   <div class="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
-    <!-- El texto "Bienvenido a ResumeTexto.com Esta es mi aplicación Nuxt.js" parece venir de app.vue,
-         asegúrate de que en app.vue es sólo <NuxtPage /> y el resto de tu código de bienvenida va aquí. -->
     <h1 class="text-4xl font-bold mb-4 text-gradient">Bienvenido a ResumeTexto.com</h1>
     <p class="text-lg mb-8 text-center max-w-2xl">
       Sube un documento PDF para obtener un resumen conciso y rápido utilizando la inteligencia artificial.
@@ -37,11 +35,9 @@
 import { ref } from 'vue';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Accede a la API Key desde las variables de entorno de Nuxt
 const config = useRuntimeConfig();
 const geminiApiKey = config.public.geminiApiKey;
 
-// Inicializa el modelo Gemini
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -60,13 +56,11 @@ const summarizePdf = async () => {
     return;
   }
 
-  // Aquí iría tu lógica para leer el PDF, extraer el texto y enviarlo a Gemini
   console.log("Iniciando resumen del archivo:", selectedFile.value.name);
   console.log("Usando API Key:", geminiApiKey ? "CONFIGURADA" : "NO CONFIGURADA");
 
   try {
-    // Ejemplo de cómo llamar a la API (necesitarías el texto del PDF aquí)
-    const prompt = `Resume el siguiente texto:\n\n${"TEXTO_DEL_PDF_EXTRAIDO_AQUI"}`;
+    const prompt = `Resume el siguiente texto:\n\n${"TEXTO_DEL_PDF_EXTRAIDO_AQUI"}`; // <--- ¡Asegúrate de reemplazar esto con el texto real del PDF!
     // const result = await model.generateContent(prompt);
     // const response = await result.response;
     // const text = response.text();

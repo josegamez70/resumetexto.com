@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   css: [
-    '~/assets/css/main.css', // Asegúrate de que tu main.css esté en assets/css/
+    '~/assets/css/main.css',
   ],
 
   postcss: {
@@ -22,12 +22,10 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    // ¡MUY IMPORTANTE! Esta sección NO debe contener 'preset: "netlify-legacy"'
-    // Si la tenía, la hemos quitado para que Nitro autodeteccione el preset 'netlify' correcto.
+    preset: 'netlify', // <--- ¡FORZADO A NETLIFY!
   },
 
   modules: [
-    // Si instalaste @nuxtjs/tailwindcss, descomenta la siguiente línea:
     // '@nuxtjs/tailwindcss',
   ],
 });
