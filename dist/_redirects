@@ -1,5 +1,0 @@
-/__nuxt_error	/.netlify/functions/server 200
-/_nuxt/builds/meta/* /_nuxt/builds/meta/:splat 200
-/_nuxt/builds/* /_nuxt/builds/:splat 200
-/_nuxt/* /_nuxt/:splat 200
-/* /.netlify/functions/server 200
