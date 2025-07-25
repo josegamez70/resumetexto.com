@@ -89,7 +89,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { getPrompts } from '../lib/i18n';
-import { SummaryType, PresentationStyle, Slide } from '../types';
+import { SummaryType, PresentationStyle } from '../types'; // Solo importamos los tipos necesarios
+import { generateHtmlPresentation } from '../utils/htmlGenerator'; // *** NUEVA IMPORTACIÓN ***
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
@@ -250,7 +251,7 @@ const generateContent = async () => {
     } else if (selectedOption.type === 'presentation') {
       if (resultData.slides && Array.isArray(resultData.slides)) {
         summaryOutput.value = JSON.stringify(resultData.slides, null, 2);
-        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle);
+        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle, currentLanguage.value); // Pasar currentLanguage
       } else {
         throw new Error(currentPrompts.value.ui.invalidSlidesFormat);
       }
@@ -272,79 +273,6 @@ const toggleLanguage = () => {
   currentLanguage.value = currentLanguage.value === 'es' ? 'en' : 'es';
 };
 
-// --- Lógica de Generación de HTML para Presentaciones ---
-function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): string {
-    let htmlContent = `
-        <!DOCTYPE html>
-        <html lang="${currentLanguage.value}">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Presentación Resúmelo! (${style})</title>
-            <style>
-                body { font-family: sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
-                .slide { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 20px; }
-                .slide h2 { color: #00A9FF; margin-top: 0; }
-                .slide ul { list-style: none; padding: 0; }
-                .collapsible { cursor: pointer; background-color: #eee; padding: 10px; border-radius: 5px; margin-top: 10px; }
-                .collapsible:hover { background-color: #ddd; }
-                .content { padding: 0 18px; display: none; overflow: hidden; background-color: #f1f1f1; }
-                .content.active { display: block; }
-                .emoji { font-size: 1.2em; vertical-align: middle; }
-            </style>
-        </head>
-        <body>
-            <h1>Presentación Generada por Resúmelo! (${style})</h1>
-    `;
-
-    slides.forEach((slide, index) => {
-        htmlContent += `
-            <div class="slide">
-                <h2>${slide.title || `Diapositiva ${index + 1}`} <span class="emoji">${slide.emoji || ''}</span></h2>
-        `;
-        // Iteramos sobre las secciones. La corrección es que todas las diapositivas
-        // que genera Gemini para presentación tienen un array 'sections'.
-        // Ya no necesitamos el 'else if (slide.content)' que causó el error de la línea 347.
-        if (slide.sections && slide.sections.length > 0) { // Asegura que 'sections' existe y no está vacío
-            slide.sections.forEach((section) => {
-                htmlContent += `
-                    <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active'); this.classList.toggle('active')">
-                        ${section.heading}
-                    </div>
-                    <div class="content">
-                        <p>${section.content}</p>
-                    </div>
-                `;
-            });
-        }
-        // Si por alguna razón una slide no tiene secciones, no se generará contenido aquí,
-        // pero el schema de Gemini ya fuerza a que las tenga.
-        htmlContent += `</div>`;
-    });
-
-    htmlContent += `
-            <script>
-                // JavaScript para la funcionalidad de desplegables
-                var coll = document.getElementsByClassName("collapsible");
-                var i;
-                for (i = 0; i < coll.length; i++) {
-                    coll[i].addEventListener("click", function() {
-                        this.classList.toggle("active");
-                        var content = this.nextElementSibling;
-                        if (content.style.display === "block") {
-                            content.style.display = "none";
-                        } else {
-                            content.style.display = "block";
-                        }
-                    });
-                }
-            </script>
-        </body>
-        </html>
-    `;
-    return htmlContent;
-}
-
 // Lógica de descarga de la presentación HTML
 const downloadPresentationHtml = () => {
     if (!generatedHtmlContent.value) {
@@ -365,7 +293,6 @@ const downloadPresentationHtml = () => {
 
 <style scoped>
 /* Estilos específicos de esta página */
-/* Los estilos de .text-gradient se definen en main.css */
 .text-gradient {
     background-image: linear-gradient(45deg, #00A9FF, #A0E9FF); 
     -webkit-background-clip: text;
@@ -374,6 +301,6 @@ const downloadPresentationHtml = () => {
     color: transparent;
 }
 .border-red-500 {
-    border-color: #EF4444; /* Usar el color hexadecimal de Tailwind CSS */
+    border-color: #EF4444;
 }
 </style>
