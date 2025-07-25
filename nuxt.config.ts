@@ -2,15 +2,16 @@
 import { defineNuxtConfig } from 'nuxt/config';
 
 export default defineNuxtConfig({
-  // Habilita las herramientas de desarrollo de Nuxt (útil en desarrollo local)
   devtools: { enabled: true },
 
-  // Incluye tu CSS global
+  // *** CAMBIO CLAVE AQUÍ: Desactivar SSR para forzar una SPA ***
+  ssr: false, // Esto hará que Nuxt construya una Single Page Application.
+              // Todo el HTML se generará en el navegador, no en el servidor.
+
   css: [
     '~/assets/css/main.css',
   ],
 
-  // Configuración de PostCSS para Tailwind CSS y Autoprefixer
   postcss: {
     plugins: {
       tailwindcss: {},
@@ -18,32 +19,26 @@ export default defineNuxtConfig({
     },
   },
 
-  // Configuración de tiempo de ejecución (runtimeConfig)
-  // ¡IMPORTANTE! Aquí ya NO se expone la API Key de Gemini al cliente
   runtimeConfig: {
-    // Si tienes otras variables públicas NO secretas para el cliente, puedes ponerlas aquí
     public: {
-      // Por ejemplo: myPublicApiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL,
+      // Si tienes otras variables públicas NO secretas aquí, déjalas
     }
   },
 
-  // Configuración de Nitro (el motor de servidor de Nuxt)
   nitro: {
-    // Establece el preset para despliegue en Netlify
-    preset: 'netlify', 
-    // Añade la compatibilidad para Nitro, como sugiere el warning ocasional
-    prerender: {
-      compatibilityDate: '2025-07-25' // Usa la fecha actual o una futura cercana.
-    }
+    preset: 'netlify', // Mantén 'netlify' aquí para que tus funciones sigan desplegándose
+    // Ya no necesitas `prerender.compatibilityDate` si `ssr` es `false`
+    // prerender: {
+    //   compatibilityDate: '2025-07-25'
+    // }
   },
 
-  // Módulos de Nuxt (si usas @nuxtjs/tailwindcss, descomenta la línea)
   modules: [
-    // '@nuxtjs/tailwindcss', 
+    // '@nuxtjs/tailwindcss',
   ],
 
-  // Puedes añadir esto si solo tienes una página principal para generar estáticamente
+  // Si deshabilitas SSR, la sección `generate` ya no es relevante en el mismo sentido
   // generate: {
-  //   routes: ['/'], 
+  //   routes: ['/'],
   // }
 });
