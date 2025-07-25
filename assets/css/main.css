@@ -6,7 +6,7 @@
 
 /* Estilos personalizados para el body */
 body {
-    @apply bg-slate-900 text-white; /* Añadí text-white para que el texto sea visible en el fondo oscuro */
+    @apply bg-slate-900 text-white; /* Asegura un fondo oscuro y texto blanco */
 }
 
 /* Estilos para el gradiente de texto */
