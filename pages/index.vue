@@ -88,44 +88,39 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { getPrompts } from '../lib/i18n'; // Importa la función de prompts
-import type { SummaryType, PresentationStyle, Slide } from '../types'; // Importa los tipos
+import { getPrompts } from '../lib/i18n';
+import { SummaryType, PresentationStyle, Slide } from '../types';
 
-// Referencias reactivas para el estado de la UI y los datos
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
-const summaryOutput = ref<string>(''); // Para el texto de resumen o de la presentación (JSON)
+const summaryOutput = ref<string>('');
 const isLoading = ref<boolean>(false);
 const errorMessage = ref<string>('');
-const isDragging = ref<boolean>(false); // Estado para el efecto de drag-and-drop
+const isDragging = ref<boolean>(false);
 
-// Idioma actual, se usa para obtener los prompts correctos
 const currentLanguage = ref<'es' | 'en'>('es'); 
-// Propiedad computada para obtener los prompts del idioma actual
 const currentPrompts = computed(() => getPrompts(currentLanguage.value));
 
-const generatedHtmlContent = ref<string | null>(null); // Para el HTML de la presentación que se va a descargar
+const generatedHtmlContent = ref<string | null>(null);
 
-// Opciones de contenido a generar (se mapean a SummaryType y PresentationStyle de types.ts)
 const contentOptions = computed(() => [
   { label: currentPrompts.value.ui.summaryShortLabel, value: 'summary_short', type: 'summary', summaryType: SummaryType.Short },
-  { label: currentPrompts.value.ui.summaryDetailedLabel, value: 'summary_detailed', type: 'summary', summaryType: SummaryType.Long }, // Mapeo a Long
-  { label: currentPrompts.value.ui.summaryPointsLabel, value: 'summary_points', type: 'summary', summaryType: SummaryType.Bullets }, // Mapeo a Bullets
+  { label: currentPrompts.value.ui.summaryDetailedLabel, value: 'summary_detailed', type: 'summary', summaryType: SummaryType.Long },
+  { label: currentPrompts.value.ui.summaryPointsLabel, value: 'summary_points', type: 'summary', summaryType: SummaryType.Bullets },
   { label: currentPrompts.value.ui.presentationExtensiveLabel, value: 'presentation_extensive', type: 'presentation', presentationStyle: PresentationStyle.Extensive },
   { label: currentPrompts.value.ui.presentationInformativeLabel, value: 'presentation_informative', type: 'presentation', presentationStyle: PresentationStyle.Informative },
   { label: currentPrompts.value.ui.presentationForKidsLabel, value: 'presentation_kids', type: 'presentation', presentationStyle: PresentationStyle.ForKids },
 ]);
 const selectedContentOption = ref<'summary_short' | 'summary_detailed' | 'summary_points' | 'presentation_extensive' | 'presentation_informative' | 'presentation_kids'>('summary_short');
 
-// --- Métodos para el Drag-and-Drop y Selección de Archivos ---
 const triggerFileInput = () => { fileInput.value?.click(); };
 const handleFileUpload = (event: Event | DragEvent) => {
   const files = (event as DragEvent).dataTransfer?.files || (event.target as HTMLInputElement).files;
   if (files && files.length > 0) {
     selectedFile.value = files[0];
     errorMessage.value = '';
-    summaryOutput.value = ''; // Limpiar salida previa
-    generatedHtmlContent.value = null; // Limpiar HTML si se selecciona nuevo archivo
+    summaryOutput.value = '';
+    generatedHtmlContent.value = null;
   }
   isDragging.value = false;
 };
@@ -133,7 +128,6 @@ const handleDragOver = () => { isDragging.value = true; };
 const handleDragLeave = () => { isDragging.value = false; };
 const handleDrop = (event: DragEvent) => { handleFileUpload(event); };
 
-// --- Lógica de Procesamiento Principal (Lectura de Archivo y Llamada a Netlify Function) ---
 const generateContent = async () => {
   if (!selectedFile.value) {
     errorMessage.value = currentPrompts.value.ui.selectFileError;
@@ -151,7 +145,7 @@ const generateContent = async () => {
     
     if (fileType === 'application/pdf') {
       let pdfjsLib;
-      if (process.client) { // Solo en el navegador
+      if (process.client) {
         pdfjsLib = await import('pdfjs-dist/build/pdf');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
       } else {
@@ -255,8 +249,8 @@ const generateContent = async () => {
       summaryOutput.value = resultData.summary;
     } else if (selectedOption.type === 'presentation') {
       if (resultData.slides && Array.isArray(resultData.slides)) {
-        summaryOutput.value = JSON.stringify(resultData.slides, null, 2); // Muestra el JSON de slides
-        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle); // Cast to PresentationStyle
+        summaryOutput.value = JSON.stringify(resultData.slides, null, 2);
+        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle);
       } else {
         throw new Error(currentPrompts.value.ui.invalidSlidesFormat);
       }
@@ -278,9 +272,8 @@ const toggleLanguage = () => {
   currentLanguage.value = currentLanguage.value === 'es' ? 'en' : 'es';
 };
 
-// --- Lógica de Generación de HTML para Presentaciones (adaptado de tu original) ---
-// Importa el tipo Slide
-function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): string { // Usamos PresentationStyle
+// --- Lógica de Generación de HTML para Presentaciones ---
+function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): string {
     let htmlContent = `
         <!DOCTYPE html>
         <html lang="${currentLanguage.value}">
@@ -309,8 +302,10 @@ function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): st
             <div class="slide">
                 <h2>${slide.title || `Diapositiva ${index + 1}`} <span class="emoji">${slide.emoji || ''}</span></h2>
         `;
-        // Para los estilos con secciones desplegables (todos los que generamos)
-        if (slide.sections && slide.sections.length > 0) {
+        // Iteramos sobre las secciones. La corrección es que todas las diapositivas
+        // que genera Gemini para presentación tienen un array 'sections'.
+        // Ya no necesitamos el 'else if (slide.content)' que causó el error de la línea 347.
+        if (slide.sections && slide.sections.length > 0) { // Asegura que 'sections' existe y no está vacío
             slide.sections.forEach((section) => {
                 htmlContent += `
                     <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active'); this.classList.toggle('active')">
@@ -321,9 +316,9 @@ function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): st
                     </div>
                 `;
             });
-        } else if (slide.content) { // Fallback si una diapositiva tiene un 'content' simple en lugar de secciones
-            htmlContent += `<p>${slide.content}</p>`;
         }
+        // Si por alguna razón una slide no tiene secciones, no se generará contenido aquí,
+        // pero el schema de Gemini ya fuerza a que las tenga.
         htmlContent += `</div>`;
     });
 
