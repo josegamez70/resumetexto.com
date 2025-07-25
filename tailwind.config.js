@@ -1,9 +1,18 @@
 
+// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = { // CAMBIO: Usamos CommonJS (module.exports) en lugar de export default
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    // CAMBIO: Rutas actualizadas para la estructura de carpetas de Nuxt
+    './components/**/*.{vue,js,ts}',
+    './layouts/**/*.{vue,js,ts}',
+    './pages/**/*.{vue,js,ts}',
+    './composables/**/*.{js,ts}', // Si usas composables
+    './plugins/**/*.{js,ts}',
+    './app.vue', // El archivo principal de tu aplicación Nuxt
+    './Error.vue', // La página de error de Nuxt (si la usas o modificas)
+    './nuxt.config.{js,ts,mjs}', // Para escanear clases usadas directamente en la configuración
+    // './public/**/*.html', // Si tienes archivos HTML estáticos en la carpeta public
   ],
   theme: {
     extend: {
