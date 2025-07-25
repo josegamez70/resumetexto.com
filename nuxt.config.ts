@@ -21,8 +21,9 @@ export default defineNuxtConfig({
     }
   },
 
+  // *** CAMBIO CRÍTICO AQUÍ ***
   nitro: {
-    preset: 'netlify', // <--- ¡FORZADO A NETLIFY!
+    preset: 'static', // <-- ¡Cambiado a 'static' para una generación puramente estática!
   },
 
   modules: [
