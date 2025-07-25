@@ -4,10 +4,11 @@
     <!-- Encabezado de la aplicación -->
     <header class="w-full max-w-4xl p-4 flex justify-between items-center mb-8">
       <div class="flex items-center space-x-2">
-        <!-- Logo: Un ordenador sencillo como icono -->
+        <!-- Logo: Un ordenador sencillo como icono (SVG inline) -->
         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-brand-primary border-2 border-red-500 rounded-full p-1" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h16V8H4zM4 16h16v2H4v-2z"></path>
         </svg>
+        <!-- Título de la aplicación -->
         <h1 class="text-4xl font-bold text-gradient border-2 border-red-500 rounded-lg px-2 py-1">Resúmelo!</h1>
       </div>
       <!-- Toggle de idioma -->
@@ -39,7 +40,7 @@
 
       <!-- Opciones de Contenido a Generar (Resumen o Presentación) -->
       <div class="mb-6 w-full">
-        <label class="block text-lg font-semibold mb-2 text-white">{{ currentPrompts.ui.contentGeneratedTitle }}</label>
+        <label class="block text-lg font-semibold mb-2 text-white">Tipo de Contenido a Generar:</label>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 rounded-lg bg-slate-700 p-1">
           <button 
             v-for="option in contentOptions" :key="option.value"
@@ -56,7 +57,7 @@
       <button 
         @click="generateContent"
         :disabled="isLoading || !selectedFile"
-        class="w-full flex items-center justify-center py-3 px-4 bg-brand-primary text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        class="w-full flex items-center justify-center py-3 px-8 bg-brand-primary text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
       >
         <svg v-if="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -88,6 +89,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { getPrompts } from '../lib/i18n'; // Importa la función de prompts
+import type { SummaryType, PresentationStyle, Slide } from '../types'; // Importa los tipos
 
 // Referencias reactivas para el estado de la UI y los datos
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -106,12 +108,12 @@ const generatedHtmlContent = ref<string | null>(null); // Para el HTML de la pre
 
 // Opciones de contenido a generar (se mapean a SummaryType y PresentationStyle de types.ts)
 const contentOptions = computed(() => [
-  { label: currentPrompts.value.ui.summaryShortLabel, value: 'summary_short', type: 'summary', summaryType: 'short' },
-  { label: currentPrompts.value.ui.summaryDetailedLabel, value: 'summary_detailed', type: 'summary', summaryType: 'detailed' },
-  { label: currentPrompts.value.ui.summaryPointsLabel, value: 'summary_points', type: 'summary', summaryType: 'points' },
-  { label: currentPrompts.value.ui.presentationExtensiveLabel, value: 'presentation_extensive', type: 'presentation', presentationStyle: 'extensive' },
-  { label: currentPrompts.value.ui.presentationInformativeLabel, value: 'presentation_informative', type: 'presentation', presentationStyle: 'informative' },
-  { label: currentPrompts.value.ui.presentationForKidsLabel, value: 'presentation_kids', type: 'presentation', presentationStyle: 'kids' },
+  { label: currentPrompts.value.ui.summaryShortLabel, value: 'summary_short', type: 'summary', summaryType: SummaryType.Short },
+  { label: currentPrompts.value.ui.summaryDetailedLabel, value: 'summary_detailed', type: 'summary', summaryType: SummaryType.Long }, // Mapeo a Long
+  { label: currentPrompts.value.ui.summaryPointsLabel, value: 'summary_points', type: 'summary', summaryType: SummaryType.Bullets }, // Mapeo a Bullets
+  { label: currentPrompts.value.ui.presentationExtensiveLabel, value: 'presentation_extensive', type: 'presentation', presentationStyle: PresentationStyle.Extensive },
+  { label: currentPrompts.value.ui.presentationInformativeLabel, value: 'presentation_informative', type: 'presentation', presentationStyle: PresentationStyle.Informative },
+  { label: currentPrompts.value.ui.presentationForKidsLabel, value: 'presentation_kids', type: 'presentation', presentationStyle: PresentationStyle.ForKids },
 ]);
 const selectedContentOption = ref<'summary_short' | 'summary_detailed' | 'summary_points' | 'presentation_extensive' | 'presentation_informative' | 'presentation_kids'>('summary_short');
 
@@ -254,7 +256,7 @@ const generateContent = async () => {
     } else if (selectedOption.type === 'presentation') {
       if (resultData.slides && Array.isArray(resultData.slides)) {
         summaryOutput.value = JSON.stringify(resultData.slides, null, 2); // Muestra el JSON de slides
-        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle);
+        generatedHtmlContent.value = generateHtmlPresentation(resultData.slides, selectedOption.presentationStyle as PresentationStyle); // Cast to PresentationStyle
       } else {
         throw new Error(currentPrompts.value.ui.invalidSlidesFormat);
       }
@@ -277,8 +279,8 @@ const toggleLanguage = () => {
 };
 
 // --- Lógica de Generación de HTML para Presentaciones (adaptado de tu original) ---
-import type { Slide } from '../types'; // Importa el tipo Slide
-function generateHtmlPresentation(slides: Slide[], style: string): string {
+// Importa el tipo Slide
+function generateHtmlPresentation(slides: Slide[], style: PresentationStyle): string { // Usamos PresentationStyle
     let htmlContent = `
         <!DOCTYPE html>
         <html lang="${currentLanguage.value}">
@@ -291,7 +293,6 @@ function generateHtmlPresentation(slides: Slide[], style: string): string {
                 .slide { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 20px; }
                 .slide h2 { color: #00A9FF; margin-top: 0; }
                 .slide ul { list-style: none; padding: 0; }
-                .slide ul li { margin-bottom: 10px; }
                 .collapsible { cursor: pointer; background-color: #eee; padding: 10px; border-radius: 5px; margin-top: 10px; }
                 .collapsible:hover { background-color: #ddd; }
                 .content { padding: 0 18px; display: none; overflow: hidden; background-color: #f1f1f1; }
@@ -308,17 +309,21 @@ function generateHtmlPresentation(slides: Slide[], style: string): string {
             <div class="slide">
                 <h2>${slide.title || `Diapositiva ${index + 1}`} <span class="emoji">${slide.emoji || ''}</span></h2>
         `;
-        // Los estilos 'extensive', 'informative', 'kids' siempre tienen secciones
-        slide.sections.forEach((section) => {
-            htmlContent += `
-                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active'); this.classList.toggle('active')">
-                    ${section.heading}
-                </div>
-                <div class="content">
-                    <p>${section.content}</p>
-                </div>
-            `;
-        });
+        // Para los estilos con secciones desplegables (todos los que generamos)
+        if (slide.sections && slide.sections.length > 0) {
+            slide.sections.forEach((section) => {
+                htmlContent += `
+                    <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active'); this.classList.toggle('active')">
+                        ${section.heading}
+                    </div>
+                    <div class="content">
+                        <p>${section.content}</p>
+                    </div>
+                `;
+            });
+        } else if (slide.content) { // Fallback si una diapositiva tiene un 'content' simple en lugar de secciones
+            htmlContent += `<p>${slide.content}</p>`;
+        }
         htmlContent += `</div>`;
     });
 
