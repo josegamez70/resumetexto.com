@@ -25,16 +25,29 @@ function getGeminiModel() {
         aiInstance = new GoogleGenerativeAI(apiKey);
     }
     if (!generativeModel) {
+        // Obtenemos el modelo específico que usas
         generativeModel = aiInstance.getGenerativeModel({ model: "gemini-2.5-flash" });
     }
     return generativeModel;
 }
+
+// Función auxiliar para limitar el texto de entrada a un número seguro de caracteres/tokens.
+// Los modelos Flash son más pequeños, 10,000 caracteres es un buen límite conservador.
+function truncateText(text: string, maxLength: number = 10000): string {
+    if (text.length > maxLength) {
+        console.warn(`Text truncated from ${text.length} to ${maxLength} characters.`);
+        return text.substring(0, maxLength);
+    }
+    return text;
+}
+
 
 // --- Funciones auxiliares para encapsular la lógica de tu geminiService.ts original ---
 
 async function extractTextFromImage(base64Image: string, language: Language): Promise<string> {
     const model = getGeminiModel();
     const prompts = getPrompts(language);
+    
     const imagePart = {
         inlineData: {
             mimeType: 'image/jpeg', 
@@ -45,8 +58,9 @@ async function extractTextFromImage(base64Image: string, language: Language): Pr
         text: prompts.textExtraction,
     };
 
+    // *** CAMBIO CLAVE AQUÍ: Envolver las partes en un objeto 'Content' con 'parts' ***
     const response = await model.generateContent({ 
-        contents: [imagePart, textPart],
+        contents: [{ parts: [imagePart, textPart] }] // Formato correcto para imagen + texto
     });
 
     return response.text;
@@ -55,15 +69,17 @@ async function extractTextFromImage(base64Image: string, language: Language): Pr
 async function generateTextSummary(text: string, type: SummaryType, language: Language): Promise<string> {
     const model = getGeminiModel();
     const prompts = getPrompts(language);
-    const instruction = prompts.summaryInstruction(type); // *** CAMBIO CLAVE AQUÍ: Obtener solo la instrucción ***
+    const instruction = prompts.summaryInstruction(type);
 
     if (!instruction) {
         throw new Error('Invalid summary type or prompt not found for summary generation.');
     }
+    
+    const truncatedText = truncateText(text); // Limitar el texto de entrada
 
-    // *** CAMBIO CLAVE AQUÍ: Enviar la instrucción y el texto como un ARRAY de partes ***
+    // *** CAMBIO CLAVE AQUÍ: Envolver instrucción y texto en un objeto 'Content' con 'parts' ***
     const response = await model.generateContent({ 
-        contents: [{ text: instruction }, { text: text }] // Formato [instruction, text]
+        contents: [{ parts: [{ text: instruction }, { text: truncatedText }] }] // Formato correcto
     });
 
     return response.text;
@@ -74,8 +90,11 @@ async function generatePresentationSlides(summary: string, style: PresentationSt
     const prompts = getPrompts(language);
     const { systemInstruction, userPrompt, responseSchema } = prompts.presentation(style, summary, language);
 
+    const truncatedSummary = truncateText(summary); // Limitar el resumen de entrada para la presentación
+
+    // *** CAMBIO CLAVE AQUÍ: Envolver el userPrompt en un objeto 'Content' con 'parts' ***
     const response = await model.generateContent({ 
-        contents: userPrompt,
+        contents: [{ parts: [{ text: userPrompt }] }], // Formato correcto para un solo userPrompt
         config: {
             systemInstruction,
             responseMimeType: "application/json",
@@ -97,7 +116,7 @@ async function generatePresentationSlides(summary: string, style: PresentationSt
 // --- Handler principal de la función Netlify ---
 export const handler: Handler = async (event, context) => {
     try {
-        getGeminiModel(); 
+        getGeminiModel(); // Aseguramos que el modelo esté inicializado
 
         if (event.httpMethod !== 'POST') {
             return { statusCode: 405, body: 'Method Not Allowed' };
@@ -154,6 +173,13 @@ export const handler: Handler = async (event, context) => {
              return {
                 statusCode: 500,
                 body: JSON.stringify({ error: 'Server API Key is not configured for Gemini. Check Netlify environment variables.', details: (error as Error).message }),
+            };
+        }
+        // Si es un error 400 de Gemini, pasamos el mensaje de error de Gemini
+        if ((error as any).status === 400 && (error as any).errorDetails) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Gemini API Bad Request:', details: (error as any).errorDetails }),
             };
         }
         return {
