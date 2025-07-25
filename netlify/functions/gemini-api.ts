@@ -5,11 +5,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Handler } from '@netlify/functions';
 
-// Asegúrate de que las rutas a tus tipos y prompts son correctas desde esta ubicación
-// netlify/functions/gemini-api.ts -> TU_PROYECTO_RAIZ/types.ts (necesita ../../types)
-// netlify/functions/gemini-api.ts -> TU_PROYECTO_RAIZ/lib/i18n.ts (necesita ../../lib/i18n)
-import { SummaryType, PresentationStyle, Slide } from '../../types'; // Ajusta la ruta si es necesario
-import { getPrompts } from '../../lib/i18n'; // Ajusta la ruta si es necesario
+// *** CAMBIO CRÍTICO AQUÍ: Ajustar la ruta a types.ts a '../../types' ***
+// *** Y la ruta a i18n.ts a '../../lib/i18n' ***
+import { SummaryType, PresentationStyle, Slide, Language } from '../../types'; 
+import { getPrompts } from '../../lib/i18n'; 
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -123,7 +122,6 @@ export const handler: Handler = async (event, context) => {
                 if (!payload.text || !payload.type || !payload.language) {
                     return { statusCode: 400, body: JSON.stringify({ error: 'Missing text, type, or language for summary generation.' }) };
                 }
-                // Asegúrate de que el tipo de resumen se valida contra SummaryType
                 if (!(Object.values(SummaryType) as string[]).includes(payload.type)) {
                   return { statusCode: 400, body: JSON.stringify({ error: `Invalid summary type: ${payload.type}` }) };
                 }
@@ -134,7 +132,6 @@ export const handler: Handler = async (event, context) => {
                 if (!payload.summary || !payload.style || !payload.language) {
                     return { statusCode: 400, body: JSON.stringify({ error: 'Missing summary, style, or language for presentation generation.' }) };
                 }
-                // Asegúrate de que el estilo de presentación se valida contra PresentationStyle
                 if (!(Object.values(PresentationStyle) as string[]).includes(payload.style)) {
                   return { statusCode: 400, body: JSON.stringify({ error: `Invalid presentation style: ${payload.style}` }) };
                 }

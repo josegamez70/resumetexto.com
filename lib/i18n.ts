@@ -1,7 +1,8 @@
 // lib/i18n.ts
 // Este archivo contiene los prompts para la IA y las traducciones de texto de la UI.
 
-import { SummaryType, PresentationStyle, Language, Slide } from './types'; // Ajusta la ruta a types.ts si es necesario
+// *** CAMBIO CRÍTICO AQUÍ: Ajustar la ruta a types.ts a '../types' ***
+import { SummaryType, PresentationStyle, Language, Slide } from '../types'; 
 
 interface Prompts {
   textExtraction: string;
