@@ -119,7 +119,8 @@ ${presentation.sections.map(renderHTMLSection).join("")}
 
   return (
     <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
-      <h1 className="text-3xl font-bold mb-6">{presentation.title}</h1>
+      {/* Cambio de título */}
+      <h1 className="text-3xl font-bold mb-6">Mapa Mental, esquema resumen interactivo</h1>
       <p className="mb-4 text-gray-400 italic">
         Tipo de presentación: {presentationType}
       </p>
@@ -144,9 +145,10 @@ ${presentation.sections.map(renderHTMLSection).join("")}
         >
           🖨 Imprimir a PDF
         </button>
+        {/* Botón HTML modificado */}
         <button
           onClick={downloadHTML}
-          className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-lg"
+          className="bg-gray-300 hover:bg-gray-400 text-black border border-black px-4 py-2 rounded-lg"
         >
           💾 Descargar HTML Interactivo
         </button>

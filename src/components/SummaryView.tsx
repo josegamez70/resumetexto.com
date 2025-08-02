@@ -16,10 +16,24 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   onGeneratePresentation,
   onReset
 }) => {
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
   return (
     <div className="bg-brand-surface p-6 rounded-lg shadow-lg">
       <h2 className="text-xl font-bold mb-4">Resumen generado:</h2>
       <p className="mb-6 whitespace-pre-line">{summary}</p>
+
+      {/* Nuevo botón imprimir */}
+      <div className="mb-4">
+        <button
+          onClick={handlePrintPDF}
+          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+        >
+          🖨 Imprimir en PDF
+        </button>
+      </div>
 
       <div className="mb-4">
         <label className="mr-2">Tipo de presentación:</label>
