@@ -182,7 +182,7 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
             💾 Descargar HTML Interactivo
           </button>
           <p className="text-gray-400 text-sm mt-1">
-            Para más detalle, usa la opción "Completa".
+            Para más detalle y desplegables
           </p>
         </div>
       </div>
@@ -199,21 +199,6 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
             {section.content && (
               <p className="p-4 whitespace-pre-line">{section.content}</p>
             )}
-            {section.subsections &&
-              section.subsections.length > 0 &&
-              section.subsections.map((sub, subIndex) => (
-                <details
-                  key={subIndex}
-                  className="ml-4 mt-2 border border-gray-600 rounded bg-gray-700"
-                >
-                  <summary className="bg-yellow-400 text-black px-3 py-1 font-medium cursor-pointer select-none">
-                    {sub.emoji} {sub.title}
-                  </summary>
-                  {sub.content && (
-                    <p className="p-3 whitespace-pre-line">{sub.content}</p>
-                  )}
-                </details>
-              ))}
           </details>
         ))}
       </div>

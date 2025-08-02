@@ -80,6 +80,13 @@ Reglas:
       textResponse = textResponse.replace(/```json/i, "").replace(/```/g, "").trim();
     }
 
+    // Extra: aislar primer y último { para evitar errores de formato
+    const firstBrace = textResponse.indexOf("{");
+    const lastBrace = textResponse.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      textResponse = textResponse.substring(firstBrace, lastBrace + 1);
+    }
+
     let presentationData;
     try {
       presentationData = JSON.parse(textResponse);
