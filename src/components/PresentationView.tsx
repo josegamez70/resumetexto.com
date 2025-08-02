@@ -65,8 +65,8 @@ const PresentationView: React.FC<PresentationViewProps> = ({
         contentClass = "section-content-gray";
       }
       if (level === 3) {
-        summaryClass = "section-summary-blue";
-        contentClass = "section-content-blue";
+        summaryClass = "section-summary-lightgray";
+        contentClass = "section-content-lightgray";
       }
 
       return `
@@ -101,10 +101,10 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   .section-summary-gray { background: #888; color: #fff; }
   .section-content-gray { padding: 10px; background: #aaa; color: #000; }
   
-  /* Nivel 3 - Celeste */
+  /* Nivel 3 - Gris muy claro */
   .level-3 { margin-left: 40px; }
-  .section-summary-blue { background: #00bfff; color: #000; }
-  .section-content-blue { padding: 10px; background: #bdeaff; color: #000; }
+  .section-summary-lightgray { background: #ddd; color: #000; }
+  .section-content-lightgray { padding: 10px; background: #f5f5f5; color: #000; }
 
   /* Botones */
   button { margin-right: 10px; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
@@ -177,7 +177,6 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
         >
           🖨 Imprimir a PDF
         </button>
-        {/* Botón HTML modificado */}
         <button
           onClick={downloadHTML}
           className="bg-gray-300 hover:bg-gray-400 text-black border border-black px-4 py-2 rounded-lg"
