@@ -44,7 +44,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           className="bg-gray-700 text-white p-2 rounded mt-2"
         >
           <option value={PresentationType.Extensive}>📚 Extensa</option>
-          <option value={PresentationType.Informative}>📊 Informativa</option>
+          <option value={PresentationType.Complete}>📖 Completa (50% más de detalle)</option>
           <option value={PresentationType.Kids}>🎈 Para niños</option>
         </select>
       </div>
