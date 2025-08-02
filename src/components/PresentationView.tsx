@@ -61,12 +61,12 @@ const PresentationView: React.FC<PresentationViewProps> = ({
       let contentClass = "section-content";
 
       if (level === 2) {
-        summaryClass = "section-summary-yellowlight";
-        contentClass = "section-content-yellowlight";
+        summaryClass = "section-summary-gray";
+        contentClass = "section-content-gray";
       }
       if (level === 3) {
-        summaryClass = "section-summary-lightgray";
-        contentClass = "section-content-lightgray";
+        summaryClass = "section-summary-yellowlight";
+        contentClass = "section-content-yellowlight";
       }
 
       return `
@@ -96,15 +96,15 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   .section-summary { background: #FFD700; color: #000; }
   .section-content { padding: 10px; background: #333; white-space: pre-line; }
   
-  /* Nivel 2 - Amarillo claro */
+  /* Nivel 2 - Gris */
   .level-2 { margin-left: 20px; }
-  .section-summary-yellowlight { background: #ffeb99; color: #000; }
-  .section-content-yellowlight { padding: 10px; background: #fff8dc; color: #000; }
+  .section-summary-gray { background: #888; color: #000; }
+  .section-content-gray { padding: 10px; background: #ddd; color: #000; }
   
-  /* Nivel 3 - Gris muy claro */
+  /* Nivel 3 - Amarillo claro */
   .level-3 { margin-left: 40px; }
-  .section-summary-lightgray { background: #ddd; color: #000; }
-  .section-content-lightgray { padding: 10px; background: #f5f5f5; color: #000; }
+  .section-summary-yellowlight { background: #ffeb99; color: #333; }
+  .section-content-yellowlight { padding: 10px; background: #fff8dc; color: #333; }
 
   /* Botones */
   button { margin-right: 10px; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
@@ -151,13 +151,11 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
 
   return (
     <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
-      {/* Cambio de título */}
       <h1 className="text-3xl font-bold mb-6">Mapa Mental, esquema resumen interactivo</h1>
       <p className="mb-4 text-gray-400 italic">
         Tipo de presentación: {presentationType}
       </p>
 
-      {/* Botones de control */}
       <div className="flex gap-4 mb-6 flex-wrap">
         <button
           onClick={expandAll}
@@ -185,7 +183,6 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
         </button>
       </div>
 
-      {/* Contenido */}
       <div ref={containerRef} className="space-y-3">
         {presentation.sections.map((section, index) => (
           <details
@@ -217,7 +214,6 @@ ${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)
         ))}
       </div>
 
-      {/* Botón volver */}
       <div className="mt-8">
         <button
           onClick={onReset}
