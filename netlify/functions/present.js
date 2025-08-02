@@ -28,8 +28,8 @@ exports.handler = async (event) => {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos.`;
       } else if (type === "Complete") {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos,
-                 pero además debe tener aproximadamente un 30% más de contenido y detalle que la versión Extensa,
-                 incluyendo más ejemplos, explicaciones técnicas y contexto adicional, pero sin ser redundante.`;
+                 pero además debe tener aproximadamente un 40% más de contenido y detalle que la versión Extensa,
+                 incluyendo más ejemplos, explicaciones técnicas, contexto adicional y descripciones más largas y completas.`;
       } else if (type === "Kids") {
         style = `Debe ser para niños, con lenguaje simple y emojis divertidos.`;
       }
