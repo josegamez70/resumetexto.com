@@ -28,8 +28,8 @@ exports.handler = async (event) => {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos.`;
       } else if (type === "Complete") {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos,
-                 pero además debe tener aproximadamente un 40% más de contenido y detalle que la versión Extensa,
-                 incluyendo más ejemplos, explicaciones técnicas, contexto adicional y descripciones más largas y completas.`;
+                 pero con aproximadamente un 40% más de texto y explicaciones que la versión Extensa,
+                 desarrollando más cada punto sin añadir secciones nuevas innecesarias.`;
       } else if (type === "Kids") {
         style = `Debe ser para niños, con lenguaje simple y emojis divertidos.`;
       }
@@ -80,7 +80,6 @@ Reglas:
       textResponse = textResponse.replace(/```json/i, "").replace(/```/g, "").trim();
     }
 
-    // Extra: aislar primer y último { para evitar errores de formato
     const firstBrace = textResponse.indexOf("{");
     const lastBrace = textResponse.lastIndexOf("}");
     if (firstBrace !== -1 && lastBrace !== -1) {
