@@ -30,17 +30,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 
   const expandAll = () => {
     if (containerRef.current) {
-      containerRef.current
-        .querySelectorAll("details")
-        .forEach((d) => d.setAttribute("open", "true"));
+      containerRef.current.querySelectorAll("details").forEach((d) => d.setAttribute("open", "true"));
     }
   };
 
   const collapseAll = () => {
     if (containerRef.current) {
-      containerRef.current
-        .querySelectorAll("details")
-        .forEach((d) => d.removeAttribute("open"));
+      containerRef.current.querySelectorAll("details").forEach((d) => d.removeAttribute("open"));
     }
   };
 
@@ -64,16 +60,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
     return (
       <details
         className={`border rounded-lg overflow-hidden ${level === 1 ? "bg-gray-800 border-gray-700" : level === 2 ? "ml-4 bg-gray-700 border-gray-600" : "ml-8 bg-gray-600 border-gray-500"}`}
-        open
       >
         <summary className={summaryClass}>
           {section.emoji} {section.title}
         </summary>
         {section.content && <p className={contentClass}>{section.content}</p>}
         {section.subsections &&
-          section.subsections.map((sub: any, idx: number) =>
-            renderSection(sub, level + 1)
-          )}
+          section.subsections.map((sub: any, idx: number) => renderSection(sub, level + 1))}
       </details>
     );
   };
@@ -87,10 +80,28 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <meta charset="UTF-8" />
 <title>${presentation.title}</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script>
+function expandAll() {
+  document.querySelectorAll('details').forEach(d => d.setAttribute('open', 'true'));
+}
+function collapseAll() {
+  document.querySelectorAll('details').forEach(d => d.removeAttribute('open'));
+}
+function printPDF() {
+  window.print();
+}
+</script>
 </head>
 <body class="bg-gray-900 text-white p-6">
 <h1 class="text-3xl font-bold mb-6">Mapa Mental, esquema resumen interactivo</h1>
 <p class="mb-4 italic text-gray-400">Tipo de presentación: ${presentationType}</p>
+
+<div class="flex gap-4 mb-6 flex-wrap">
+  <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">📂 Desplegar todos</button>
+  <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">📁 Colapsar todos</button>
+  <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">🖨 Imprimir a PDF</button>
+</div>
+
 <div>
 ${containerRef.current.innerHTML}
 </div>
