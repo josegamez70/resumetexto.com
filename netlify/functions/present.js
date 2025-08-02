@@ -1,4 +1,3 @@
-// netlify/functions/present.js
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 exports.handler = async (event) => {
@@ -23,15 +22,14 @@ exports.handler = async (event) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    // Prompt unificado para todos los tipos
     const getPresentationPrompt = (type) => {
       let style = "";
       if (type === "Extensive") {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos.`;
       } else if (type === "Complete") {
-        style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos, 
-                 pero además debe tener un 50% más de contenido y detalle que la versión Extensa, 
-                 incluyendo más ejemplos, explicaciones técnicas y contexto adicional.`;
+        style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos,
+                 pero además debe tener aproximadamente un 30% más de contenido y detalle que la versión Extensa,
+                 incluyendo más ejemplos, explicaciones técnicas y contexto adicional, pero sin ser redundante.`;
       } else if (type === "Kids") {
         style = `Debe ser para niños, con lenguaje simple y emojis divertidos.`;
       }

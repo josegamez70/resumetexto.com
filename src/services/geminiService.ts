@@ -60,7 +60,24 @@ export const summarizeContent = async (
     body: JSON.stringify({ fileParts, summaryType }),
   });
 
-  const data = await response.json();
+  let text;
+  try {
+    text = await response.text();
+  } catch {
+    throw new Error("Error al leer respuesta del servidor.");
+  }
+
+  if (!text) {
+    throw new Error("Respuesta vacía del servidor al generar resumen.");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Respuesta no es JSON válido al generar resumen.");
+  }
+
   if (!response.ok) throw new Error(data.error || "Error al generar resumen");
   return data.summary;
 };
@@ -75,7 +92,24 @@ export const createPresentation = async (
     body: JSON.stringify({ summaryText, presentationType }),
   });
 
-  const data = await response.json();
+  let text;
+  try {
+    text = await response.text();
+  } catch {
+    throw new Error("Error al leer respuesta del servidor.");
+  }
+
+  if (!text) {
+    throw new Error("Respuesta vacía del servidor al generar presentación.");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Respuesta no es JSON válido al generar presentación.");
+  }
+
   if (!response.ok) throw new Error(data.error || "Error al generar presentación");
   return data.presentationData;
 };
