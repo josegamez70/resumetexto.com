@@ -49,16 +49,21 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
 
   const downloadHTML = () => {
-    function renderHTMLSection(section: any, level = 1) {
+    type SectionNode = {
+      emoji: string;
+      title: string;
+      content?: string;
+      subsections?: SectionNode[];
+    };
+
+    function renderHTMLSection(section: SectionNode, level = 1): string {
       let summaryClass = "section-summary";
       let contentClass = "section-content";
 
-      // Nivel 2: subdesplegable gris
       if (level === 2) {
         summaryClass = "section-summary-gray";
         contentClass = "section-content-gray";
       }
-      // Nivel 3: sub-subdesplegable celeste
       if (level === 3) {
         summaryClass = "section-summary-blue";
         contentClass = "section-content-blue";
@@ -70,7 +75,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   ${section.content ? `<p class="${contentClass}">${section.content}</p>` : ""}
   ${
     section.subsections && section.subsections.length > 0
-      ? section.subsections.map(sub => renderHTMLSection(sub, level + 1)).join("")
+      ? section.subsections.map((sub: SectionNode) => renderHTMLSection(sub, level + 1)).join("")
       : ""
   }
 </details>`;
@@ -129,7 +134,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   <button class="btn-print" onclick="printPDF()">🖨 Imprimir a PDF</button>
 </div>
 
-${presentation.sections.map(section => renderHTMLSection(section)).join("")}
+${presentation.sections.map((section: SectionNode) => renderHTMLSection(section)).join("")}
 
 </body>
 </html>
