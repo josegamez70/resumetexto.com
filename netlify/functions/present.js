@@ -28,8 +28,10 @@ exports.handler = async (event) => {
       let style = "";
       if (type === "Extensive") {
         style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos.`;
-      } else if (type === "Informative") {
-        style = `Debe ser concisa, solo con las ideas clave.`;
+      } else if (type === "Complete") {
+        style = `Debe ser EXTENSA, con subsecciones y sub-subsecciones si es relevante, explicaciones y ejemplos, 
+                 pero además debe tener un 50% más de contenido y detalle que la versión Extensa, 
+                 incluyendo más ejemplos, explicaciones técnicas y contexto adicional.`;
       } else if (type === "Kids") {
         style = `Debe ser para niños, con lenguaje simple y emojis divertidos.`;
       }
@@ -88,7 +90,6 @@ Reglas:
       throw new Error("Respuesta de Gemini no es JSON válido.");
     }
 
-    // Asegurar estructura mínima
     if (!presentationData.sections) {
       presentationData.sections = [];
     }

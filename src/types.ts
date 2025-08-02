@@ -6,9 +6,9 @@ export enum SummaryType {
 }
 
 export enum PresentationType {
-    Extensive = 'Extensive',       // Extensa (en detalle)
-    Informative = 'Informative',   // Informativa (más resumida)
-    Kids = 'Kids',                 // Para Niños
+    Extensive = 'Extensive',   // Extensa (en detalle)
+    Complete = 'Complete',     // Completa (50% más contenido y detalle que Extensa)
+    Kids = 'Kids',             // Para Niños
 }
 
 export type PresentationSection = {
