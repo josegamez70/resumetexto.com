@@ -49,14 +49,28 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
 
   const downloadHTML = () => {
-    function renderHTMLSection(section: any) {
+    function renderHTMLSection(section: any, level = 1) {
+      let summaryClass = "section-summary";
+      let contentClass = "section-content";
+
+      // Nivel 2: subdesplegable gris
+      if (level === 2) {
+        summaryClass = "section-summary-gray";
+        contentClass = "section-content-gray";
+      }
+      // Nivel 3: sub-subdesplegable celeste
+      if (level === 3) {
+        summaryClass = "section-summary-blue";
+        contentClass = "section-content-blue";
+      }
+
       return `
-<details>
-  <summary class="section-summary">${section.emoji} ${section.title}</summary>
-  ${section.content ? `<p class="section-content">${section.content}</p>` : ""}
+<details class="level-${level}">
+  <summary class="${summaryClass}">${section.emoji} ${section.title}</summary>
+  ${section.content ? `<p class="${contentClass}">${section.content}</p>` : ""}
   ${
     section.subsections && section.subsections.length > 0
-      ? section.subsections.map(renderHTMLSection).join("")
+      ? section.subsections.map(sub => renderHTMLSection(sub, level + 1)).join("")
       : ""
   }
 </details>`;
@@ -71,10 +85,23 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <style>
   body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; }
   details { border: 1px solid #444; margin: 5px 0; border-radius: 8px; overflow: hidden; background: #222; }
-  summary { background: #FFD700; color: #000; padding: 8px 12px; font-weight: bold; cursor: pointer; }
-  summary:hover { background: #FFC107; }
-  .section-summary { background: #FFD700; }
-  .section-content { padding: 10px; white-space: pre-line; }
+  summary { padding: 8px 12px; font-weight: bold; cursor: pointer; }
+  
+  /* Nivel 1 */
+  .section-summary { background: #FFD700; color: #000; }
+  .section-content { padding: 10px; background: #333; white-space: pre-line; }
+  
+  /* Nivel 2 - Gris */
+  .level-2 { margin-left: 20px; }
+  .section-summary-gray { background: #888; color: #fff; }
+  .section-content-gray { padding: 10px; background: #aaa; color: #000; }
+  
+  /* Nivel 3 - Celeste */
+  .level-3 { margin-left: 40px; }
+  .section-summary-blue { background: #00bfff; color: #000; }
+  .section-content-blue { padding: 10px; background: #bdeaff; color: #000; }
+
+  /* Botones */
   button { margin-right: 10px; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
   .btn-expand { background: #28a745; color: white; }
   .btn-collapse { background: #dc3545; color: white; }
@@ -102,7 +129,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   <button class="btn-print" onclick="printPDF()">🖨 Imprimir a PDF</button>
 </div>
 
-${presentation.sections.map(renderHTMLSection).join("")}
+${presentation.sections.map(section => renderHTMLSection(section)).join("")}
 
 </body>
 </html>
