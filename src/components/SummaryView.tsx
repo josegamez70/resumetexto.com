@@ -25,7 +25,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       <h2 className="text-xl font-bold mb-4">Resumen generado:</h2>
       <p className="mb-6 whitespace-pre-line">{summary}</p>
 
-      {/* Nuevo botón imprimir */}
+      {/* Botón imprimir PDF */}
       <div className="mb-4">
         <button
           onClick={handlePrintPDF}
@@ -35,12 +35,13 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         </button>
       </div>
 
-      <div className="mb-4">
-        <label className="mr-2">Tipo de presentación:</label>
+      {/* Caja destacada para tipo de presentación */}
+      <div className="mb-4 border-2 border-yellow-400 rounded-lg p-4 bg-gray-800">
+        <label className="mr-2 font-semibold text-white">Tipo de presentación:</label>
         <select
           value={presentationType}
           onChange={(e) => setPresentationType(e.target.value as PresentationType)}
-          className="bg-gray-700 text-white p-2 rounded"
+          className="bg-gray-700 text-white p-2 rounded mt-2"
         >
           <option value={PresentationType.Extensive}>📚 Extensa</option>
           <option value={PresentationType.Informative}>📊 Informativa</option>
