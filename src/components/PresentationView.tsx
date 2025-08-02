@@ -61,8 +61,8 @@ const PresentationView: React.FC<PresentationViewProps> = ({
       let contentClass = "section-content";
 
       if (level === 2) {
-        summaryClass = "section-summary-gray";
-        contentClass = "section-content-gray";
+        summaryClass = "section-summary-blue";
+        contentClass = "section-content-blue";
       }
       if (level === 3) {
         summaryClass = "section-summary-yellowlight";
@@ -96,10 +96,10 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   .section-summary { background: #FFD700; color: #000; }
   .section-content { padding: 10px; background: #333; white-space: pre-line; }
   
-  /* Nivel 2 - Gris */
+  /* Nivel 2 - Azul */
   .level-2 { margin-left: 20px; }
-  .section-summary-gray { background: #888; color: #000; }
-  .section-content-gray { padding: 10px; background: #ddd; color: #000; }
+  .section-summary-blue { background: #0074D9; color: #fff; }
+  .section-content-blue { padding: 10px; background: #cce5ff; color: #000; }
   
   /* Nivel 3 - Amarillo claro */
   .level-3 { margin-left: 40px; }
