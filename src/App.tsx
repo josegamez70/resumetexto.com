@@ -27,6 +27,7 @@ const App: React.FC = () => {
     try {
       const generatedSummary = await summarizeContent(file, summaryType);
       setSummary(generatedSummary);
+      setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
       setView(ViewState.SUMMARY);
     } catch (err) {
       console.error(err);
@@ -64,6 +65,7 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     setSummary(null);
+    setSummaryTitle(null);
     setPresentation(null);
     setView(ViewState.UPLOADER);
     setError(null);
@@ -94,7 +96,6 @@ const App: React.FC = () => {
           summary={summary}
           summaryTitle={summaryTitle || ''}
           presentationType={presentationType}
-          summaryTitle={summaryTitle || ''}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
           onReset={handleReset}
