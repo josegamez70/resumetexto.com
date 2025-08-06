@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { PresentationType } from "../types";
 
 interface SummaryViewProps {
@@ -16,6 +16,22 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   onGeneratePresentation,
   onReset
 }) => {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleToggleSpeech = () => {
+    if (isSpeaking) {
+      speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      const utterance = new SpeechSynthesisUtterance(summary);
+      utterance.lang = "es-ES";
+      utterance.rate = 1;
+      utterance.onend = () => setIsSpeaking(false);
+      speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
+
   const handlePrintPDF = () => {
     const keyword = summary.split(" ").slice(0, 3).join(" ");
     const originalTitle = document.title;
@@ -32,15 +48,14 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       {/* Botón escuchar audio */}
       <div className="mb-4">
         <button
-          onClick={() => {
-            const utterance = new SpeechSynthesisUtterance(summary);
-            utterance.lang = "es-ES";
-            utterance.rate = 1;
-            speechSynthesis.speak(utterance);
-          }}
-          className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded"
+          onClick={handleToggleSpeech}
+          className={`${
+            isSpeaking
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-purple-500 hover:bg-purple-600"
+          } text-white py-2 px-4 rounded`}
         >
-          🔊 Escuchar Resumen
+          {isSpeaking ? "⏹ Detener Audio" : "🔊 Escuchar Resumen"}
         </button>
       </div>
 
@@ -56,14 +71,18 @@ const SummaryView: React.FC<SummaryViewProps> = ({
 
       {/* Caja destacada para tipo de presentación */}
       <div className="mb-4 border-2 border-yellow-400 rounded-lg p-4 bg-gray-800">
-        <label className="mr-2 font-semibold text-white">Tipo de presentación:</label>
+        <label className="mr-2 font-semibold text-white">
+          Tipo de presentación:
+        </label>
         <select
           value={presentationType}
           onChange={(e) => setPresentationType(e.target.value as PresentationType)}
-          className="bg-gray-700 text-white p-2 rounded mt-2"
+          className="bg-gray-700 text-white p-2 rounded mt-2 w-full text-sm sm:text-base"
         >
           <option value={PresentationType.Extensive}>📚 Extensa</option>
-          <option value={PresentationType.Complete}>📖 Completa (50% más de detalle)</option>
+          <option value={PresentationType.Complete}>
+            📖 Completa (50% más de detalle)
+          </option>
           <option value={PresentationType.Kids}>🎈 Para niños</option>
         </select>
       </div>
