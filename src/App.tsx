@@ -13,6 +13,7 @@ import {
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
   const [summary, setSummary] = useState<string | null>(null);
+  const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
   const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +92,9 @@ const App: React.FC = () => {
       {view === ViewState.SUMMARY && summary && (
         <SummaryView
           summary={summary}
+          summaryTitle={summaryTitle || ''}
           presentationType={presentationType}
+          summaryTitle={summaryTitle || ''}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
           onReset={handleReset}
@@ -102,6 +105,7 @@ const App: React.FC = () => {
         <PresentationView
           presentation={presentation}
           presentationType={presentationType}
+          summaryTitle={summaryTitle || ''}
           onReset={handleReset}
         />
       )}

@@ -4,6 +4,7 @@ import { PresentationData, PresentationType } from "../types";
 interface PresentationViewProps {
   presentation: PresentationData;
   presentationType: PresentationType;
+  summaryTitle: string;
   onReset: () => void;
 }
 
