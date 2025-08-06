@@ -11,6 +11,7 @@ interface PresentationViewProps {
 const PresentationView: React.FC<PresentationViewProps> = ({
   presentation,
   presentationType,
+  summaryTitle,
   onReset,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,11 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
 
   const printPDF = () => {
+    const keyword = summaryTitle || presentation.title.split(" ").slice(0, 3).join(" ");
+    const originalTitle = document.title;
+    document.title = `${summaryTitle || presentation.title} - ${keyword}`;
     window.print();
+    document.title = originalTitle;
   };
 
   const renderSection = (section: any, level = 1) => {
@@ -79,7 +84,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<title>${presentation.title}</title>
+<title>${summaryTitle || presentation.title}</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <script>
 function expandAll() {
@@ -94,7 +99,8 @@ function printPDF() {
 </script>
 </head>
 <body class="bg-gray-900 text-white p-6">
-<h1 class="text-3xl font-bold mb-6">Mapa Mental, esquema resumen interactivo</h1>
+<h1 class="text-3xl font-bold mb-2">Mapa Mental, esquema resumen interactivo</h1>
+<h3 class="text-lg italic text-yellow-400 mb-6">${summaryTitle || ""}</h3>
 <p class="mb-4 italic text-gray-400">Tipo de presentación: ${presentationType}</p>
 
 <div class="flex gap-4 mb-6 flex-wrap">
@@ -112,14 +118,15 @@ ${containerRef.current.innerHTML}
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${presentation.title}.html`;
+    a.download = `${summaryTitle || presentation.title}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
-      <h1 className="text-3xl font-bold mb-6">Mapa Mental, esquema resumen interactivo</h1>
+      <h1 className="text-3xl font-bold mb-2">Mapa Mental, esquema resumen interactivo</h1>
+      <h3 className="text-lg italic text-yellow-400 mb-6">{summaryTitle}</h3>
       <p className="mb-4 text-gray-400 italic">
         Tipo de presentación: {presentationType}
       </p>
