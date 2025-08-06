@@ -96,7 +96,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, isProcessing 
         <select
           value={summaryType}
           onChange={(e) => setSummaryType(e.target.value as SummaryType)}
-          className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-400 focus:outline-none"
+          className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm sm:text-base"
         >
           <option value={SummaryType.Short}>📄 Corto</option>
           <option value={SummaryType.Long}>📜 Largo</option>

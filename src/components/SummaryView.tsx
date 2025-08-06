@@ -17,13 +17,32 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   onReset
 }) => {
   const handlePrintPDF = () => {
+    const keyword = summary.split(" ").slice(0, 3).join(" ");
+    const originalTitle = document.title;
+    document.title = `Resumen - ${keyword}`;
     window.print();
+    document.title = originalTitle;
   };
 
   return (
     <div className="bg-brand-surface p-6 rounded-lg shadow-lg">
       <h2 className="text-xl font-bold mb-4">Resumen generado:</h2>
       <p className="mb-6 whitespace-pre-line">{summary}</p>
+
+      {/* Botón escuchar audio */}
+      <div className="mb-4">
+        <button
+          onClick={() => {
+            const utterance = new SpeechSynthesisUtterance(summary);
+            utterance.lang = "es-ES";
+            utterance.rate = 1;
+            speechSynthesis.speak(utterance);
+          }}
+          className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded"
+        >
+          🔊 Escuchar Resumen
+        </button>
+      </div>
 
       {/* Botón imprimir PDF */}
       <div className="mb-4">
@@ -49,7 +68,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         </select>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <button
           onClick={onGeneratePresentation}
           className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
