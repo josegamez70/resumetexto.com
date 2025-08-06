@@ -84,8 +84,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${summaryTitle || presentation.title}</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+  body { max-width: 100%; overflow-x: hidden; }
+  details { width: 100%; }
+</style>
 <script>
 function expandAll() {
   document.querySelectorAll('details').forEach(d => d.setAttribute('open', 'true'));
@@ -98,18 +103,18 @@ function printPDF() {
 }
 </script>
 </head>
-<body class="bg-gray-900 text-white p-6">
-<h1 class="text-3xl font-bold mb-2">Mapa Mental, esquema resumen interactivo</h1>
+<body class="bg-gray-900 text-white p-4 sm:p-6">
+<h1 class="text-2xl sm:text-3xl font-bold mb-2">Mapa Mental, esquema resumen interactivo</h1>
 <h3 class="text-lg italic text-yellow-400 mb-6">${summaryTitle || ""}</h3>
 <p class="mb-4 italic text-gray-400">Tipo de presentación: ${presentationType}</p>
 
-<div class="flex gap-4 mb-6 flex-wrap">
-  <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">📂 Desplegar todos</button>
-  <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">📁 Colapsar todos</button>
-  <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">🖨 Imprimir a PDF</button>
+<div class="flex flex-wrap gap-2 sm:gap-4 mb-6">
+  <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg">📂 Desplegar todos</button>
+  <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg">📁 Colapsar todos</button>
+  <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg">🖨 Imprimir a PDF</button>
 </div>
 
-<div>
+<div class="space-y-3">
 ${containerRef.current.innerHTML}
 </div>
 </body>
