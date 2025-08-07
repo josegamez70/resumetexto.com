@@ -1,158 +1,113 @@
-import { SummaryType, PresentationType, PresentationData } from "../types";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { SummaryType } from "../types";
 
-// ✅ Control defensivo para la clave
-const apiKey = import.meta.env.VITE_API_KEY;
-if (!apiKey) {
-  throw new Error("VITE_API_KEY no está definida. Asegúrate de tenerla en .env o en Netlify.");
-}
+// ✅ Usa process.env para CRA (NO import.meta.env)
+const genAI = new GoogleGenerativeAI(process.env.REACT_APP_API_KEY!);
 
-const genAI = new GoogleGenerativeAI(apiKey);
-
-export const summarizeContent = async (file: File, summaryType: SummaryType): Promise<string> => {
+// 🧠 Resume contenido desde archivo
+export const summarizeContent = async (
+  file: File,
+  summaryType: SummaryType
+): Promise<string> => {
   const content = await extractTextFromFile(file);
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-  const prompt = `
-Resume el siguiente texto en formato ${summaryType === "bullets" ? "por puntos" : summaryType === "short" ? "corto" : "largo"}:
-
-Texto:
-"""
-${content}
-"""
-`;
+  const prompt =
+    summaryType === "presentation"
+      ? `Resume el siguiente contenido en formato de presentación en HTML. No pongas <html> ni <body>. Usa títulos y puntos clave:\n\n${content}`
+      : `Haz un resumen breve del siguiente texto:\n\n${content}`;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text().trim();
+  return response.text();
 };
 
-export const generateTitle = async (summary: string): Promise<string> => {
+// 🧠 Genera mapa mental desde texto
+export const generateMindmap = async (summary: string): Promise<string> => {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
   const prompt = `
-Genera un título breve (máximo 8 palabras) que resuma este texto:
-
-"""
-${summary}
-"""
-
-Solo devuelve el título. Sin comillas ni introducciones.
-`;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text().trim();
-};
-
-export const createPresentation = async (summary: string, type: PresentationType): Promise<PresentationData> => {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-  const prompt = `
-Genera una presentación estilo mapa mental a partir del siguiente resumen.
-
-Tipo de presentación: ${type}
+A partir del siguiente resumen, crea un mapa mental en formato HTML como árbol interactivo (estilo lista desplegable), donde cada concepto se expanda hacia la derecha. Usa listas <ul><li> y <details><summary> si es útil:
 
 Resumen:
-"""
 ${summary}
-"""
-
-Devuélvelo en formato JSON estructurado con secciones, subtítulos y contenido.
 `;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  const json = response.text();
-
-  return JSON.parse(json);
+  return response.text();
 };
 
-export const generateMindmap = async (summary: string): Promise<any> => {
+// 🧠 Genera título breve (máximo 8 palabras)
+export const generateSummaryTitle = async (summary: string): Promise<string> => {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-  const prompt = `
-Extrae los conceptos clave del siguiente texto y organízalos en un árbol jerárquico (formato JSON), donde cada nodo tiene "label" y opcionalmente "children":
-
-"""
-${summary}
-"""
-
-Formato deseado:
-{
-  "label": "Tema principal",
-  "children": [
-    {
-      "label": "Concepto A",
-      "children": [
-        { "label": "Subconcepto A1" },
-        { "label": "Subconcepto A2" }
-      ]
-    },
-    {
-      "label": "Concepto B"
-    }
-  ]
-}
-`;
-
+  const prompt = `Resume el siguiente contenido en un título de máximo 8 palabras:\n\n${summary}`;
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  const json = response.text();
-
-  return JSON.parse(json);
+  return response.text().replace(/[".]/g, "").trim();
 };
 
-// 📄 Extracción de texto desde archivo
-
+// ✅ Extraer texto de PDF, TXT o imagen (OCR)
 const extractTextFromFile = async (file: File): Promise<string> => {
-  if (file.type === "application/pdf") {
-    return await extractTextFromPdf(file);
-  } else if (file.type.startsWith("image/")) {
-    return await extractTextFromImage(file);
-  } else {
-    throw new Error("Tipo de archivo no compatible");
+  const fileType = file.type;
+
+  // PDF
+  if (fileType === "application/pdf") {
+    const pdfjsLib = await import("pdfjs-dist/build/pdf");
+    const pdfjsWorker = await import("pdfjs-dist/build/pdf.worker.entry");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    const textPromises: Promise<string>[] = [];
+    for (let i = 0; i < pdf.numPages; i++) {
+      const page = await pdf.getPage(i + 1);
+      const content = await page.getTextContent();
+      const text = content.items.map((item: any) => item.str).join(" ");
+      textPromises.push(Promise.resolve(text));
+    }
+
+    const allText = await Promise.all(textPromises);
+    return allText.join("\n");
   }
+
+  // TXT
+  if (fileType === "text/plain") {
+    return await file.text();
+  }
+
+  // Imagen (OCR)
+  if (fileType.startsWith("image/")) {
+    const base64 = await toBase64(file);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent([
+      { inlineData: { data: base64, mimeType: fileType } },
+      {
+        text: "Extrae el texto visible de esta imagen. No inventes texto. Devuelve solo el texto sin formatear.",
+      },
+    ]);
+
+    const response = await result.response;
+    return response.text();
+  }
+
+  throw new Error("Formato de archivo no soportado.");
 };
 
-const extractTextFromPdf = async (file: File): Promise<string> => {
-  const base64File = await toBase64(file);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  const result = await model.generateContent([
-    { inlineData: { data: base64File, mimeType: file.type } },
-    "Extrae el texto completo de este PDF. No resumas nada.",
-  ]);
-
-  const response = await result.response;
-  return response.text().trim();
-};
-
-const extractTextFromImage = async (file: File): Promise<string> => {
-  const base64Image = await toBase64(file);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  const result = await model.generateContent([
-    { inlineData: { data: base64Image, mimeType: file.type } },
-    "Extrae el texto visible en esta imagen. No resumas nada.",
-  ]);
-
-  const response = await result.response;
-  return response.text().trim();
-};
-
-const toBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
+// 🔧 Helper para convertir a base64
+const toBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        resolve(result.split(",")[1]);
+      if (typeof reader.result === "string") {
+        resolve(reader.result.split(",")[1]);
       } else {
-        reject(new Error("Error al leer el archivo como base64"));
+        reject(new Error("Error al leer el archivo."));
       }
     };
-    reader.onerror = reject;
+    reader.onerror = (error) => reject(error);
   });
-};
