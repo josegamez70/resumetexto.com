@@ -1,72 +1,114 @@
 import React, { useState } from "react";
 import FileUploader from "./components/FileUploader";
-import SummaryView from "./views/SummaryView";
-import PresentationView from "./views/PresentationView";
-import { summarizeContent, generateSummaryTitle } from "./services/geminiService";
-import { ViewState, SummaryType } from "./types";
-import MindmapView from "./components/MindmapView";
+import SummaryView from "./components/SummaryView";
+import PresentationView from "./components/PresentationView";
+import { summarizeContent, createPresentation } from "./services/geminiService";
+import {
+  ViewState,
+  SummaryType,
+  PresentationData,
+  PresentationType,
+} from "./types";
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(ViewState.UPLOAD);
-  const [summary, setSummary] = useState("");
-  const [presentation, setPresentation] = useState("");
-  const [mindmap, setMindmap] = useState("");
-  const [summaryType, setSummaryType] = useState<SummaryType>("summary");
-  const [title, setTitle] = useState("");
-  const [error, setError] = useState("");
+  const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
+  const [presentation, setPresentation] = useState<PresentationData | null>(null);
+  const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const handleFileUpload = async (file: File, type: SummaryType) => {
-    setSummaryType(type);
-    setView(ViewState.LOADING);
-    setError("");
-
+  const handleFileUpload = async (file: File, summaryType: SummaryType) => {
+    setError(null);
+    setIsProcessing(true);
+    setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
     try {
-      const summaryText = await summarizeContent(file, type);
-      setSummary(summaryText);
-
-      if (type === "presentation") {
-        setPresentation(summaryText);
-        const generatedTitle = await generateSummaryTitle(summaryText);
-        setTitle(generatedTitle);
-        setView(ViewState.PRESENTATION);
-      } else {
-        setView(ViewState.SUMMARY);
-      }
+      const generatedSummary = await summarizeContent(file, summaryType);
+      setSummary(generatedSummary);
+      setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
+      setView(ViewState.SUMMARY);
     } catch (err) {
       console.error(err);
-      setError("Error al procesar el archivo.");
-      setView(ViewState.UPLOAD);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al generar el resumen."
+      );
+    } finally {
+      setLoadingMessage(null);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGeneratePresentation = async () => {
+    if (!summary) return;
+    setIsProcessing(true);
+    setLoadingMessage("⏳ Generando presentación, puede tardar unos minutos...");
+    try {
+      const generatedPresentation = await createPresentation(summary, presentationType);
+      setPresentation(generatedPresentation);
+      setView(ViewState.PRESENTATION);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al generar la presentación."
+      );
+    } finally {
+      setLoadingMessage(null);
+      setIsProcessing(false);
     }
   };
 
   const handleReset = () => {
-    setView(ViewState.UPLOAD);
-    setSummary("");
-    setPresentation("");
-    setMindmap("");
-    setTitle("");
-    setError("");
+    setSummary(null);
+    setSummaryTitle(null);
+    setPresentation(null);
+    setView(ViewState.UPLOADER);
+    setError(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      {view === ViewState.UPLOAD && (
-        <FileUploader onFileUpload={handleFileUpload} error={error} />
+    <div className="min-h-screen bg-brand-bg text-white p-6 relative">
+      {/* Mensaje de error */}
+      {error && (
+        <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>
       )}
-      {view === ViewState.SUMMARY && (
-        <SummaryView summary={summary} onReset={handleReset} />
+
+      {/* Mensaje de carga centrado */}
+      {loadingMessage && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-yellow-500 text-black p-4 rounded-lg text-center font-semibold animate-pulse max-w-xs">
+            {loadingMessage}
+          </div>
+        </div>
       )}
-      {view === ViewState.PRESENTATION && (
-        <PresentationView
-          presentation={presentation}
-          onReset={handleReset}
+
+      {view === ViewState.UPLOADER && (
+        <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+      )}
+
+      {view === ViewState.SUMMARY && summary && (
+        <SummaryView
           summary={summary}
-          setMindmap={setMindmap}
-          setView={setView}
+          summaryTitle={summaryTitle || ''}
+          presentationType={presentationType}
+          setPresentationType={setPresentationType}
+          onGeneratePresentation={handleGeneratePresentation}
+          onReset={handleReset}
         />
       )}
-      {view === ViewState.MINDMAP && (
-        <MindmapView mindmap={mindmap} onReset={handleReset} title={title} />
+
+      {view === ViewState.PRESENTATION && presentation && (
+        <PresentationView
+          presentation={presentation}
+          presentationType={presentationType}
+          summaryTitle={summaryTitle || ''}
+          onReset={handleReset}
+        />
       )}
     </div>
   );

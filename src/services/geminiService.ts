@@ -1,113 +1,115 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { SummaryType } from "../types";
+import * as pdfjsLib from "pdfjs-dist";
+import { SummaryType, PresentationType, PresentationData } from "../types";
 
-// ✅ Usa process.env para CRA (NO import.meta.env)
-const genAI = new GoogleGenerativeAI(process.env.REACT_APP_API_KEY!);
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-// 🧠 Resume contenido desde archivo
+const fileToGenerativePart = async (file: File) => {
+  const base64EncodedDataPromise = new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+  };
+};
+
+const pdfToGenerativeParts = async (file: File) => {
+  const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+  const pageParts = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    if (context) {
+      await page.render({ canvasContext: context, viewport }).promise;
+      const base64EncodedData = canvas.toDataURL("image/jpeg").split(",")[1];
+      pageParts.push({
+        inlineData: {
+          data: base64EncodedData,
+          mimeType: "image/jpeg",
+        },
+      });
+    }
+  }
+  return pageParts;
+};
+
 export const summarizeContent = async (
   file: File,
   summaryType: SummaryType
 ): Promise<string> => {
-  const content = await extractTextFromFile(file);
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  let fileParts;
 
-  const prompt =
-    summaryType === "presentation"
-      ? `Resume el siguiente contenido en formato de presentación en HTML. No pongas <html> ni <body>. Usa títulos y puntos clave:\n\n${content}`
-      : `Haz un resumen breve del siguiente texto:\n\n${content}`;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
-};
-
-// 🧠 Genera mapa mental desde texto
-export const generateMindmap = async (summary: string): Promise<string> => {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-  const prompt = `
-A partir del siguiente resumen, crea un mapa mental en formato HTML como árbol interactivo (estilo lista desplegable), donde cada concepto se expanda hacia la derecha. Usa listas <ul><li> y <details><summary> si es útil:
-
-Resumen:
-${summary}
-`;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
-};
-
-// 🧠 Genera título breve (máximo 8 palabras)
-export const generateSummaryTitle = async (summary: string): Promise<string> => {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-  const prompt = `Resume el siguiente contenido en un título de máximo 8 palabras:\n\n${summary}`;
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text().replace(/[".]/g, "").trim();
-};
-
-// ✅ Extraer texto de PDF, TXT o imagen (OCR)
-const extractTextFromFile = async (file: File): Promise<string> => {
-  const fileType = file.type;
-
-  // PDF
-  if (fileType === "application/pdf") {
-    const pdfjsLib = await import("pdfjs-dist/build/pdf");
-    const pdfjsWorker = await import("pdfjs-dist/build/pdf.worker.entry");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    const textPromises: Promise<string>[] = [];
-    for (let i = 0; i < pdf.numPages; i++) {
-      const page = await pdf.getPage(i + 1);
-      const content = await page.getTextContent();
-      const text = content.items.map((item: any) => item.str).join(" ");
-      textPromises.push(Promise.resolve(text));
-    }
-
-    const allText = await Promise.all(textPromises);
-    return allText.join("\n");
+  if (file.type === "application/pdf") {
+    fileParts = await pdfToGenerativeParts(file);
+  } else if (file.type.startsWith("image/")) {
+    fileParts = [await fileToGenerativePart(file)];
+  } else {
+    throw new Error("Tipo de archivo no soportado. Sube un PDF o imagen.");
   }
 
-  // TXT
-  if (fileType === "text/plain") {
-    return await file.text();
-  }
-
-  // Imagen (OCR)
-  if (fileType.startsWith("image/")) {
-    const base64 = await toBase64(file);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const result = await model.generateContent([
-      { inlineData: { data: base64, mimeType: fileType } },
-      {
-        text: "Extrae el texto visible de esta imagen. No inventes texto. Devuelve solo el texto sin formatear.",
-      },
-    ]);
-
-    const response = await result.response;
-    return response.text();
-  }
-
-  throw new Error("Formato de archivo no soportado.");
-};
-
-// 🔧 Helper para convertir a base64
-const toBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result.split(",")[1]);
-      } else {
-        reject(new Error("Error al leer el archivo."));
-      }
-    };
-    reader.onerror = (error) => reject(error);
+  const response = await fetch("/api/summarize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileParts, summaryType }),
   });
+
+  let text;
+  try {
+    text = await response.text();
+  } catch {
+    throw new Error("Error al leer respuesta del servidor.");
+  }
+
+  if (!text) {
+    throw new Error("Respuesta vacía del servidor al generar resumen.");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Respuesta no es JSON válido al generar resumen.");
+  }
+
+  if (!response.ok) throw new Error(data.error || "Error al generar resumen");
+  return data.summary;
+};
+
+export const createPresentation = async (
+  summaryText: string,
+  presentationType: PresentationType
+): Promise<PresentationData> => {
+  const response = await fetch("/api/present", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ summaryText, presentationType }),
+  });
+
+  let text;
+  try {
+    text = await response.text();
+  } catch {
+    throw new Error("Error al leer respuesta del servidor.");
+  }
+
+  if (!text) {
+    throw new Error("Respuesta vacía del servidor al generar presentación.");
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Respuesta no es JSON válido al generar presentación.");
+  }
+
+  if (!response.ok) throw new Error(data.error || "Error al generar presentación");
+  return data.presentationData;
+};
