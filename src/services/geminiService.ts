@@ -1,7 +1,13 @@
 import { SummaryType, PresentationType, PresentationData } from "../types";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY);
+// ✅ Control defensivo para la clave
+const apiKey = import.meta.env.VITE_API_KEY;
+if (!apiKey) {
+  throw new Error("VITE_API_KEY no está definida. Asegúrate de tenerla en .env o en Netlify.");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export const summarizeContent = async (file: File, summaryType: SummaryType): Promise<string> => {
   const content = await extractTextFromFile(file);
@@ -62,7 +68,6 @@ Devuélvelo en formato JSON estructurado con secciones, subtítulos y contenido.
   return JSON.parse(json);
 };
 
-// ✅ NUEVO: Generar estructura para mapa mental en árbol
 export const generateMindmap = async (summary: string): Promise<any> => {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -98,7 +103,8 @@ Formato deseado:
   return JSON.parse(json);
 };
 
-// Funciones de extracción
+// 📄 Extracción de texto desde archivo
+
 const extractTextFromFile = async (file: File): Promise<string> => {
   if (file.type === "application/pdf") {
     return await extractTextFromPdf(file);
