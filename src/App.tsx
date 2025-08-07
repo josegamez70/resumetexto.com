@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
-import { summarizeContent, createPresentation, generateTitle } from "./services/geminiService";
+import { summarizeContent, createPresentation } from "./services/geminiService";
 import {
   ViewState,
   SummaryType,
@@ -26,10 +26,8 @@ const App: React.FC = () => {
     setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
     try {
       const generatedSummary = await summarizeContent(file, summaryType);
-      const generatedTitle = await generateTitle(generatedSummary); // ✅ nuevo título generado por IA
-
       setSummary(generatedSummary);
-      setSummaryTitle(generatedTitle);
+      setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
       setView(ViewState.SUMMARY);
     } catch (err) {
       console.error(err);
