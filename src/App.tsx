@@ -1,115 +1,150 @@
-import React, { useState } from "react";
-import FileUploader from "./components/FileUploader";
-import SummaryView from "./components/SummaryView";
-import PresentationView from "./components/PresentationView";
-import { summarizeContent, createPresentation } from "./services/geminiService";
-import {
-  ViewState,
-  SummaryType,
-  PresentationData,
-  PresentationType,
-} from "./types";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { summarizeContent } from './services/geminiService';
+import { ConfigOptions, SummaryType } from './types';
+import Configurator from './components/Configurator';
+import SummaryView from './components/SummaryView';
+import PresentationView from './components/PresentationView';
+import Loader from './components/Loader';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
-  const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [summary, setSummary] = useState('');
+  const [summaryTitle, setSummaryTitle] = useState('');
+  const [view, setView] = useState<'config' | 'summary' | 'presentation'>('config');
+  const [isLoading, setIsLoading] = useState(false);
+  const [summaryType, setSummaryType] = useState<SummaryType>('text');
+  const [config, setConfig] = useState<ConfigOptions>({
+    level: 'basic',
+    topic: 'daily_life',
+    wordCount: 100,
+    questionCount: 5
+  });
 
-  const handleFileUpload = async (file: File, summaryType: SummaryType) => {
-    setError(null);
-    setIsProcessing(true);
-    setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!file) return;
+    setIsLoading(true);
     try {
-      const generatedSummary = await summarizeContent(file, summaryType);
+      const { summary: generatedSummary, title: generatedTitle } = await summarizeContent(file, summaryType);
       setSummary(generatedSummary);
-      setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
-      setView(ViewState.SUMMARY);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar el resumen."
-      );
+      setSummaryTitle(generatedTitle || generatedSummary.split(" ").slice(0, 6).join(" "));
+      setView('summary');
+    } catch (error) {
+      console.error('Error generating summary:', error);
     } finally {
-      setLoadingMessage(null);
-      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
 
-  const handleGeneratePresentation = async () => {
-    if (!summary) return;
-    setIsProcessing(true);
-    setLoadingMessage("⏳ Generando presentación, puede tardar unos minutos...");
+  const handleGeneratePresentation = () => {
+    setView('presentation');
+  };
+
+  const handleGoBack = () => {
+    setSummary('');
+    setSummaryTitle('');
+    setFile(null);
+    setView('config');
+  };
+
+  const handlePlayAudio = async () => {
+    if (!file) return;
+
     try {
-      const generatedPresentation = await createPresentation(summary, presentationType);
-      setPresentation(generatedPresentation);
-      setView(ViewState.PRESENTATION);
+      const text = await file.text();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = playbackRate;
+      speechSynthesis.speak(utterance);
     } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar la presentación."
-      );
-    } finally {
-      setLoadingMessage(null);
-      setIsProcessing(false);
+      console.error('Error generating audio:', err);
     }
   };
 
-  const handleReset = () => {
-    setSummary(null);
-    setSummaryTitle(null);
-    setPresentation(null);
-    setView(ViewState.UPLOADER);
-    setError(null);
+  const handleToggleSpeed = () => {
+    setPlaybackRate(prev => (prev === 1 ? 0.5 : 1));
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-white p-6 relative">
-      {/* Mensaje de error */}
-      {error && (
-        <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>
-      )}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-10 px-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold text-center mb-6">Resumen IA</h1>
 
-      {/* Mensaje de carga centrado */}
-      {loadingMessage && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-yellow-500 text-black p-4 rounded-lg text-center font-semibold animate-pulse max-w-xs">
-            {loadingMessage}
-          </div>
-        </div>
-      )}
+        {view === 'config' && (
+          <>
+            <input
+              type="file"
+              accept=".txt,.pdf"
+              onChange={handleFileChange}
+              className="mb-4"
+            />
+            <Configurator
+              config={config}
+              setConfig={setConfig}
+              onGenerate={handleGenerateSummary}
+              isLoading={isLoading}
+            />
+          </>
+        )}
 
-      {view === ViewState.UPLOADER && (
-        <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
-      )}
+        {isLoading && <Loader />}
 
-      {view === ViewState.SUMMARY && summary && (
-        <SummaryView
-          summary={summary}
-          summaryTitle={summaryTitle || ''}
-          presentationType={presentationType}
-          setPresentationType={setPresentationType}
-          onGeneratePresentation={handleGeneratePresentation}
-          onReset={handleReset}
-        />
-      )}
+        {view === 'summary' && (
+          <>
+            <SummaryView summary={summary} summaryTitle={summaryTitle} />
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+              <button
+                onClick={handleGeneratePresentation}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all"
+              >
+                Ver presentación
+              </button>
+              <button
+                onClick={handlePlayAudio}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-all"
+              >
+                Escuchar resumen ({playbackRate}x)
+              </button>
+              <button
+                onClick={handleToggleSpeed}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all"
+              >
+                Velocidad {playbackRate === 1 ? '0.5x' : '1x'}
+              </button>
+              <button
+                onClick={handleGoBack}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-all"
+              >
+                Volver atrás
+              </button>
+            </div>
+          </>
+        )}
 
-      {view === ViewState.PRESENTATION && presentation && (
-        <PresentationView
-          presentation={presentation}
-          presentationType={presentationType}
-          summaryTitle={summaryTitle || ''}
-          onReset={handleReset}
-        />
-      )}
+        {view === 'presentation' && (
+          <>
+            <PresentationView summary={summary} summaryTitle={summaryTitle} />
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => setView('summary')}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all"
+              >
+                Volver al resumen
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

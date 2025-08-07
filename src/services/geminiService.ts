@@ -1,115 +1,47 @@
-import * as pdfjsLib from "pdfjs-dist";
-import { SummaryType, PresentationType, PresentationData } from "../types";
+import { SummaryType } from '../types';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY);
 
-const fileToGenerativePart = async (file: File) => {
-  const base64EncodedDataPromise = new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
-    reader.readAsDataURL(file);
-  });
-  return {
-    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
-  };
-};
+export async function summarizeContent(file: File, summaryType: SummaryType): Promise<{ summary: string; title: string }> {
+  const text = await file.text();
 
-const pdfToGenerativeParts = async (file: File) => {
-  const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
-  const pageParts = [];
+  const prompt = `
+Eres un asistente que resume textos en español. Toma el siguiente contenido y:
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+1. Haz un resumen claro y útil.
+2. Propón un título breve, claro y representativo del contenido (máximo 10 palabras, sin comillas ni punto final).
 
-    if (context) {
-      await page.render({ canvasContext: context, viewport }).promise;
-      const base64EncodedData = canvas.toDataURL("image/jpeg").split(",")[1];
-      pageParts.push({
-        inlineData: {
-          data: base64EncodedData,
-          mimeType: "image/jpeg",
-        },
-      });
-    }
-  }
-  return pageParts;
-};
+Devuelve el resultado en formato JSON:
 
-export const summarizeContent = async (
-  file: File,
-  summaryType: SummaryType
-): Promise<string> => {
-  let fileParts;
+{
+  "title": "Título generado",
+  "summary": "Resumen generado"
+}
 
-  if (file.type === "application/pdf") {
-    fileParts = await pdfToGenerativeParts(file);
-  } else if (file.type.startsWith("image/")) {
-    fileParts = [await fileToGenerativePart(file)];
-  } else {
-    throw new Error("Tipo de archivo no soportado. Sube un PDF o imagen.");
-  }
+Texto original:
+"""${text}"""
+`;
 
-  const response = await fetch("/api/summarize", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileParts, summaryType }),
-  });
+  const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const raw = response.text();
 
-  let text;
   try {
-    text = await response.text();
-  } catch {
-    throw new Error("Error al leer respuesta del servidor.");
+    // Limpiar posibles bloques ```json ... ```
+    const jsonClean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(jsonClean);
+
+    return {
+      summary: parsed.summary || '',
+      title: parsed.title || '',
+    };
+  } catch (e) {
+    console.error('Error parsing JSON response:', e);
+    return {
+      summary: raw,
+      title: '',
+    };
   }
-
-  if (!text) {
-    throw new Error("Respuesta vacía del servidor al generar resumen.");
-  }
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("Respuesta no es JSON válido al generar resumen.");
-  }
-
-  if (!response.ok) throw new Error(data.error || "Error al generar resumen");
-  return data.summary;
-};
-
-export const createPresentation = async (
-  summaryText: string,
-  presentationType: PresentationType
-): Promise<PresentationData> => {
-  const response = await fetch("/api/present", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ summaryText, presentationType }),
-  });
-
-  let text;
-  try {
-    text = await response.text();
-  } catch {
-    throw new Error("Error al leer respuesta del servidor.");
-  }
-
-  if (!text) {
-    throw new Error("Respuesta vacía del servidor al generar presentación.");
-  }
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("Respuesta no es JSON válido al generar presentación.");
-  }
-
-  if (!response.ok) throw new Error(data.error || "Error al generar presentación");
-  return data.presentationData;
-};
+}
