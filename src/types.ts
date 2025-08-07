@@ -1,30 +1,30 @@
+export enum ViewState {
+  UPLOADER,
+  SUMMARY,
+  PRESENTATION,
+  MINDMAP, // ✅ añadido para el mapa mental
+}
+
 export enum SummaryType {
-    Short = 'Short',       // Resumen corto
-    Medium = 'Medium',     // Resumen medio
-    Long = 'Long',         // Resumen largo
-    Bullets = 'Bullets',   // Resumen por puntos
+  Short = "short",
+  Long = "long",
+  Bullets = "bullets",
 }
 
 export enum PresentationType {
-    Extensive = 'Extensive',   // Extensa (en detalle)
-    Complete = 'Complete',     // Completa (50% más contenido y detalle que Extensa)
-    Kids = 'Kids',             // Para Niños
+  Extensive = "extensive",
+  Complete = "complete",
+  Kids = "kids",
 }
 
-export type PresentationSection = {
-    emoji: string;
-    title: string;
-    content: string;
-    subsections?: PresentationSection[]; // Para soportar subniveles en presentaciones extensas
-};
+export interface PresentationData {
+  title: string;
+  sections: PresentationSection[];
+}
 
-export type PresentationData = {
-    title: string;
-    sections: PresentationSection[];
-};
-
-export enum ViewState {
-    UPLOADER,
-    SUMMARY,
-    PRESENTATION,
+export interface PresentationSection {
+  emoji: string;
+  title: string;
+  content?: string;
+  subsections?: PresentationSection[];
 }
