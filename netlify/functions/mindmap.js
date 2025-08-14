@@ -1,12 +1,11 @@
 // netlify/functions/mindmap.js
-// Genera un mapa mental (resumido) a partir de { text } y devuelve JSON: { mindmap }
+// Genera un mapa mental (resumido) a partir de { text } y devuelve { mindmap }
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
-    // Cargar ESM en función CJS (evita ERR_REQUIRE_ESM)
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
     const apiKey =
@@ -51,8 +50,10 @@ exports.handler = async (event) => {
 Eres un generador de mapas mentales. A partir del TEXTO, crea un árbol jerárquico (máx. 5 niveles),
 con títulos cortos y claros. No inventes datos. Agrupa por temas.
 
-Devuelve EXCLUSIVAMENTE JSON (sin comentarios, sin explicaciones, sin bloques \`\`\`), con este esquema:
+Devuelve **EXCLUSIVAMENTE** un JSON válido (sin comentarios, sin explicaciones, sin prefijos/sufijos ni bloques \`\`\`).
+Tu **primer carácter** debe ser '{' y tu **último carácter** debe ser '}'.
 
+Esquema esperado (ejemplo de formato, no inventes campos nuevos):
 {
   "root": {
     "id": "root",
@@ -60,10 +61,10 @@ Devuelve EXCLUSIVAMENTE JSON (sin comentarios, sin explicaciones, sin bloques \`
     "children": [
       {
         "id": "n1",
-        "label": "Subtema o concepto",
-        "note": "Frase corta opcional",
+        "label": "Subtema",
+        "note": "opcional",
         "children": [
-          { "id": "n1a", "label": "Idea / dato", "note": "opcional" }
+          { "id": "n1a", "label": "Idea", "note": "opcional" }
         ]
       }
     ]
@@ -76,21 +77,16 @@ ${safeText}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      // Fuerza salida JSON (reduce muchísimo “texto extra”)
-      generationConfig: {
-        temperature: 0.4,
-        responseMimeType: "application/json",
-      },
+      generationConfig: { temperature: 0.4 }, // ← sin responseMimeType
     });
 
     let raw = result.response.text().trim();
 
-    // Intento 1: parse directo
+    // ---- Parse robusto ----
     let data;
     try {
       data = JSON.parse(raw);
     } catch {
-      // Intento 2: limpiar triples backticks y rescatar el primer bloque {...}
       const cleaned = raw
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
@@ -100,7 +96,6 @@ ${safeText}
       try {
         data = JSON.parse(cleaned);
       } catch {
-        // Intento 3: recortar entre el primer '{' y el último '}'
         const start = cleaned.indexOf("{");
         const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1 && end > start) {
@@ -131,9 +126,6 @@ ${safeText}
     };
   } catch (err) {
     console.error("[mindmap] error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err?.message || "Error en mindmap" }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en mindmap" }) };
   }
 };
