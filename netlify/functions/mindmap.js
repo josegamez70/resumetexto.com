@@ -48,10 +48,10 @@ exports.handler = async (event) => {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const prompt = `
-Eres un generador de mapas mentales. A partir del TEXTO, crea un árbol jerárquico (máximo 5 niveles),
+Eres un generador de mapas mentales. A partir del TEXTO, crea un árbol jerárquico (máx. 5 niveles),
 con títulos cortos y claros. No inventes datos. Agrupa por temas.
 
-Devuelve EXCLUSIVAMENTE un JSON válido (sin comentarios, sin explicaciones, sin bloques \`\`\`), con este esquema:
+Devuelve EXCLUSIVAMENTE JSON (sin comentarios, sin explicaciones, sin bloques \`\`\`), con este esquema:
 
 {
   "root": {
@@ -76,21 +76,52 @@ ${safeText}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.6 },
+      // Fuerza salida JSON (reduce muchísimo “texto extra”)
+      generationConfig: {
+        temperature: 0.4,
+        responseMimeType: "application/json",
+      },
     });
 
     let raw = result.response.text().trim();
-    // Limpieza por si viniera envuelto en ```json
-    raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
 
+    // Intento 1: parse directo
     let data;
     try {
       data = JSON.parse(raw);
     } catch {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw }),
-      };
+      // Intento 2: limpiar triples backticks y rescatar el primer bloque {...}
+      const cleaned = raw
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```$/i, "")
+        .trim();
+
+      try {
+        data = JSON.parse(cleaned);
+      } catch {
+        // Intento 3: recortar entre el primer '{' y el último '}'
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
+        if (start !== -1 && end !== -1 && end > start) {
+          const slice = cleaned.slice(start, end + 1);
+          try {
+            data = JSON.parse(slice);
+          } catch {
+            console.error("[mindmap] JSON inválido. raw:", raw);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }),
+            };
+          }
+        } else {
+          console.error("[mindmap] No se encontró bloque JSON. raw:", raw);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }),
+          };
+        }
+      }
     }
 
     return {
