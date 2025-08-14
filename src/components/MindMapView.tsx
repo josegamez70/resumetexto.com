@@ -20,8 +20,9 @@ const NodeBox: React.FC<{
   const hasChildren = (node.children?.length || 0) > 0;
 
   return (
-    <div className="flex items-start gap-1.5 sm:gap-3 my-0.5">
-      {/* Nodo: más compacto en móvil */}
+    // Móvil: columna (hijos DEBAJO). Desktop: fila (hijos a la DERECHA).
+    <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
+      {/* Nodo */}
       <button
         className="shrink-0 rounded-md sm:rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-left w-full sm:w-auto"
         onClick={() => hasChildren && setOpen((v) => !v)}
@@ -31,9 +32,14 @@ const NodeBox: React.FC<{
         {node.note && <div className="text-[11px] sm:text-xs text-gray-400 mt-0.5 leading-tight">{node.note}</div>}
       </button>
 
-      {/* Hijos: sin borde en móvil; con borde a partir de sm */}
+      {/* Conector SOLO en móvil cuando está abierto */}
       {open && hasChildren && (
-        <div className="pl-1.5 sm:pl-4 sm:border-l border-gray-700 flex flex-col gap-1.5 sm:gap-2 w-full">
+        <div className="sm:hidden w-px h-2 bg-gray-600 ml-4" aria-hidden="true" />
+      )}
+
+      {/* Hijos: móvil debajo con borde-l; escritorio a la derecha con borde-l */}
+      {open && hasChildren && (
+        <div className="pl-3 sm:pl-4 border-l border-gray-700 flex flex-col gap-1.5 sm:gap-2 w-full">
           {node.children!.map((c) => (
             <NodeBox
               key={c.id}
@@ -59,7 +65,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
     [summaryTitle, data.root.label]
   );
 
-  // --- Helpers para descarga (HTML con <details>) ---
+  // --- Helpers para descarga (HTML con <details> y conector móvil) ---
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -75,7 +81,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
       ${node.note ? `<div class="note">${esc(node.note)}</div>` : ""}
     </div>
   </summary>
-  ${hasChildren ? `<div class="children">${kids}</div>` : ""}
+  ${
+    hasChildren
+      ? `<div class="connector sm:hidden" aria-hidden="true"></div>
+         <div class="children">${kids}</div>`
+      : ""
+  }
 </details>`;
   };
 
@@ -88,8 +99,8 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  /* Compacto móvil */
-  details.mind{display:flex;align-items:flex-start;gap:.5rem;margin:.2rem 0}
+  /* Compacto móvil con conector bajo la etiqueta abierta */
+  details.mind{display:flex;flex-direction:column;gap:.5rem;margin:.2rem 0}
   details.mind > summary{display:inline-flex;align-items:flex-start;list-style:none;cursor:pointer}
   summary::-webkit-details-marker{display:none}
   .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
@@ -97,13 +108,13 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   details.mind:not([open]) > summary .marker::after{content:"+"}
   .node .label{font-weight:600;font-size:.9rem}
   .node .note{font-size:.75rem;color:#9ca3af;margin-top:.1rem}
-  details.mind > .children{padding-left:.6rem}
+  .connector{width:1px;height:.6rem;background:#374151;margin-left:1.65rem}
+  .children{padding-left:.6rem}
   @media (min-width:640px){
     body{overflow-x:auto}
-    details.mind{gap:.75rem;margin:.25rem 0}
-    .marker{width:1.5rem;height:1.5rem;font-size:.9rem}
-    .node .label{font-size:1rem}
-    details.mind > .children{border-left:1px solid #374151;padding-left:1rem}
+    details.mind{flex-direction:row;align-items:flex-start;gap:.75rem}
+    .connector{display:none}
+    .children{border-left:1px solid #374151;padding-left:1rem}
   }
 </style>
 <script>
@@ -161,7 +172,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
           </button>
         </div>
 
-        {/* Vista en-app (más compacta en móvil) */}
+        {/* Vista en-app: móvil debajo con conector; escritorio a la derecha */}
         <div ref={containerRef}>
           <NodeBox
             node={data.root}

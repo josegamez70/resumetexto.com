@@ -1,5 +1,5 @@
 // netlify/functions/present.js
-// Genera "Mapa conceptual" a partir de { summaryText, presentationType }
+// Genera "Mapa conceptual" a partir de { summaryText, presentationType } con subsections RECURSIVAS
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -41,34 +41,38 @@ exports.handler = async (event) => {
     const MAX = 10000;
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
-    // Parámetros por tipo
-    const typeRules = {
+    // Reglas por tipo (incluye profundidad máxima)
+    const rules = {
       Extensive: {
         title: "Extensa (en detalle)",
         sectionsMax: 6,
-        subsectionsMax: 4,
-        contentLen: "2–3 frases por sección",
+        subsectionsMaxPerLevel: 4,
+        maxDepth: 3, // Sección > Sub > Sub-Sub (hasta 3 niveles)
+        contentLen: "2–3 frases por sección o subsección",
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
       Complete: {
         title: "Completa (+50% más detalle que Extensa)",
         sectionsMax: 6,
-        subsectionsMax: 5,
-        contentLen: "3–4 frases por sección (más detalle que Extensa)",
-        extra: "Amplía ejemplos y causas/consecuencias.",
+        subsectionsMaxPerLevel: 5,
+        maxDepth: 4, // Sección > Sub > Sub-Sub > Sub-Sub-Sub
+        contentLen: "3–4 frases por sección o subsección",
+        extra: "Amplía causas, consecuencias y ejemplos concretos.",
       },
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
-        subsectionsMax: 3,
-        contentLen: "1–2 frases simples por sección",
+        subsectionsMaxPerLevel: 3,
+        maxDepth: 2, // Sección > Sub
+        contentLen: "1–2 frases simples por sección o subsección",
         extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
       },
     }[presentationType] || {
       title: "Extensa (en detalle)",
       sectionsMax: 6,
-      subsectionsMax: 4,
-      contentLen: "2–3 frases por sección",
+      subsectionsMaxPerLevel: 4,
+      maxDepth: 3,
+      contentLen: "2–3 frases por sección o subsección",
       extra: "",
     };
 
@@ -77,14 +81,19 @@ exports.handler = async (event) => {
 
     const prompt = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
-Estilo seleccionado: ${typeRules.title}.
-- Máximo ${typeRules.sectionsMax} secciones.
-- Máximo ${typeRules.subsectionsMax} subsecciones por sección.
-- Longitud de contenido: ${typeRules.contentLen}.
-- ${typeRules.extra}
+Estilo seleccionado: ${rules.title}.
+- Máximo ${rules.sectionsMax} secciones.
+- Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
+- Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
+- Longitud de contenido: ${rules.contentLen}.
+- ${rules.extra}
 
-Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`), con este formato exacto:
+Muy importante:
+- La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
+- Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
+- Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
+Formato EXACTO (ejemplo con recursividad):
 {
   "presentationData": {
     "title": "Título de la presentación",
@@ -97,7 +106,21 @@ Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques 
           {
             "emoji": "🔹",
             "title": "Subsección",
-            "content": "Detalle relevante."
+            "content": "Detalle relevante.",
+            "subsections": [
+              {
+                "emoji": "•",
+                "title": "Sub-subsección",
+                "content": "Detalle adicional.",
+                "subsections": [
+                  {
+                    "emoji": "·",
+                    "title": "Sub-sub-subsección",
+                    "content": "Detalle si aplica."
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -111,7 +134,7 @@ ${safe}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.5 },
+      generationConfig: { temperature: 0.45 },
     });
 
     let raw = result.response.text().trim();
