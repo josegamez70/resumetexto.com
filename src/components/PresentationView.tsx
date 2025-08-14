@@ -1,4 +1,3 @@
-// src/components/PresentationView.tsx
 import React, { useRef } from "react";
 import { PresentationData, PresentationType } from "../types";
 
@@ -6,16 +5,16 @@ interface PresentationViewProps {
   presentation: PresentationData;
   presentationType: PresentationType;
   summaryTitle: string;
+  onMindMap: () => void;   // <-- NUEVO
   onReset: () => void;
-  onMindMap: () => void; // <-- NUEVO
 }
 
 const PresentationView: React.FC<PresentationViewProps> = ({
   presentation,
   presentationType,
   summaryTitle,
-  onReset,
   onMindMap,
+  onReset,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +74,7 @@ function printPDF(){ window.print(); }
             <button
               onClick={onMindMap}
               className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg"
-              title="Ver como mapa mental"
+              title="Ver como Mapa Mental"
             >
               🧠 Ver como Mapa Mental
             </button>
@@ -101,20 +100,25 @@ function printPDF(){ window.print(); }
                 <span className="mr-2">{section.emoji}</span>
                 {section.title}
               </summary>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">{section.content}</p>
-              {section.subsections?.length ? (
+              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">
+                {section.content}
+              </p>
+
+              {!!section.subsections?.length && (
                 <div className="mt-3 space-y-2">
-                  {section.subsections.map((sub, sidx) => (
+                  {section.subsections!.map((sub, sidx) => (
                     <details key={sidx} className="bg-gray-900 rounded-lg p-3">
                       <summary className="cursor-pointer font-medium">
                         <span className="mr-2">{sub.emoji}</span>
                         {sub.title}
                       </summary>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-400">{sub.content}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-400">
+                        {sub.content}
+                      </p>
                     </details>
                   ))}
                 </div>
-              ) : null}
+              )}
             </details>
           ))}
         </div>

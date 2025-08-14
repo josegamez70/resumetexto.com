@@ -1,4 +1,3 @@
-// netlify/functions/mindmap.ts
 import type { Handler } from "@netlify/functions";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -31,10 +30,10 @@ const handler: Handler = async (event) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
-Eres un generador de mapas mentales. A partir del TEXTO que te paso, construye un árbol jerárquico de conceptos (máx. 5 niveles), 
+Eres un generador de mapas mentales. A partir del TEXTO que te paso, construye un árbol jerárquico de conceptos (máx. 5 niveles),
 con títulos cortos y claros. No inventes datos. Agrupa por temas.
 
-Devuelve **EXCLUSIVAMENTE** un JSON válido (sin comentarios, sin explicaciones, sin texto extra, sin bloques \`\`\`), con este esquema:
+Devuelve EXCLUSIVAMENTE un JSON válido (sin comentarios, sin explicaciones, sin texto extra, sin \`\`\`), con este esquema:
 
 {
   "root": {
@@ -56,24 +55,17 @@ Devuelve **EXCLUSIVAMENTE** un JSON válido (sin comentarios, sin explicaciones,
 TEXTO:
 `;
 
-    const result = await model.generateContent([
-      { role: "user", parts: [{ text: prompt + text }] },
-    ]);
-
+    const result = await model.generateContent([{ role: "user", parts: [{ text: prompt + text }] }]);
     let raw = result.response.text().trim();
-    // Limpieza por si viniera envuelto en ```json
     raw = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
 
     let data;
     try {
       data = JSON.parse(raw);
-    } catch (e) {
+    } catch {
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          error: "La respuesta de Gemini no fue JSON válido.",
-          raw,
-        }),
+        body: JSON.stringify({ error: "La respuesta de Gemini no fue JSON válido.", raw }),
       };
     }
 
@@ -83,10 +75,7 @@ TEXTO:
       headers: { "Content-Type": "application/json" },
     };
   } catch (err: any) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err?.message || "Error desconocido en mindmap." }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error desconocido en mindmap." }) };
   }
 };
 

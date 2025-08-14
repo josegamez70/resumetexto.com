@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useState } from "react";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
@@ -23,31 +22,39 @@ import {
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
 
+  // Archivo original subido
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+
   // Resumen
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
 
   // Presentación
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
+  const [presentationType, setPresentationType] = useState<PresentationType>(
+    PresentationType.Extensive
+  );
 
-  // Mindmap
+  // Mapa mental
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
 
+  // UI
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleReset = () => {
     setView(ViewState.UPLOADER);
+    setOriginalFile(null);
     setSummary(null);
     setSummaryTitle(null);
     setPresentation(null);
     setMindmap(null);
   };
 
-  // Subir y resumir
+  // 1) Subida y resumen
   const handleFileUpload = async (file: File, summaryType: SummaryType) => {
     try {
       setIsProcessing(true);
+      setOriginalFile(file);
       const { summary, title } = await summarizeContent(file, summaryType);
       setSummary(summary);
       setSummaryTitle(title);
@@ -59,13 +66,16 @@ const App: React.FC = () => {
     }
   };
 
-  // Generar presentación
-  const handleCreatePresentation = async (file: File, type: PresentationType) => {
+  // 2) Generar presentación (llamado desde SummaryView)
+  const handleGeneratePresentation = async () => {
     try {
+      if (!originalFile) {
+        alert("No hay archivo original para generar la presentación.");
+        return;
+      }
       setIsProcessing(true);
-      const p = await createPresentation(file, type);
+      const p = await createPresentation(originalFile, presentationType);
       setPresentation(p);
-      setPresentationType(type);
       setView(ViewState.PRESENTATION);
     } catch (err: any) {
       alert(err?.message || "Error al generar presentación.");
@@ -74,15 +84,20 @@ const App: React.FC = () => {
     }
   };
 
-  // Abrir mapa mental (desde summary o desde presentation)
+  // 3) Abrir mapa mental (desde presentación; si no hay, usa el resumen)
   const handleOpenMindMap = async () => {
     try {
       setIsProcessing(true);
-      let baseText = summary || (presentation ? flattenPresentationToText(presentation) : "");
+      const baseText =
+        (presentation && flattenPresentationToText(presentation)) ||
+        summary ||
+        "";
+
       if (!baseText) {
-        alert("No hay texto base para el mapa mental.");
+        alert("No hay contenido para generar el mapa mental.");
         return;
       }
+
       const data = await createMindMapFromText(baseText);
       setMindmap(data);
       setView(ViewState.MINDMAP);
@@ -105,10 +120,10 @@ const App: React.FC = () => {
         <SummaryView
           summary={summary}
           summaryTitle={summaryTitle || ""}
+          presentationType={presentationType}
+          setPresentationType={setPresentationType}
+          onGeneratePresentation={handleGeneratePresentation}  // ✅ nombre correcto
           onReset={handleReset}
-          onCreatePresentation={handleCreatePresentation}
-          isProcessing={isProcessing}
-          onOpenMindMap={handleOpenMindMap} // <-- botón en SummaryView si quieres
         />
       )}
 
@@ -117,8 +132,8 @@ const App: React.FC = () => {
           presentation={presentation}
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
+          onMindMap={handleOpenMindMap}           // ✅ botón mapa mental
           onReset={handleReset}
-          onMindMap={handleOpenMindMap} // <-- botón “Ver como Mapa Mental”
         />
       )}
 

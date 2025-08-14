@@ -1,4 +1,3 @@
-// src/components/MindMapView.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
@@ -14,7 +13,7 @@ const NodeView: React.FC<{
   expandAllSeq: number;
   collapseAllSeq: number;
 }> = ({ node, level, expandAllSeq, collapseAllSeq }) => {
-  const [open, setOpen] = useState(level === 0); // raíz abierta
+  const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
 
@@ -26,7 +25,6 @@ const NodeView: React.FC<{
         className="flex items-start gap-2 cursor-pointer select-none"
         style={{ paddingLeft: level === 0 ? 0 : 16 }}
         onClick={(e) => {
-          // Evita que al clicar sobre el texto de un hijo se dispare arriba
           if ((e.target as HTMLElement).closest("button")) return;
           if (hasChildren) setOpen((v) => !v);
         }}
