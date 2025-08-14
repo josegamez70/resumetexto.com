@@ -4,6 +4,7 @@ import {
   PresentationType,
   PresentationData,
   MindMapData,
+  MindMapMode,
 } from "../types";
 
 // Worker de pdf.js
@@ -18,13 +19,15 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
-    const strings = (content.items as any[]).map((it: any) => ("str" in it ? it.str : "")).filter(Boolean);
+    const strings = (content.items as any[])
+      .map((it: any) => ("str" in it ? it.str : ""))
+      .filter(Boolean);
     text += strings.join(" ") + "\n";
   }
   return text.trim();
 }
 
-// --- Resumen: devuelve SOLO string (como antes) ---
+// --- Resumen: devuelve SOLO string ---
 export async function summarizeContent(file: File, summaryType: SummaryType): Promise<string> {
   const text = await extractTextFromPDF(file);
   const resp = await fetch("/api/summarize", {
@@ -41,7 +44,10 @@ export async function summarizeContent(file: File, summaryType: SummaryType): Pr
 }
 
 // --- Mapa conceptual (antes “presentación”): recibe summaryText ---
-export async function createPresentation(summaryText: string, presentationType: PresentationType): Promise<PresentationData> {
+export async function createPresentation(
+  summaryText: string,
+  presentationType: PresentationType
+): Promise<PresentationData> {
   const resp = await fetch("/api/present", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -55,12 +61,15 @@ export async function createPresentation(summaryText: string, presentationType: 
   return data.presentationData as PresentationData;
 }
 
-// --- Mapa mental (resumido) ---
-export async function createMindMapFromText(text: string): Promise<MindMapData> {
+// --- Mapa mental (modo: resumido/extendido) ---
+export async function createMindMapFromText(
+  text: string,
+  mode: MindMapMode = MindMapMode.Resumido
+): Promise<MindMapData> {
   const resp = await fetch("/api/mindmap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, mode }),
   });
   const raw = await resp.text();
   if (!raw) throw new Error("Respuesta vacía del servidor en mindmap.");

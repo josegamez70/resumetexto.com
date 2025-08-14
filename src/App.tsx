@@ -6,8 +6,8 @@ import MindMapView from "./components/MindMapView";
 
 import {
   summarizeContent,
-  createPresentation,            // recibe (summaryText, presentationType)
-  createMindMapFromText,        // recibe (text)
+  createPresentation,
+  createMindMapFromText,
   flattenPresentationToText,
 } from "./services/geminiService";
 
@@ -17,6 +17,7 @@ import {
   PresentationData,
   PresentationType,
   MindMapData,
+  MindMapMode,
 } from "./types";
 
 const App: React.FC = () => {
@@ -50,7 +51,7 @@ const App: React.FC = () => {
     setIsProcessing(true);
     setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
     try {
-      const generatedSummary = await summarizeContent(file, summaryType); // devuelve string
+      const generatedSummary = await summarizeContent(file, summaryType);
       setSummary(generatedSummary);
       setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
       setView(ViewState.SUMMARY);
@@ -81,10 +82,12 @@ const App: React.FC = () => {
     }
   };
 
-  // 3) Generar "Mapa mental (resumido)"
-  const handleOpenMindMap = async () => {
+  // 3) Generar "Mapa mental" (resumido o extendido)
+  const handleOpenMindMap = async (mode: MindMapMode) => {
     setIsProcessing(true);
-    setLoadingMessage("🧠 Generando mapa mental (resumido)...");
+    setLoadingMessage(mode === MindMapMode.Resumido
+      ? "🧠 Generando mapa mental (resumido)..."
+      : "🧠 Generando mapa mental (extendido)...");
     try {
       const baseText =
         (presentation && flattenPresentationToText(presentation)) ||
@@ -93,7 +96,7 @@ const App: React.FC = () => {
       if (!baseText) {
         throw new Error("No hay contenido para generar el mapa mental.");
       }
-      const data = await createMindMapFromText(baseText);
+      const data = await createMindMapFromText(baseText, mode);
       setMindmap(data);
       setView(ViewState.MINDMAP);
     } catch (err) {
@@ -130,7 +133,7 @@ const App: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap}        // 👈 NUEVO: botón en Summary
+          onOpenMindMap={handleOpenMindMap}
           onReset={handleReset}
         />
       )}
@@ -140,7 +143,7 @@ const App: React.FC = () => {
           presentation={presentation}
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
-          onMindMap={handleOpenMindMap}
+          onMindMap={() => handleOpenMindMap(MindMapMode.Resumido)} // acceso rápido desde aquí
           onReset={handleReset}
         />
       )}

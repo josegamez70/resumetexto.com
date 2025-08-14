@@ -1,5 +1,4 @@
 // netlify/functions/mindmap.js
-// Genera un mapa mental (resumido) a partir de { text } y devuelve { mindmap }
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -25,7 +24,7 @@ exports.handler = async (event) => {
     }
 
     if (!event.body) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Body vacío. Envía { text }" }) };
+      return { statusCode: 400, body: JSON.stringify({ error: "Body vacío. Envía { text, mode }" }) };
     }
 
     let payload;
@@ -35,8 +34,10 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
     }
 
-    const { text } = payload;
-    if (!text || typeof text !== "string") {
+    const text = String(payload.text || "");
+    const mode = String(payload.mode || "resumido"); // "resumido" | "extendido"
+
+    if (!text) {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { text: string }." }) };
     }
 
@@ -46,27 +47,43 @@ exports.handler = async (event) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
+    const cfg =
+      mode === "extendido"
+        ? {
+            levels: 5,
+            childrenPerNode: 5,
+            note: "Breves notas opcionales",
+            tone: "un poco más detallado",
+          }
+        : {
+            levels: 3,
+            childrenPerNode: 3,
+            note: "Sin notas o muy breves",
+            tone: "muy conciso",
+          };
+
     const prompt = `
-Eres un generador de mapas mentales. A partir del TEXTO, crea un árbol jerárquico (máx. 5 niveles),
-con títulos cortos y claros. No inventes datos. Agrupa por temas.
+Eres un generador de mapas mentales. A partir del TEXTO, crea un árbol jerárquico que se leerá
+de izquierda a derecha (raíz a la izquierda y ramas hacia la derecha).
 
-Devuelve **EXCLUSIVAMENTE** un JSON válido (sin comentarios, sin explicaciones, sin prefijos/sufijos ni bloques \`\`\`).
-Tu **primer carácter** debe ser '{' y tu **último carácter** debe ser '}'.
+Modo: ${mode} (${cfg.tone})
+- Niveles máximos: ${cfg.levels}
+- Hijos por nodo (aprox.): ${cfg.childrenPerNode}
+- Notas: ${cfg.note}
+- Etiquetas: muy cortas y claras (1–5 palabras).
 
-Esquema esperado (ejemplo de formato, no inventes campos nuevos):
+Devuelve **EXCLUSIVAMENTE** un JSON válido, sin comentarios/explicaciones/bloques \`\`\`.
+Tu primer carácter debe ser '{' y tu último carácter debe ser '}'.
+
+Formato esperado:
 {
   "root": {
     "id": "root",
     "label": "TÍTULO PRINCIPAL",
     "children": [
-      {
-        "id": "n1",
-        "label": "Subtema",
-        "note": "opcional",
-        "children": [
-          { "id": "n1a", "label": "Idea", "note": "opcional" }
-        ]
-      }
+      { "id": "n1", "label": "Subtema", "note": "opcional", "children": [
+        { "id": "n1a", "label": "Idea", "note": "opcional" }
+      ]}
     ]
   }
 }
@@ -77,12 +94,12 @@ ${safeText}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4 }, // ← sin responseMimeType
+      generationConfig: { temperature: 0.4 },
     });
 
     let raw = result.response.text().trim();
 
-    // ---- Parse robusto ----
+    // Parse robusto
     let data;
     try {
       data = JSON.parse(raw);
@@ -92,7 +109,6 @@ ${safeText}
         .replace(/^```\s*/i, "")
         .replace(/```$/i, "")
         .trim();
-
       try {
         data = JSON.parse(cleaned);
       } catch {
@@ -104,17 +120,11 @@ ${safeText}
             data = JSON.parse(slice);
           } catch {
             console.error("[mindmap] JSON inválido. raw:", raw);
-            return {
-              statusCode: 500,
-              body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }),
-            };
+            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
           }
         } else {
           console.error("[mindmap] No se encontró bloque JSON. raw:", raw);
-          return {
-            statusCode: 500,
-            body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }),
-          };
+          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
         }
       }
     }
