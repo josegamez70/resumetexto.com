@@ -1,91 +1,101 @@
+// src/App.tsx
 import React, { useState } from "react";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
-import { summarizeContent, createPresentation } from "./services/geminiService";
+import MindMapView from "./components/MindMapView";
+
+import {
+  summarizeContent,
+  createPresentation,
+  createMindMapFromText,
+  flattenPresentationToText,
+} from "./services/geminiService";
+
 import {
   ViewState,
   SummaryType,
   PresentationData,
   PresentationType,
+  MindMapData,
 } from "./types";
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
+
+  // Resumen
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
+
+  // Presentación
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
   const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const handleFileUpload = async (file: File, summaryType: SummaryType) => {
-    setError(null);
-    setIsProcessing(true);
-    setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
-    try {
-      const generatedSummary = await summarizeContent(file, summaryType);
-      setSummary(generatedSummary);
-      setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
-      setView(ViewState.SUMMARY);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar el resumen."
-      );
-    } finally {
-      setLoadingMessage(null);
-      setIsProcessing(false);
-    }
-  };
+  // Mindmap
+  const [mindmap, setMindmap] = useState<MindMapData | null>(null);
 
-  const handleGeneratePresentation = async () => {
-    if (!summary) return;
-    setIsProcessing(true);
-    setLoadingMessage("⏳ Generando presentación, puede tardar unos minutos...");
-    try {
-      const generatedPresentation = await createPresentation(summary, presentationType);
-      setPresentation(generatedPresentation);
-      setView(ViewState.PRESENTATION);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar la presentación."
-      );
-    } finally {
-      setLoadingMessage(null);
-      setIsProcessing(false);
-    }
-  };
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleReset = () => {
+    setView(ViewState.UPLOADER);
     setSummary(null);
     setSummaryTitle(null);
     setPresentation(null);
-    setView(ViewState.UPLOADER);
-    setError(null);
+    setMindmap(null);
+  };
+
+  // Subir y resumir
+  const handleFileUpload = async (file: File, summaryType: SummaryType) => {
+    try {
+      setIsProcessing(true);
+      const { summary, title } = await summarizeContent(file, summaryType);
+      setSummary(summary);
+      setSummaryTitle(title);
+      setView(ViewState.SUMMARY);
+    } catch (err: any) {
+      alert(err?.message || "Error al resumir.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Generar presentación
+  const handleCreatePresentation = async (file: File, type: PresentationType) => {
+    try {
+      setIsProcessing(true);
+      const p = await createPresentation(file, type);
+      setPresentation(p);
+      setPresentationType(type);
+      setView(ViewState.PRESENTATION);
+    } catch (err: any) {
+      alert(err?.message || "Error al generar presentación.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Abrir mapa mental (desde summary o desde presentation)
+  const handleOpenMindMap = async () => {
+    try {
+      setIsProcessing(true);
+      let baseText = summary || (presentation ? flattenPresentationToText(presentation) : "");
+      if (!baseText) {
+        alert("No hay texto base para el mapa mental.");
+        return;
+      }
+      const data = await createMindMapFromText(baseText);
+      setMindmap(data);
+      setView(ViewState.MINDMAP);
+    } catch (err: any) {
+      alert(err?.message || "Error al generar mapa mental.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-white p-6 relative">
-      {/* Mensaje de error */}
-      {error && (
-        <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>
-      )}
-
-      {/* Mensaje de carga centrado */}
-      {loadingMessage && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-yellow-500 text-black p-4 rounded-lg text-center font-semibold animate-pulse max-w-xs">
-            {loadingMessage}
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <h1 className="text-3xl font-bold mb-6">resumetexto.com</h1>
 
       {view === ViewState.UPLOADER && (
         <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
@@ -94,11 +104,11 @@ const App: React.FC = () => {
       {view === ViewState.SUMMARY && summary && (
         <SummaryView
           summary={summary}
-          summaryTitle={summaryTitle || ''}
-          presentationType={presentationType}
-          setPresentationType={setPresentationType}
-          onGeneratePresentation={handleGeneratePresentation}
+          summaryTitle={summaryTitle || ""}
           onReset={handleReset}
+          onCreatePresentation={handleCreatePresentation}
+          isProcessing={isProcessing}
+          onOpenMindMap={handleOpenMindMap} // <-- botón en SummaryView si quieres
         />
       )}
 
@@ -106,8 +116,17 @@ const App: React.FC = () => {
         <PresentationView
           presentation={presentation}
           presentationType={presentationType}
-          summaryTitle={summaryTitle || ''}
+          summaryTitle={summaryTitle || ""}
           onReset={handleReset}
+          onMindMap={handleOpenMindMap} // <-- botón “Ver como Mapa Mental”
+        />
+      )}
+
+      {view === ViewState.MINDMAP && mindmap && (
+        <MindMapView
+          data={mindmap}
+          summaryTitle={summaryTitle}
+          onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
         />
       )}
     </div>
