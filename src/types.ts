@@ -6,9 +6,9 @@ export enum SummaryType {
 }
 
 export enum PresentationType {
-  Extensive = "Extensive",
-  Complete = "Complete",
-  Kids = "Kids",
+  Extensive = 'Extensive',   // Extensa (en detalle)
+  Complete  = 'Complete',    // Completa (50% más contenido y detalle que Extensa)
+  Kids      = 'Kids',        // Para Niños
 }
 
 export type PresentationSection = {
@@ -34,6 +34,11 @@ export type MindMapNode = {
 export type MindMapData = {
   root: MindMapNode;
 };
+
+export enum MindMapMode {
+  Resumido = "resumido",
+  Extendido = "extendido",
+}
 
 export enum ViewState {
   UPLOADER,
