@@ -1,47 +1,42 @@
+// netlify/functions/summarize.js
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 exports.handler = async (event) => {
   try {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
+    }
 
+    const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.VITE_API_KEY || process.env.GEMINI_API_KEY || "";
     if (!apiKey) {
-      console.error("[summarize] ERROR: GOOGLE_AI_API_KEY no está configurada en el servidor.");
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Falta GOOGLE_AI_API_KEY en las variables de entorno del servidor.",
-        }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: "Falta API Key (GOOGLE_AI_API_KEY / VITE_API_KEY)" }) };
     }
 
-    const { fileParts, summaryType } = JSON.parse(event.body || "{}");
-
-    if (!fileParts || !Array.isArray(fileParts) || fileParts.length === 0) {
-      console.error("[summarize] ERROR: No se recibieron fileParts válidos.");
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "No se recibieron fileParts válidos." }),
-      };
+    if (!event.body) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Body vacío. Envía { text, summaryType }" }) };
     }
 
-    console.log(`[summarize] Resumen solicitado con ${fileParts.length} partes, tipo: ${summaryType}`);
+    const { text, summaryType } = JSON.parse(event.body);
+    if (!text || typeof text !== "string") {
+      return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' (string)." }) };
+    }
+
+    const MAX = 10000;
+    const safeText = text.length > MAX ? text.slice(0, MAX) : text;
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro-exp-02-05" });
 
-    const prompt = `Genera un resumen en español del siguiente contenido. Tipo de resumen: ${summaryType}`;
-    const result = await model.generateContent([prompt, ...fileParts]);
-    const text = result.response.text();
+    const prompt = `Resume en español con estilo ${summaryType || "Short"} de forma clara y fiel:
+${safeText}`;
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ summary: text }),
-    };
-  } catch (error) {
-    console.error("[summarize] ERROR:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message || "Error interno en summarize" }),
-    };
-  }
-};
+    const res = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
+    const summary = (await res.response.text()).trim();
+
+    const titlePrompt = `Título breve (≤10 palabras) para este contenido en español:\n${safeText}`;
+    const titleRes = await model.generateContent({ contents: [{ role: "user", parts: [{ text: titlePrompt }] }] });
+    const title = (await titleRes.response.text()).replace(/[\n\r]+/g, " ").trim();
+
+    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary, title }) };
+  } catch (err) {
+    return { statusCode
