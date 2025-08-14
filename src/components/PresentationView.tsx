@@ -5,7 +5,7 @@ interface PresentationViewProps {
   presentation: PresentationData;
   presentationType: PresentationType;
   summaryTitle: string;
-  onMindMap: () => void;   // <-- NUEVO
+  onMindMap: () => void;   // nuevo
   onReset: () => void;
 }
 
@@ -18,22 +18,78 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  if (!presentation || !presentation.sections) {
+    return (
+      <div className="text-center p-6 animate-fadeIn">
+        <p>No hay datos para mostrar.</p>
+        <button
+          onClick={onReset}
+          className="mt-4 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-lg text-black"
+        >
+          Volver
+        </button>
+      </div>
+    );
+  }
+
+  const expandAll = () => {
+    if (containerRef.current) {
+      containerRef.current.querySelectorAll("details").forEach((d) => d.setAttribute("open", "true"));
+    }
+  };
+
+  const collapseAll = () => {
+    if (containerRef.current) {
+      containerRef.current.querySelectorAll("details").forEach((d) => d.removeAttribute("open"));
+    }
+  };
+
+  const printPDF = () => {
+    const keyword = summaryTitle || presentation.title.split(" ").slice(0, 3).join(" ");
+    const originalTitle = document.title;
+    document.title = `${summaryTitle || presentation.title} - ${keyword}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
+  const renderSection = (section: any, level = 1) => {
+    let summaryClass = "bg-yellow-500 text-black px-4 py-2 font-semibold cursor-pointer select-none";
+    let contentClass = "p-4 whitespace-pre-line";
+
+    if (level === 2) {
+      summaryClass = "bg-blue-600 text-white px-4 py-2 font-semibold cursor-pointer select-none";
+      contentClass = "p-4 bg-blue-100 text-black whitespace-pre-line";
+    }
+    if (level === 3) {
+      summaryClass = "bg-yellow-200 text-gray-800 px-4 py-2 font-semibold cursor-pointer select-none";
+      contentClass = "p-4 bg-yellow-50 text-gray-800 whitespace-pre-line";
+    }
+
+    return (
+      <details
+        className={`border rounded-lg overflow-hidden ${level === 1 ? "bg-gray-800 border-gray-700" : level === 2 ? "ml-4 bg-gray-700 border-gray-600" : "ml-8 bg-gray-600 border-gray-500"}`}
+      >
+        <summary className={summaryClass}>
+          {section.emoji} {section.title}
+        </summary>
+        {section.content && <p className={contentClass}>{section.content}</p>}
+        {section.subsections &&
+          section.subsections.map((sub: any, idx: number) => renderSection(sub, level + 1))}
+      </details>
+    );
+  };
+
   const downloadHTML = () => {
     if (!containerRef.current) return;
-    const htmlContent = `<!DOCTYPE html>
+    const htmlContent = `
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${summaryTitle || presentation.title}</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<style>
-  html, body { height: 100%; }
-  body { max-width: 100%; overflow-x: hidden; }
-  details { width: 100%; }
-  summary { list-style: none; }
-  summary::-webkit-details-marker { display: none; }
-</style>
+<style> body { max-width: 100%; overflow-x: hidden; } details { width: 100%; } </style>
 <script>
 function expandAll(){ document.querySelectorAll('details').forEach(d=>d.setAttribute('open','true')); }
 function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.removeAttribute('open')); }
@@ -41,9 +97,9 @@ function printPDF(){ window.print(); }
 </script>
 </head>
 <body class="bg-gray-900 text-white p-4 sm:p-6">
-<h1 class="text-2xl sm:text-3xl font-bold mb-2">Mapa Mental, esquema resumen interactivo</h1>
+<h1 class="text-2xl sm:text-3xl font-bold mb-2">Mapa conceptual (desplegables)</h1>
 <h3 class="text-lg italic text-yellow-400 mb-6">${summaryTitle || ""}</h3>
-<p class="mb-4 italic text-gray-400">Tipo de presentación: ${presentationType}</p>
+<p class="mb-4 italic text-gray-400">Tipo: ${presentationType}</p>
 
 <div class="flex flex-wrap gap-2 sm:gap-4 mb-6">
   <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg">📂 Desplegar todos</button>
@@ -66,62 +122,44 @@ function printPDF(){ window.print(); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">📑 Presentación ({presentationType})</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={onMindMap}
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg"
-              title="Ver como Mapa Mental"
-            >
-              🧠 Ver como Mapa Mental
-            </button>
-            <button
-              onClick={downloadHTML}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
-            >
-              Descargar HTML
-            </button>
-            <button
-              onClick={onReset}
-              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
-            >
-              Volver
-            </button>
-          </div>
+    <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Mapa conceptual (desplegables)</h1>
+          <h3 className="text-lg italic text-yellow-400">{summaryTitle}</h3>
+          <p className="mb-1 text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
-
-        <div ref={containerRef} className="space-y-3">
-          {presentation.sections.map((section, idx) => (
-            <details key={idx} className="bg-gray-800 rounded-lg p-4">
-              <summary className="cursor-pointer font-semibold">
-                <span className="mr-2">{section.emoji}</span>
-                {section.title}
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-300">
-                {section.content}
-              </p>
-
-              {!!section.subsections?.length && (
-                <div className="mt-3 space-y-2">
-                  {section.subsections!.map((sub, sidx) => (
-                    <details key={sidx} className="bg-gray-900 rounded-lg p-3">
-                      <summary className="cursor-pointer font-medium">
-                        <span className="mr-2">{sub.emoji}</span>
-                        {sub.title}
-                      </summary>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-400">
-                        {sub.content}
-                      </p>
-                    </details>
-                  ))}
-                </div>
-              )}
-            </details>
-          ))}
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={onMindMap}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+            title="Ver como Mapa mental (resumido)"
+          >
+            🧠 Mapa mental (resumido)
+          </button>
+          <button
+            onClick={downloadHTML}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            💾 Descargar HTML
+          </button>
+          <button
+            onClick={onReset}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Volver
+          </button>
         </div>
+      </div>
+
+      <div className="flex gap-4 mb-6 flex-wrap">
+        <button onClick={expandAll} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">📂 Desplegar todos</button>
+        <button onClick={collapseAll} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">📁 Colapsar todos</button>
+        <button onClick={printPDF} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">🖨 Imprimir a PDF</button>
+      </div>
+
+      <div ref={containerRef} className="space-y-3">
+        {presentation.sections.map((section) => renderSection(section, 1))}
       </div>
     </div>
   );

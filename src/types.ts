@@ -1,4 +1,3 @@
-// src/types.ts
 export enum SummaryType {
   Short = "Short",
   Medium = "Medium",
@@ -24,7 +23,7 @@ export type PresentationData = {
   sections: PresentationSection[];
 };
 
-// ---------- MindMap ----------
+// --- MindMap ---
 export type MindMapNode = {
   id: string;
   label: string;
@@ -39,6 +38,6 @@ export type MindMapData = {
 export enum ViewState {
   UPLOADER,
   SUMMARY,
-  PRESENTATION,
-  MINDMAP, // <-- nuevo estado
+  PRESENTATION, // "Mapa conceptual"
+  MINDMAP,      // "Mapa mental"
 }

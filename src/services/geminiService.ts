@@ -1,4 +1,3 @@
-// src/services/geminiService.ts
 import * as pdfjsLib from "pdfjs-dist";
 import {
   SummaryType,
@@ -7,27 +6,17 @@ import {
   MindMapData,
 } from "../types";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Worker de pdf.js
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc =
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${(pdfjsLib as any).version}/pdf.worker.min.js`;
 
-// ---- helpers ----
-async function fileToBase64(file: File): Promise<string> {
-  const res: string = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onloadend = () => resolve(String(r.result).split(",")[1] || "");
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-  if (!res) throw new Error("No se pudo leer el archivo.");
-  return res;
-}
-
+// --- PDF → texto ---
 export async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await (pdfjsLib as any).getDocument({ data: arrayBuffer }).promise;
   let text = "";
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
     const strings = (content.items as any[]).map((it: any) => ("str" in it ? it.str : "")).filter(Boolean);
     text += strings.join(" ") + "\n";
@@ -35,34 +24,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   return text.trim();
 }
 
-async function ocrImageOnServer(file: File): Promise<string> {
-  const base64 = await fileToBase64(file);
-  const resp = await fetch("/api/gemini-api", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
-  });
-  const raw = await resp.text();
-  if (!raw) throw new Error("Respuesta vacía del servidor en OCR.");
-  let data: any; try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido en OCR."); }
-  if (!resp.ok) throw new Error(data.error || "Error en OCR.");
-  if (!data.text) throw new Error("OCR no devolvió texto.");
-  return String(data.text);
-}
-
-export async function extractTextFromFile(file: File): Promise<string> {
-  const type = (file.type || "").toLowerCase();
-  if (type.includes("pdf")) return await extractTextFromPDF(file);
-  if (type.startsWith("image/")) return await ocrImageOnServer(file);
-  throw new Error("Formato no soportado. Sube un PDF o una imagen.");
-}
-
-// ---- API alto nivel usada por App.tsx ----
-export async function summarizeContent(
-  file: File,
-  summaryType: SummaryType
-): Promise<{ summary: string; title: string }> {
-  const text = await extractTextFromFile(file);
+// --- Resumen: devuelve SOLO string (como antes) ---
+export async function summarizeContent(file: File, summaryType: SummaryType): Promise<string> {
+  const text = await extractTextFromPDF(file);
   const resp = await fetch("/api/summarize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -70,29 +34,28 @@ export async function summarizeContent(
   });
   const raw = await resp.text();
   if (!raw) throw new Error("Respuesta vacía del servidor al resumir.");
-  let data: any; try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido al resumir."); }
+  let data: any;
+  try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido al resumir."); }
   if (!resp.ok) throw new Error(data.error || "Error al resumir.");
-  return { summary: String(data.summary), title: String(data.title) };
+  return String(data.summary);
 }
 
-export async function createPresentation(
-  file: File,
-  presentationType: PresentationType
-): Promise<PresentationData> {
-  // Nota: tu función present.js espera "summaryText".
-  const text = await extractTextFromFile(file);
+// --- Mapa conceptual (antes “presentación”): recibe summaryText ---
+export async function createPresentation(summaryText: string, presentationType: PresentationType): Promise<PresentationData> {
   const resp = await fetch("/api/present", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ summaryText: text, presentationType }),
+    body: JSON.stringify({ summaryText, presentationType }),
   });
   const raw = await resp.text();
-  if (!raw) throw new Error("Respuesta vacía del servidor al generar presentación.");
-  let data: any; try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido al generar presentación."); }
-  if (!resp.ok) throw new Error(data.error || "Error al generar presentación.");
+  if (!raw) throw new Error("Respuesta vacía al generar el mapa conceptual.");
+  let data: any;
+  try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido al generar el mapa conceptual."); }
+  if (!resp.ok) throw new Error(data.error || "Error al generar el mapa conceptual.");
   return data.presentationData as PresentationData;
 }
 
+// --- Mapa mental (resumido) ---
 export async function createMindMapFromText(text: string): Promise<MindMapData> {
   const resp = await fetch("/api/mindmap", {
     method: "POST",
@@ -101,11 +64,13 @@ export async function createMindMapFromText(text: string): Promise<MindMapData> 
   });
   const raw = await resp.text();
   if (!raw) throw new Error("Respuesta vacía del servidor en mindmap.");
-  let data: any; try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido en mindmap."); }
+  let data: any;
+  try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido en mindmap."); }
   if (!resp.ok) throw new Error(data.error || "Error al generar mapa mental.");
   return data.mindmap as MindMapData;
 }
 
+// --- Utilidad: pasar presentación a texto lineal para el mapa mental ---
 export function flattenPresentationToText(p: PresentationData): string {
   const lines: string[] = [p.title];
   const walk = (s: any, d = 0) => {
