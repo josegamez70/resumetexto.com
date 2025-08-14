@@ -20,20 +20,20 @@ const NodeBox: React.FC<{
   const hasChildren = (node.children?.length || 0) > 0;
 
   return (
-    <div className="flex items-start gap-2 sm:gap-3 my-1">
-      {/* Nodo */}
+    <div className="flex items-start gap-1.5 sm:gap-3 my-0.5">
+      {/* Nodo: más compacto en móvil */}
       <button
-        className="shrink-0 rounded-lg sm:rounded-xl px-3 py-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-left w-full sm:w-auto"
+        className="shrink-0 rounded-md sm:rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-left w-full sm:w-auto"
         onClick={() => hasChildren && setOpen((v) => !v)}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
       >
-        <div className="font-semibold text-sm sm:text-base leading-snug">{node.label}</div>
-        {node.note && <div className="text-xs text-gray-400 mt-1 leading-snug">{node.note}</div>}
+        <div className="font-semibold text-xs sm:text-sm leading-tight">{node.label}</div>
+        {node.note && <div className="text-[11px] sm:text-xs text-gray-400 mt-0.5 leading-tight">{node.note}</div>}
       </button>
 
-      {/* Hijos: en móvil sin borde; en ≥sm con borde lateral */}
+      {/* Hijos: sin borde en móvil; con borde a partir de sm */}
       {open && hasChildren && (
-        <div className="pl-2 sm:pl-5 sm:border-l border-gray-700 flex flex-col gap-2 sm:gap-3 w-full">
+        <div className="pl-1.5 sm:pl-4 sm:border-l border-gray-700 flex flex-col gap-1.5 sm:gap-2 w-full">
           {node.children!.map((c) => (
             <NodeBox
               key={c.id}
@@ -88,18 +88,21 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  details.mind{display:flex;align-items:flex-start;gap:.6rem;margin:.25rem 0}
+  /* Compacto móvil */
+  details.mind{display:flex;align-items:flex-start;gap:.5rem;margin:.2rem 0}
   details.mind > summary{display:inline-flex;align-items:flex-start;list-style:none;cursor:pointer}
   summary::-webkit-details-marker{display:none}
-  .marker{display:inline-flex;width:1.5rem;height:1.5rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.5rem;font-weight:700;color:#fff}
+  .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
   details.mind[open] > summary .marker::after{content:"−"}
   details.mind:not([open]) > summary .marker::after{content:"+"}
-  .node .label{font-weight:600}
-  .node .note{font-size:.8rem;color:#9ca3af;margin-top:.15rem}
-  /* móvil: sin borde en cascada */
-  details.mind > .children{padding-left:.75rem}
+  .node .label{font-weight:600;font-size:.9rem}
+  .node .note{font-size:.75rem;color:#9ca3af;margin-top:.1rem}
+  details.mind > .children{padding-left:.6rem}
   @media (min-width:640px){
     body{overflow-x:auto}
+    details.mind{gap:.75rem;margin:.25rem 0}
+    .marker{width:1.5rem;height:1.5rem;font-size:.9rem}
+    .node .label{font-size:1rem}
     details.mind > .children{border-left:1px solid #374151;padding-left:1rem}
   }
 </style>
@@ -135,17 +138,30 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-[1200px] mx-auto">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+        {/* Cabecera: SOLO Volver */}
+        <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5">
           <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <button onClick={() => setExpandAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">Desplegar todos</button>
-            <button onClick={() => setCollapseAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">Colapsar todos</button>
-            <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">Descargar HTML</button>
-            <button onClick={onBack} className="w-full sm:w-auto px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-sm">Volver</button>
+          <div className="w-full sm:w-auto">
+            <button onClick={onBack} className="w-full sm:w-auto px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-sm">
+              Volver
+            </button>
           </div>
         </div>
 
-        {/* Vista en-app (compacta en móvil) */}
+        {/* Controles debajo del título */}
+        <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
+          <button onClick={() => setExpandAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
+            Desplegar todos
+          </button>
+          <button onClick={() => setCollapseAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
+            Colapsar todos
+          </button>
+          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+            Descargar HTML
+          </button>
+        </div>
+
+        {/* Vista en-app (más compacta en móvil) */}
         <div ref={containerRef}>
           <NodeBox
             node={data.root}
