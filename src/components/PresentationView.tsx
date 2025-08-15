@@ -67,13 +67,21 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
 </style>
 <script>
-function expandAll(){ document.querySelectorAll('details').forEach(d=>d.setAttribute('open','true')) }
-function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.removeAttribute('open')) }
-function printPDF(){ window.print() }
-// Acordeón en PRIMER NIVEL en el HTML exportado
+window._bulkOpen = false;
+function expandAll(){
+  window._bulkOpen = true;
+  document.querySelectorAll('details').forEach(d=>d.open=true);
+  setTimeout(()=>{ window._bulkOpen = false; }, 0);
+}
+function collapseAll(){
+  document.querySelectorAll('details').forEach(d=>d.open=false);
+}
+function printPDF(){ window.print(); }
+// Acordeón en PRIMER NIVEL en el HTML exportado, ignorando cuando es apertura masiva
 document.addEventListener('toggle', function(ev){
   const el = ev.target;
   if(!(el instanceof HTMLDetailsElement)) return;
+  if(window._bulkOpen) return;
   if(el.classList.contains('lvl1') && el.open){
     document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
   }

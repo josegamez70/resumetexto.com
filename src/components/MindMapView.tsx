@@ -50,7 +50,7 @@ const NodeBox: React.FC<{
   motherColor: HSL | null;
   expandAllSeq: number;
   collapseAllSeq: number;
-  accordionIndex: number | null;                 // <- índice abierto en nivel 1
+  accordionIndex: number | null;
   setAccordionIndex: (idx: number | null) => void;
 }> = ({
   node, level, idx, colorMode, motherColor,
@@ -60,15 +60,14 @@ const NodeBox: React.FC<{
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
 
-  // Acordeón: si cambia el índice del padre, sincroniza los de nivel 1
+  // Acordeón sincronizado en nivel 1
   useEffect(() => {
     if (level !== 1) return;
-    if (accordionIndex === null) return; // no forzar cuando no hay acordeón activo
+    if (accordionIndex === null) return;
     setOpen(idx === accordionIndex);
   }, [accordionIndex, level, idx]);
 
   const hasChildren = !!(node.children && node.children.length);
-
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
     if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
@@ -84,7 +83,6 @@ const NodeBox: React.FC<{
       setOpen(willOpen);
       return;
     }
-    // Niveles >1: comportamiento normal
     setOpen((v) => !v);
   };
 
@@ -127,19 +125,24 @@ const NodeBox: React.FC<{
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
-  const [accordionIndex, setAccordionIndex] = useState<number | null>(null); // <- acordeón nivel 1
+  const [accordionIndex, setAccordionIndex] = useState<number | null>(null);
 
-  const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
+  const pageTitle = useMemo(
+    () => summaryTitle || data.root.label || "Mapa mental",
+    [summaryTitle, data.root.label]
+  );
 
-  // Exporta HTML con acordeón nivel 1 (clase lvl1 y listener de toggle)
-  const esc = (s: string = "") => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const esc = (s: string = "") =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
     if (cm === MindMapColorMode.BlancoNegro || !myColor) return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
     const bg = hslStr(myColor); const bd = hslStr(darken(myColor, 10)); const fg = textOn(myColor);
     return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
-  const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) => cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
+  const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) =>
+    cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
   const connectorHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
     if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
     const c = hslStr(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
@@ -202,13 +205,19 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   }
 </style>
 <script>
-  function expandAll(){ document.querySelectorAll('details.mind').forEach(d=>d.setAttribute('open','')) }
-  function collapseAll(){ document.querySelectorAll('details.mind').forEach(d=>d.removeAttribute('open')) }
+  window._bulkOpen = false;
+  function expandAll(){
+    window._bulkOpen = true;
+    document.querySelectorAll('details.mind').forEach(d=>d.open=true);
+    setTimeout(()=>{ window._bulkOpen = false; }, 0);
+  }
+  function collapseAll(){ document.querySelectorAll('details.mind').forEach(d=>d.open=false) }
   function printPDF(){ window.print() }
-  // Acordeón PRIMER NIVEL en exportado
+  // Acordeón PRIMER NIVEL (ignora cuando expandAll está activo)
   document.addEventListener('toggle', function(ev){
     const el = ev.target;
     if(!(el instanceof HTMLDetailsElement)) return;
+    if(window._bulkOpen) return;
     if(el.classList.contains('lvl1') && el.open){
       document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
     }
@@ -264,8 +273,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           >
             Desplegar todos
           </button>
-        </div>
-        <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5 -mt-2 sm:mt-0">
           <button
             onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }}
             className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
