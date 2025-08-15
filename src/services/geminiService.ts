@@ -26,57 +26,79 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   return text.trim();
 }
 
-// -------- 1) Resumir contenido --------
+// -------- Utilidad: file → base64 (seguro en chunks) --------
+async function fileToBase64(file: File): Promise<string> {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const chunk = 0x8000;
+  let binary = "";
+  for (let i = 0; i < buf.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + chunk)));
+  }
+  return btoa(binary);
+}
+
+// -------- 1) Resumir contenido (soporta PDF + imágenes) --------
 export async function summarizeContent(
   file: File,
   summaryType: SummaryType
 ): Promise<string> {
-  // Intentamos extraer texto del PDF; si no es PDF, probamos como texto plano
-  let text = "";
-  try {
-    if (/pdf/i.test(file.type) || file.name.toLowerCase().endsWith(".pdf")) {
-      text = await extractTextFromPDF(file);
-    } else {
-      text = await file.text();
-    }
-  } catch {
-    // último intento
+  const isPDF = /pdf/i.test(file.type) || file.name.toLowerCase().endsWith(".pdf");
+  const isImage = file.type.startsWith("image/");
+
+  // 1) PDFs con texto: intento normal
+  if (isPDF) {
     try {
-      text = await file.text();
+      const text = await extractTextFromPDF(file);
+      if (text && text.replace(/\s+/g, " ").length > 80) {
+        const resp = await fetch("/api/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, summaryType }),
+        });
+        const raw = await resp.text();
+        const data = raw ? JSON.parse(raw) : {};
+        if (!resp.ok) throw new Error(data.error || "Error al resumir PDF con texto.");
+        return String(data.summary || "");
+      }
+      // Si no hay texto útil → caer a visión
     } catch {
-      text = "";
+      // caer a visión
     }
   }
 
-  const payload = {
-    text: String(text || "").trim(),
-    summaryType,
-  };
-
-  if (!payload.text) {
-    throw new Error(
-      "No se pudo extraer texto del archivo. Sube un PDF con texto seleccionable."
-    );
+  // 2) Imágenes y PDFs sin texto: enviar archivo a visión
+  if (isImage || isPDF) {
+    const base64 = await fileToBase64(file);
+    const resp = await fetch("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        summaryType,
+        file: { name: file.name, mimeType: file.type || (isPDF ? "application/pdf" : "application/octet-stream"), base64 },
+      }),
+    });
+    const raw = await resp.text();
+    const data = raw ? JSON.parse(raw) : {};
+    if (!resp.ok) throw new Error(data.error || "Error al resumir archivo.");
+    return String(data.summary || "");
   }
 
-  const resp = await fetch("/api/summarize", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const raw = await resp.text();
-  if (!raw) throw new Error("Respuesta vacía del servidor al resumir.");
-
-  let data: any;
+  // 3) Otros (txt/docx exportado a txt en el navegador): como texto plano
   try {
-    data = JSON.parse(raw);
+    const textPlain = (await file.text()).trim();
+    if (!textPlain) throw new Error("Archivo vacío.");
+    const resp = await fetch("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: textPlain, summaryType }),
+    });
+    const raw = await resp.text();
+    const data = raw ? JSON.parse(raw) : {};
+    if (!resp.ok) throw new Error(data.error || "Error al resumir.");
+    return String(data.summary || "");
   } catch {
-    throw new Error("Respuesta no es JSON válido al resumir.");
+    throw new Error("No se pudo extraer contenido del archivo. Sube un PDF con texto o una imagen nítida.");
   }
-
-  if (!resp.ok) throw new Error(data.error || "Error al resumir.");
-  return String(data.summary);
 }
 
 // -------- 2) Generar “Mapa conceptual” --------
@@ -94,41 +116,28 @@ export async function createPresentation(
   if (!raw) throw new Error("Respuesta vacía al generar el mapa conceptual.");
 
   let data: any;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new Error("Respuesta no es JSON válido al generar el mapa conceptual.");
-  }
+  try { data = JSON.parse(raw); }
+  catch { throw new Error("Respuesta no es JSON válido al generar el mapa conceptual."); }
 
   if (!resp.ok) throw new Error(data.error || "Error al generar el mapa conceptual.");
   return data.presentationData as PresentationData;
 }
 
-// -------- 3) Generar “Mapa mental” (extendido por defecto) --------
+// -------- 3) Generar “Mapa mental” --------
 export async function createMindMapFromText(text: string): Promise<MindMapData> {
   const textToSend = String(text || "").trim();
   if (!textToSend) {
-    throw new Error(
-      "No hay texto para generar el mapa mental. Primero genera un resumen o una presentación."
-    );
+    throw new Error("No hay texto para generar el mapa mental. Primero genera un resumen o una presentación.");
   }
-
   const resp = await fetch("/api/mindmap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: textToSend }), // garantizamos 'text'
+    body: JSON.stringify({ text: textToSend }),
   });
-
   const raw = await resp.text();
   if (!raw) throw new Error("Respuesta vacía del servidor en mindmap.");
-
   let data: any;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new Error("Respuesta no es JSON válido en mindmap.");
-  }
-
+  try { data = JSON.parse(raw); } catch { throw new Error("Respuesta no es JSON válido en mindmap."); }
   if (!resp.ok) throw new Error(data.error || "Error al generar mapa mental.");
   return data.mindmap as MindMapData;
 }
