@@ -1,130 +1,118 @@
 // netlify/functions/mindmap.js
-// Genera un Mapa Mental a partir de texto. Acepta { text } o { summaryText } o { content }.
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const crypto = require("crypto");
+
+function id() { return crypto.randomBytes(6).toString("hex"); }
+
+function safeParseJSON(s) {
+  try { return JSON.parse(s); } catch {}
+  // Intentar extraer el primer bloque JSON
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(s.slice(start, end + 1)); } catch {}
+  }
+  return null;
+}
+
+function ensureSubpoints(node, level = 0) {
+  if (!node || typeof node !== "object") return;
+  if (!Array.isArray(node.children)) node.children = [];
+
+  // Para niveles 1 y 2: garantizar al menos 2 subpuntos
+  const mustHave = (level === 0) ? 3 : (level <= 2 ? 2 : 0);
+  while (node.children.length < mustHave) {
+    node.children.push({ id: id(), label: "Detalle", note: "", children: [] });
+  }
+
+  // Recurse (hasta nivel 3 para no crecer infinito)
+  if (level < 3) {
+    node.children.forEach((c) => ensureSubpoints(c, level + 1));
+  }
+}
 
 exports.handler = async (event) => {
   try {
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    let body = {};
+    try { body = JSON.parse(event.body || "{}"); }
+    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido" }) }; }
 
-    const apiKey =
-      process.env.GOOGLE_AI_API_KEY ||
-      process.env.VITE_API_KEY ||
-      process.env.GEMINI_API_KEY ||
-      "";
-
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error:
-            "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY). Configúrala en Netlify → Site settings → Environment.",
-        }),
-      };
-    }
-
-    let payload = {};
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
-    }
-
-    const rawText =
-      (typeof payload.text === "string" && payload.text) ||
-      (typeof payload.summaryText === "string" && payload.summaryText) ||
-      (typeof payload.content === "string" && payload.content) ||
-      "";
-
-    const text = rawText.trim();
-    if (!text) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' (string) en el body." }) };
-    }
-
-    // recortamos por si viene enorme
-    const MAX = 12000;
-    const safe = text.length > MAX ? text.slice(0, MAX) : text;
+    const text = String(body.text || "").trim();
+    if (!text) return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' para el mapa mental." }) };
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    const prompt = `
-Genera un MAPA MENTAL en ESPAÑOL a partir del TEXTO. Devuelve EXCLUSIVAMENTE JSON válido sin comentarios ni bloque de código.
+    const system = `
+Genera un MAPA MENTAL en formato JSON PURO (sin texto adicional) con esta estructura:
 
-Estructura:
 {
-  "mindmap": {
-    "root": {
-      "id": "string",
-      "label": "Tema principal",
-      "note": "opcional, muy breve",
-      "children": [
-        {
-          "id": "string",
-          "label": "rama 1",
-          "note": "opcional",
-          "children": [
-            { "id": "string", "label": "subrama", "note": "opcional" }
-          ]
-        }
-      ]
-    }
+  "root": {
+    "id": "string",
+    "label": "Tema central",
+    "note": "opcional",
+    "children": [
+      {
+        "id": "string",
+        "label": "Idea principal",
+        "note": "opcional",
+        "children": [
+          { "id": "string", "label": "Subpunto 1", "note": "opcional", "children": [] },
+          { "id": "string", "label": "Subpunto 2", "note": "opcional", "children": [] }
+        ]
+      }
+    ]
   }
 }
 
-Criterios:
-- Raíz = tema principal. 5–8 ramas máximas. 1–3 niveles de profundidad.
-- Etiquetas cortas (2–6 palabras), "note" concisa.
-- Nada de texto fuera del JSON.
-
-TEXTO:
-${safe}
+REGLAS:
+- Español.
+- Cada nodo en niveles 1 y 2 DEBE tener SUBPUNTOS (mínimo 2 hijos).
+- Profundidad máxima: 3 niveles bajo la raíz (root -> ideas -> subpuntos -> detalles).
+- Nada de viñetas ni Markdown, SOLO JSON.
+- "id" debe ser un identificador corto (si no sabes, usa "auto").
 `;
 
+    const user = `
+Documento base (texto):
+---
+${text}
+---
+
+Devuelve SOLO el JSON con el mapa mental siguiendo las REGLAS.`;
+
     const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4 },
+      contents: [
+        { role: "user", parts: [{ text: system }, { text: user }] }
+      ],
+      generationConfig: { temperature: 0.4 }
     });
 
-    let raw = result.response.text().trim();
-
-    // Parse robusto del JSON
-    let out;
-    try { out = JSON.parse(raw); }
-    catch {
-      const cleaned = raw
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```$/i, "")
-        .trim();
-      try { out = JSON.parse(cleaned); }
-      catch {
-        const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
-        if (s !== -1 && e !== -1 && e > s) {
-          try { out = JSON.parse(cleaned.slice(s, e + 1)); }
-          catch {
-            console.error("[mindmap] JSON inválido:", raw);
-            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
-          }
-        } else {
-          console.error("[mindmap] Sin bloque JSON:", raw);
-          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
-        }
-      }
+    const raw = result?.response?.text?.() || "";
+    const parsed = safeParseJSON(raw);
+    if (!parsed || !parsed.root) {
+      return { statusCode: 500, body: JSON.stringify({ error: "No se pudo parsear el JSON del mapa mental." }) };
     }
 
-    if (!out || !out.mindmap) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Respuesta sin 'mindmap'." }) };
-    }
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(out),
+    // Normalizar ids y asegurar subpuntos
+    const assignIds = (n) => {
+      if (!n.id || typeof n.id !== "string" || n.id === "auto") n.id = id();
+      if (!Array.isArray(n.children)) n.children = [];
+      n.children.forEach(assignIds);
+      return n;
     };
+    assignIds(parsed.root);
+    ensureSubpoints(parsed.root, 0);
+
+    return { statusCode: 200, body: JSON.stringify({ mindmap: parsed }) };
   } catch (err) {
-    console.error("[mindmap] error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en mindmap" }) };
+    console.error("[mindmap] ERROR:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error interno en mindmap" }) };
   }
 };
