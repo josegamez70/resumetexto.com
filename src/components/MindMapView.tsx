@@ -25,9 +25,15 @@ const PALETTE_L1: HSL[] = [
 ];
 
 function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | null): React.CSSProperties {
-  if (level === 0) return { backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
-  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) return { backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
-  const bg = hslStr(myColor); const bd = hslStr(darken(myColor, 10)); const fg = textOn(myColor);
+  if (level === 0) {
+    return { backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
+  }
+  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) {
+    return { backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
+  }
+  const bg = hslStr(myColor);
+  const bd = hslStr(darken(myColor, 10));
+  const fg = textOn(myColor);
   return { backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
 }
 function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | null): React.CSSProperties {
@@ -41,6 +47,22 @@ function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; pa
       : { width: "16px", height: "10px", borderLeft: "1px solid #4b5563", borderBottom: "1px solid #4b5563", marginLeft: "1rem", borderBottomLeftRadius: "8px" };
   return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
+
+// Pequeño triángulo indicador (solo si hay hijos)
+const Caret: React.FC<{ open: boolean }> = ({ open }) => (
+  <span
+    aria-hidden="true"
+    className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
+    style={{
+      width: 0,
+      height: 0,
+      borderTop: "5px solid transparent",
+      borderBottom: "5px solid transparent",
+      borderLeft: "7px solid currentColor",
+      marginLeft: 6,
+    }}
+  />
+);
 
 const NodeBox: React.FC<{
   node: MindMapNode;
@@ -68,6 +90,7 @@ const NodeBox: React.FC<{
   }, [accordionIndex, level, idx]);
 
   const hasChildren = !!(node.children && node.children.length);
+
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
     if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
@@ -76,6 +99,7 @@ const NodeBox: React.FC<{
   const colorForMyChildren = myColor;
 
   const handleClick = () => {
+    if (!hasChildren) return;
     if (level === 1) {
       const willOpen = !open;
       if (willOpen) setAccordionIndex(idx);
@@ -91,10 +115,14 @@ const NodeBox: React.FC<{
       <button
         style={styleTag(level, colorMode, myColor)}
         className="shrink-0 text-left w-full sm:w-auto"
-        onClick={hasChildren ? handleClick : undefined}
+        onClick={handleClick}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
       >
-        <div className="leading-tight">{node.label}</div>
+        <div className="flex items-center">
+          <div className="leading-tight">{node.label}</div>
+          {/* Triángulo solo si hay desplegable */}
+          {hasChildren && <Caret open={open} />}
+        </div>
         {node.note && <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">{node.note}</div>}
       </button>
 
@@ -135,11 +163,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // Helpers HTML export
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
     if (cm === MindMapColorMode.BlancoNegro || !myColor) return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
-    const bg = hsl(myColor); const bd = hsl(darken(myColor, 10)); const fg = myColor.l >= 62 ? "#000" : "#fff";
+    const bg = hsl(myColor); const bd = hsl(darken(myColor, 10)); const fg = myColor!.l >= 62 ? "#000" : "#fff";
     return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
   const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) =>
@@ -149,6 +178,8 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     const c = hsl(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
 
+  // HTML: triángulo en nodos con hijos (gira con open)
+  const caretHTML = `<span class="tri" aria-hidden="true"></span>`;
   const detailsTreeHTML = (
     node: MindMapNode,
     open: boolean,
@@ -161,16 +192,19 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
       if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
       else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
     }
-    const colorForChildren = myColor;
     const hasChildren = !!(node.children && node.children.length);
-    const kids = hasChildren ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, colorForChildren)).join("") : "";
+    const kids = hasChildren
+      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, myColor)).join("")
+      : "";
 
     return `
 <details class="mind${level===1 ? " lvl1" : ""}" ${open ? "open" : ""}>
   <summary class="inline-flex items-start">
     <span class="marker sm:hidden" aria-hidden="true"></span>
     <div style="${tagStyleHTML(level, colorMode, myColor)}">
-      <div class="leading-tight">${esc(node.label)}</div>
+      <div class="leading-tight" style="display:inline-flex;align-items:center;">
+        ${esc(node.label)}${hasChildren ? caretHTML : ""}
+      </div>
       ${node.note ? `<div style="opacity:.9;font-size:.75rem;margin-top:.15rem;line-height:1.1">${esc(node.note)}</div>` : ""}
     </div>
   </summary>
@@ -198,6 +232,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
   details.mind[open] > summary .marker::after{content:"−"}
   details.mind:not([open]) > summary .marker::after{content:"+"}
+  /* Triángulo indicador */
+  .tri{display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;margin-left:.35rem;transform:rotate(0deg);transition:transform .15s ease}
+  details[open] > summary .tri{transform:rotate(90deg)}
   @media (min-width:640px){
     body{overflow-x:auto}
     details.mind{flex-direction:row;align-items:flex-start;gap:.75rem}
@@ -223,7 +260,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
-  <!-- Sin explicación "¿Qué es?" en el HTML exportado -->
+  <!-- Sin explicación en export -->
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
   <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
