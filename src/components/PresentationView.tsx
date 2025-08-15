@@ -38,7 +38,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
   const printPDF = () => window.print();
 
-  // Acordeón en PRIMER NIVEL dentro de la app
+  // Acordeón (primer nivel) en app
   const handleTopSummaryClick = (e: React.MouseEvent, _idx: number) => {
     e.preventDefault();
     const summaryEl = e.currentTarget as HTMLElement;
@@ -48,9 +48,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
     if (isOpen) {
       detailsEl.removeAttribute("open");
     } else {
-      containerRef.current
-        .querySelectorAll("details.lvl1")
-        .forEach((d) => d.removeAttribute("open"));
+      containerRef.current.querySelectorAll("details.lvl1").forEach((d) => d.removeAttribute("open"));
       detailsEl.setAttribute("open", "true");
     }
   };
@@ -73,11 +71,9 @@ function expandAll(){
   document.querySelectorAll('details').forEach(d=>d.open=true);
   setTimeout(()=>{ window._bulkOpen = false; }, 0);
 }
-function collapseAll(){
-  document.querySelectorAll('details').forEach(d=>d.open=false);
-}
-function printPDF(){ window.print(); }
-// Acordeón en PRIMER NIVEL en el HTML exportado, ignorando cuando es apertura masiva
+function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
+function printPDF(){ window.print() }
+// Acordeón 1er nivel (ignorar durante expandAll)
 document.addEventListener('toggle', function(ev){
   const el = ev.target;
   if(!(el instanceof HTMLDetailsElement)) return;
@@ -91,7 +87,7 @@ document.addEventListener('toggle', function(ev){
 <body class="bg-gray-900 text-white p-3 sm:p-6">
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-    <p class="text-gray-300 text-sm">¿Qué es? Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.</p>
+    <!-- Sin explicación "¿Qué es?" en el HTML exportado -->
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
     <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
   </div>

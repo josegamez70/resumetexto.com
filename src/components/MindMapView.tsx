@@ -135,17 +135,18 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
     if (cm === MindMapColorMode.BlancoNegro || !myColor) return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
-    const bg = hslStr(myColor); const bd = hslStr(darken(myColor, 10)); const fg = textOn(myColor);
+    const bg = hsl(myColor); const bd = hsl(darken(myColor, 10)); const fg = myColor.l >= 62 ? "#000" : "#fff";
     return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
   const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) =>
-    cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
+    cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hsl(darken(parentColor, 10))};`;
   const connectorHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
     if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
-    const c = hslStr(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
+    const c = hsl(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
 
   const detailsTreeHTML = (
@@ -206,14 +207,10 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </style>
 <script>
   window._bulkOpen = false;
-  function expandAll(){
-    window._bulkOpen = true;
-    document.querySelectorAll('details.mind').forEach(d=>d.open=true);
-    setTimeout(()=>{ window._bulkOpen = false; }, 0);
-  }
+  function expandAll(){ window._bulkOpen = true; document.querySelectorAll('details.mind').forEach(d=>d.open=true); setTimeout(()=>{ window._bulkOpen=false; },0); }
   function collapseAll(){ document.querySelectorAll('details.mind').forEach(d=>d.open=false) }
   function printPDF(){ window.print() }
-  // Acordeón PRIMER NIVEL (ignora cuando expandAll está activo)
+  // Acordeón 1er nivel (ignora durante expandAll)
   document.addEventListener('toggle', function(ev){
     const el = ev.target;
     if(!(el instanceof HTMLDetailsElement)) return;
@@ -226,7 +223,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
-  <p class="text-gray-300 text-sm mb-1">¿Qué es? Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.</p>
+  <!-- Sin explicación "¿Qué es?" en el HTML exportado -->
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
   <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
