@@ -1,33 +1,70 @@
 // netlify/functions/mindmap.js
+// Reglas:
+// - Niveles 1 y 2: etiquetas cortas (máx. 4 y 5 palabras).
+// - Niveles 1 y 2: mínimo 2 subpuntos.
+// - Profundidad máxima: 3 (root -> 1 -> 2 -> 3).
+// - Nivel 3: hoja. Si no hay nada que indicar, etiqueta VACÍA (no "Detalle").
+//   Si el modelo aportó texto, se muestra tal cual (sin renombrar).
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const crypto = require("crypto");
 
-function id() { return crypto.randomBytes(6).toString("hex"); }
+function genId() { return crypto.randomBytes(6).toString("hex"); }
 
 function safeParseJSON(s) {
   try { return JSON.parse(s); } catch {}
-  // Intentar extraer el primer bloque JSON
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    try { return JSON.parse(s.slice(start, end + 1)); } catch {}
-  }
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch {} }
   return null;
 }
 
-function ensureSubpoints(node, level = 0) {
+const MAX_WORDS_L1 = 4;
+const MAX_WORDS_L2 = 5;
+const MIN_CHILDREN_L1 = 2;
+const MIN_CHILDREN_L2 = 2;
+
+function shortLabel(label, maxWords) {
+  const words = String(label || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return words.join(" ");
+  return words.slice(0, maxWords).join(" ");
+}
+
+// Normaliza ids/estructura. No altera colores ni UI.
+function normalizeTree(node, level = 0) {
   if (!node || typeof node !== "object") return;
+  if (!node.id || typeof node.id !== "string" || node.id === "auto") node.id = genId();
   if (!Array.isArray(node.children)) node.children = [];
 
-  // Para niveles 1 y 2: garantizar al menos 2 subpuntos
-  const mustHave = (level === 0) ? 3 : (level <= 2 ? 2 : 0);
-  while (node.children.length < mustHave) {
-    node.children.push({ id: id(), label: "Detalle", note: "", children: [] });
+  if (level === 1) node.label = shortLabel(node.label, MAX_WORDS_L1);
+  if (level === 2) node.label = shortLabel(node.label, MAX_WORDS_L2);
+
+  // Profundidad máxima: 3 (nivel 3 = hoja)
+  if (level >= 3) {
+    node.children = [];
+    // IMPORTANTE: NO renombrar a "Detalle". Si viene vacío, se queda vacío.
+    node.label = String(node.label ?? "").trim();
+    node.note = String(node.note ?? "");
+    return;
   }
 
-  // Recurse (hasta nivel 3 para no crecer infinito)
-  if (level < 3) {
-    node.children.forEach((c) => ensureSubpoints(c, level + 1));
+  // Garantizar mínimo de hijos en 1 y 2
+  const min = level === 1 ? MIN_CHILDREN_L1 : (level === 2 ? MIN_CHILDREN_L2 : 0);
+  while (node.children.length < min) {
+    node.children.push({ id: genId(), label: "", note: "", children: [] }); // placeholders vacíos
+  }
+
+  // Normalizar descendencia
+  node.children.forEach((c) => normalizeTree(c, level + 1));
+
+  // Si estamos en nivel 2: sus hijos (nivel 3) deben ser hoja
+  if (level === 2) {
+    node.children = node.children.map((c) => ({
+      id: c.id || genId(),
+      // Mantener etiqueta tal cual venga; si es vacía, queda vacía (no "Detalle")
+      label: String(c.label ?? "").trim(),
+      note: String(c.note ?? ""),
+      children: [], // hoja
+    }));
   }
 }
 
@@ -49,8 +86,9 @@ exports.handler = async (event) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
+    // Prompt: corto en 1–2, mínimo subpuntos, nivel 3 opcionalmente vacío.
     const system = `
-Genera un MAPA MENTAL en formato JSON PURO (sin texto adicional) con esta estructura:
+Devuelve SOLO JSON (sin comentarios) con esta forma:
 
 {
   "root": {
@@ -60,11 +98,17 @@ Genera un MAPA MENTAL en formato JSON PURO (sin texto adicional) con esta estruc
     "children": [
       {
         "id": "string",
-        "label": "Idea principal",
+        "label": "Idea principal (máx. 4 palabras)",
         "note": "opcional",
         "children": [
-          { "id": "string", "label": "Subpunto 1", "note": "opcional", "children": [] },
-          { "id": "string", "label": "Subpunto 2", "note": "opcional", "children": [] }
+          {
+            "id": "string",
+            "label": "Subtema (máx. 5 palabras)",
+            "note": "opcional",
+            "children": [
+              { "id": "string", "label": "Texto breve del detalle (opcional, puede ir vacío)", "note": "opcional", "children": [] }
+            ]
+          }
         ]
       }
     ]
@@ -73,25 +117,24 @@ Genera un MAPA MENTAL en formato JSON PURO (sin texto adicional) con esta estruc
 
 REGLAS:
 - Español.
-- Cada nodo en niveles 1 y 2 DEBE tener SUBPUNTOS (mínimo 2 hijos).
-- Profundidad máxima: 3 niveles bajo la raíz (root -> ideas -> subpuntos -> detalles).
-- Nada de viñetas ni Markdown, SOLO JSON.
-- "id" debe ser un identificador corto (si no sabes, usa "auto").
+- Nivel 1: máx. 4 palabras por etiqueta; Nivel 2: máx. 5 palabras.
+- Nivel 1 y 2 DEBEN tener subpuntos (mínimo 2 hijos).
+- Profundidad máxima: 3 niveles bajo root (root -> 1 -> 2 -> 3).
+- El nivel 3 es HOJA; si no hay nada que indicar, su "label" puede quedar VACÍO.
+- JSON puro (sin viñetas ni Markdown).
 `;
 
     const user = `
-Documento base (texto):
+Texto base:
 ---
 ${text}
 ---
 
-Devuelve SOLO el JSON con el mapa mental siguiendo las REGLAS.`;
+Devuelve SOLO el JSON del mapa mental siguiendo las REGLAS.`;
 
     const result = await model.generateContent({
-      contents: [
-        { role: "user", parts: [{ text: system }, { text: user }] }
-      ],
-      generationConfig: { temperature: 0.4 }
+      contents: [{ role: "user", parts: [{ text: system }, { text: user }] }],
+      generationConfig: { temperature: 0.4 },
     });
 
     const raw = result?.response?.text?.() || "";
@@ -100,15 +143,7 @@ Devuelve SOLO el JSON con el mapa mental siguiendo las REGLAS.`;
       return { statusCode: 500, body: JSON.stringify({ error: "No se pudo parsear el JSON del mapa mental." }) };
     }
 
-    // Normalizar ids y asegurar subpuntos
-    const assignIds = (n) => {
-      if (!n.id || typeof n.id !== "string" || n.id === "auto") n.id = id();
-      if (!Array.isArray(n.children)) n.children = [];
-      n.children.forEach(assignIds);
-      return n;
-    };
-    assignIds(parsed.root);
-    ensureSubpoints(parsed.root, 0);
+    normalizeTree(parsed.root, 0);
 
     return { statusCode: 200, body: JSON.stringify({ mindmap: parsed }) };
   } catch (err) {
