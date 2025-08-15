@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MindMapData, MindMapNode, MindMapColorMode } from "../types";
 
 type Props = {
@@ -8,10 +8,16 @@ type Props = {
   onBack: () => void;
 };
 
-// Paleta base para los hijos de la RAÍZ (nivel 1).
-// A partir de ahí, las ramas heredan el color y se aclara por nivel.
+/** --------- Color helpers (HSL) ---------- */
 type HSL = { h: number; s: number; l: number };
-const paletteLevel1: HSL[] = [
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+const hslStr = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
+const lighten = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l + dl, 10, 92) });
+const darken = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l - dl, 0, 90) });
+const textOn = (bg: HSL) => (bg.l >= 62 ? "#000" : "#fff");
+
+/** Paleta base para nivel 1 (hijas directas de la raíz) */
+const PALETTE_L1: HSL[] = [
   { h: 355, s: 80, l: 45 }, // rojizo
   { h: 45, s: 90, l: 50 },  // ámbar
   { h: 140, s: 60, l: 40 }, // verde
@@ -20,54 +26,57 @@ const paletteLevel1: HSL[] = [
   { h: 90, s: 70, l: 45 },  // lima
 ];
 
-function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
-function hslStr(c: HSL) { return `hsl(${c.h}deg ${c.s}% ${c.l}%)`; }
-function lighten(c: HSL, dl: number) { return { ...c, l: clamp(c.l + dl, 10, 92) }; }
-function darken(c: HSL, dl: number) { return { ...c, l: clamp(c.l - dl, 0, 90) }; }
-function textOn(bg: HSL) { return bg.l >= 62 ? "#000" : "#fff"; }
-
-function styleForTag(level: number, colorMode: MindMapColorMode, color: HSL | null) {
+/** Estilo de la etiqueta (botón) */
+function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | null): React.CSSProperties {
   if (level === 0) {
     return {
       backgroundColor: "#000",
       color: "#fff",
-      border: "2px solid #6b7280", // gris-500
+      border: "2px solid #6b7280", // gray-500
       fontWeight: 800,
       padding: "10px 16px",
       borderRadius: "12px",
-    } as React.CSSProperties;
+    };
   }
-  if (colorMode === MindMapColorMode.BlancoNegro || !color) {
+  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) {
     return {
-      backgroundColor: "#1f2937",
+      backgroundColor: "#1f2937", // gray-800
       color: "#fff",
-      border: "1px solid #4b5563",
+      border: "1px solid #4b5563", // gray-600
       fontWeight: 600,
       padding: "8px 14px",
       borderRadius: "10px",
-    } as React.CSSProperties;
+    };
   }
-  const bg = hslStr(color);
-  const border = hslStr(darken(color, 10));
-  const fg = textOn(color);
+  const bg = hslStr(myColor);
+  const bd = hslStr(darken(myColor, 10));
+  const fg = textOn(myColor);
   return {
     backgroundColor: bg,
     color: fg,
-    border: `1px solid ${border}`,
+    border: `1px solid ${bd}`,
     fontWeight: 600,
     padding: "8px 14px",
     borderRadius: "10px",
-  } as React.CSSProperties;
+  };
 }
 
-function styleForChildrenContainer(colorMode: MindMapColorMode, parentColor: HSL | null) {
+/** Borde de contenedor de hijos (color de la madre) */
+function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | null): React.CSSProperties {
   if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) {
-    return { borderLeft: "1px solid #374151" } as React.CSSProperties; // gris-700
+    return { borderLeft: "1px solid #374151" }; // gray-700
   }
-  return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` } as React.CSSProperties;
+  return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` };
 }
 
-function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; parentColor: HSL | null }) {
+/** Conector “llave” (solo móvil) con color de la madre */
+function Connector({
+  colorMode,
+  parentColor,
+}: {
+  colorMode: MindMapColorMode;
+  parentColor: HSL | null;
+}) {
   const style: React.CSSProperties =
     colorMode === MindMapColorMode.Color && parentColor
       ? {
@@ -89,44 +98,40 @@ function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; pa
   return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
 
+/** --------- Nodo (recursivo) ---------- */
 const NodeBox: React.FC<{
   node: MindMapNode;
   level: number;
-  idx: number;
+  idx: number; // índice entre sus hermanos, para elegir color en nivel 1
   colorMode: MindMapColorMode;
-  branchColor: HSL | null; // color heredado de la madre
+  motherColor: HSL | null; // color de la madre del nodo actual
   expandAllSeq: number;
   collapseAllSeq: number;
-}> = ({ node, level, idx, colorMode, branchColor, expandAllSeq, collapseAllSeq }) => {
+}> = ({ node, level, idx, colorMode, motherColor, expandAllSeq, collapseAllSeq }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
 
-  const hasChildren = (node.children?.length || 0) > 0;
+  const hasChildren = !!(node.children && node.children.length);
 
-  // Color de esta etiqueta:
-  // - nivel 0: negro
-  // - nivel 1: color de paleta por índice
-  // - nivel >=2: hereda y se aclara por nivel
+  // Color de ESTA etiqueta:
+  // - nivel 0: negro (especial)
+  // - nivel 1: paleta por índice
+  // - nivel >=2: hereda color de la madre y lo aclara para ser "menos intenso"
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
-    if (level === 1) myColor = paletteLevel1[idx % paletteLevel1.length];
-    else if (level >= 2) myColor = branchColor ? lighten(branchColor, 10) : null;
+    if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
+    else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
   }
 
-  // Color que heredarán los hijos (color de la madre, no aclarado).
-  const nextBranchColor: HSL | null =
-    colorMode === MindMapColorMode.Color
-      ? level === 0
-        ? null
-        : myColor || branchColor
-      : null;
+  // Para este nodo, el color que heredarán SUS hijos es el de este nodo (myColor)
+  const colorForMyChildren = myColor;
 
   return (
     <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
-      {/* Etiqueta */}
+      {/* Etiqueta (botón) */}
       <button
-        style={styleForTag(level, colorMode, myColor)}
+        style={styleTag(level, colorMode, myColor)}
         className="shrink-0 text-left w-full sm:w-auto"
         onClick={() => hasChildren && setOpen((v) => !v)}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
@@ -139,16 +144,16 @@ const NodeBox: React.FC<{
         )}
       </button>
 
-      {/* Conector móvil como "llave" del color de la madre */}
-      {open && hasChildren && (
-        <Connector colorMode={colorMode} parentColor={branchColor} />
-      )}
+      {/* Conector móvil de la madre hacia el bloque de hijos (usa color de ESTA etiqueta) */}
+      {open && hasChildren && <Connector colorMode={colorMode} parentColor={myColor} />}
 
-      {/* Hijos: móvil debajo; desktop a la derecha con borde-l del color de la madre */}
+      {/* Hijos:
+          - móvil: debajo
+          - escritorio: a la derecha, con borde del color de ESTA etiqueta (madre) */}
       {open && hasChildren && (
         <div
           className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full"
-          style={styleForChildrenContainer(colorMode, branchColor)}
+          style={styleChildrenBorder(colorMode, myColor)}
         >
           {node.children!.map((c, i) => (
             <NodeBox
@@ -157,7 +162,7 @@ const NodeBox: React.FC<{
               level={level + 1}
               idx={i}
               colorMode={colorMode}
-              branchColor={nextBranchColor}
+              motherColor={colorForMyChildren}
               expandAllSeq={expandAllSeq}
               collapseAllSeq={collapseAllSeq}
             />
@@ -168,61 +173,62 @@ const NodeBox: React.FC<{
   );
 };
 
+/** --------- Vista principal ---------- */
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const pageTitle = useMemo(
     () => summaryTitle || data.root.label || "Mapa mental",
     [summaryTitle, data.root.label]
   );
 
-  // ---- Export HTML con los mismos estilos (inline) y colores heredados ----
+  /** --------- Exportar HTML (sin React) ---------- */
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  const tagStyleHTML = (level: number, cm: MindMapColorMode, color: HSL | null) => {
-    if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
-    if (cm === "bw" || !color)
+  // Estilos inline equivalentes a styleTag/styleChildrenBorder/Connector
+  const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
+    if (level === 0)
+      return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
+    if (cm === MindMapColorMode.BlancoNegro || !myColor)
       return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
-    const bg = hslStr(color);
-    const bd = hslStr(darken(color, 10));
-    const fg = textOn(color);
+    const bg = hslStr(myColor);
+    const bd = hslStr(darken(myColor, 10));
+    const fg = textOn(myColor);
     return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
 
   const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
-    if (cm === "bw" || !parentColor) return "border-left:1px solid #374151;";
-    return `border-left:2px solid ${hslStr(darken(parentColor,10))};`;
+    if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "border-left:1px solid #374151;";
+    return `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
   };
 
   const connectorHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
-    if (cm === "bw" || !parentColor)
+    if (cm === MindMapColorMode.BlancoNegro || !parentColor)
       return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
     const c = hslStr(darken(parentColor, 10));
     return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
 
+  // Genera un árbol <details> recursivo con la misma lógica de color
   const detailsTreeHTML = (
     node: MindMapNode,
     open: boolean,
     level = 0,
     idx = 0,
-    branchColor: HSL | null = null
+    motherColor: HSL | null = null
   ): string => {
-    // Color de ESTA etiqueta
     let myColor: HSL | null = null;
     if (colorMode === MindMapColorMode.Color) {
-      if (level === 1) myColor = paletteLevel1[idx % paletteLevel1.length];
-      else if (level >= 2) myColor = branchColor ? lighten(branchColor, 10) : null;
+      if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
+      else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
     }
-    // Color que heredan los hijos
-    const nextBranch = colorMode === MindMapColorMode.Color ? (level === 0 ? null : (myColor || branchColor)) : null;
+    const colorForChildren = myColor; // los hijos heredan el color de su madre (este nodo)
 
-    const hasChildren = (node.children?.length || 0) > 0;
+    const hasChildren = !!(node.children && node.children.length);
     const kids = hasChildren
-      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, nextBranch)).join("")
+      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, colorForChildren)).join("")
       : "";
 
     return `
@@ -236,8 +242,8 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   </summary>
   ${
     hasChildren
-      ? `<span class="connector sm:hidden" style="${connectorHTML(colorMode, branchColor)}" aria-hidden="true"></span>
-         <div class="children" style="padding-left:.75rem;${childrenBorderHTML(colorMode, branchColor)}">${kids}</div>`
+      ? `<span class="connector sm:hidden" style="${connectorHTML(colorMode, myColor)}" aria-hidden="true"></span>
+         <div class="children" style="padding-left:.75rem;${childrenBorderHTML(colorMode, myColor)}">${kids}</div>`
       : ""
   }
 </details>`;
@@ -273,6 +279,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
+  <p class="text-gray-300 text-sm mb-1">Árbol del tema central. En ordenador crece a la derecha; en móvil, los hijos aparecen debajo. En modo color, cada hijo hereda el color de su madre con menor intensidad.</p>
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
   <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
@@ -295,9 +302,15 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Cabecera: SOLO Volver (outline rojo) */}
-        <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5">
-          <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
+        {/* Cabecera con explicación + Volver (borde rojo) */}
+        <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
+            <p className="text-gray-300 text-sm">
+              Árbol del tema central. En ordenador crece a la derecha; en móvil, los hijos aparecen debajo.
+              En modo color, cada hijo hereda el color de su madre con menor intensidad. Las “llaves” y bordes usan el color de la madre.
+            </p>
+          </div>
           <div className="w-full sm:w-auto">
             <button
               onClick={onBack}
@@ -310,29 +323,36 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 
         {/* Controles */}
         <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button onClick={() => setExpandAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
+          <button
+            onClick={() => setExpandAllSeq((v) => v + 1)}
+            className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
+          >
             Desplegar todos
           </button>
-          <button onClick={() => setCollapseAllSeq((v) => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
+          <button
+            onClick={() => setCollapseAllSeq((v) => v + 1)}
+            className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
+          >
             Colapsar todos
           </button>
-          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+          <button
+            onClick={downloadHTML}
+            className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
+          >
             Descargar HTML
           </button>
         </div>
 
-        {/* Vista en-app */}
-        <div ref={containerRef}>
-          <NodeBox
-            node={data.root}
-            level={0}
-            idx={0}
-            colorMode={colorMode}
-            branchColor={null}
-            expandAllSeq={expandAllSeq}
-            collapseAllSeq={collapseAllSeq}
-          />
-        </div>
+        {/* Árbol */}
+        <NodeBox
+          node={data.root}
+          level={0}
+          idx={0}
+          colorMode={colorMode}
+          motherColor={null}
+          expandAllSeq={expandAllSeq}
+          collapseAllSeq={collapseAllSeq}
+        />
       </div>
     </div>
   );
