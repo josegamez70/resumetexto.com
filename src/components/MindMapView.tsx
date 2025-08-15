@@ -15,6 +15,7 @@ const lighten = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l + dl, 10, 92)
 const darken = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l - dl, 0, 90) });
 const textOn = (bg: HSL) => (bg.l >= 62 ? "#000" : "#fff");
 
+// Paleta L1
 const PALETTE_L1: HSL[] = [
   { h: 355, s: 80, l: 45 },
   { h: 45,  s: 90, l: 50 },
@@ -24,18 +25,36 @@ const PALETTE_L1: HSL[] = [
   { h: 90,  s: 70, l: 45 },
 ];
 
+// --- NUEVO: ancho máximo por nivel (en ch) para compactar bloques ---
+const maxWidthCh = (level: number) => {
+  if (level === 0) return 34; // tema central
+  if (level === 1) return 26; // ideas principales
+  if (level === 2) return 24; // subtemas
+  return 22;                  // hojas
+};
+
 function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | null): React.CSSProperties {
+  const common = {
+    display: "inline-block",
+    maxWidth: `${maxWidthCh(level)}ch`,
+    whiteSpace: "normal" as const,
+    wordBreak: "break-word" as const,
+    hyphens: "auto" as const,
+    lineHeight: 1.15,
+  };
+
   if (level === 0) {
-    return { backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
+    return { ...common, backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
   }
   if (colorMode === MindMapColorMode.BlancoNegro || !myColor) {
-    return { backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
+    return { ...common, backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
   }
   const bg = hslStr(myColor);
   const bd = hslStr(darken(myColor, 10));
   const fg = textOn(myColor);
-  return { backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
+  return { ...common, backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
 }
+
 function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | null): React.CSSProperties {
   if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) return { borderLeft: "1px solid #374151" };
   return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` };
@@ -48,7 +67,7 @@ function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; pa
   return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
 
-// Pequeño triángulo indicador (solo si hay hijos)
+// Triángulo indicador
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
     aria-hidden="true"
@@ -120,7 +139,6 @@ const NodeBox: React.FC<{
       >
         <div className="flex items-center">
           <div className="leading-tight">{node.label}</div>
-          {/* Triángulo solo si hay desplegable */}
           {hasChildren && <Caret open={open} />}
         </div>
         {node.note && <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">{node.note}</div>}
@@ -163,13 +181,14 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // Helpers HTML export
+  // ---------- HTML export helpers (con estilos compactos también) ----------
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
-    if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
-    if (cm === MindMapColorMode.BlancoNegro || !myColor) return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
+    const common = `display:inline-block;max-width:${maxWidthCh(level)}ch;white-space:normal;word-break:break-word;hyphens:auto;line-height:1.15;`;
+    if (level === 0) return `${common}background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;`;
+    if (cm === MindMapColorMode.BlancoNegro || !myColor) return `${common}background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
     const bg = hsl(myColor); const bd = hsl(darken(myColor, 10)); const fg = myColor!.l >= 62 ? "#000" : "#fff";
-    return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
+    return `${common}background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
   const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) =>
     cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hsl(darken(parentColor, 10))};`;
@@ -178,7 +197,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     const c = hsl(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
 
-  // HTML: triángulo en nodos con hijos (gira con open)
   const caretHTML = `<span class="tri" aria-hidden="true"></span>`;
   const detailsTreeHTML = (
     node: MindMapNode,
@@ -205,7 +223,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
       <div class="leading-tight" style="display:inline-flex;align-items:center;">
         ${esc(node.label)}${hasChildren ? caretHTML : ""}
       </div>
-      ${node.note ? `<div style="opacity:.9;font-size:.75rem;margin-top:.15rem;line-height:1.1">${esc(node.note)}</div>` : ""}
+      ${node.note ? `<div style="opacity:.9;font-size:.75rem;margin-top:.15rem;line-height:1.15">${esc(node.note)}</div>` : ""}
     </div>
   </summary>
   ${
@@ -232,7 +250,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
   details.mind[open] > summary .marker::after{content:"−"}
   details.mind:not([open]) > summary .marker::after{content:"+"}
-  /* Triángulo indicador */
   .tri{display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;margin-left:.35rem;transform:rotate(0deg);transition:transform .15s ease}
   details[open] > summary .tri{transform:rotate(90deg)}
   @media (min-width:640px){
@@ -247,7 +264,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   function expandAll(){ window._bulkOpen = true; document.querySelectorAll('details.mind').forEach(d=>d.open=true); setTimeout(()=>{ window._bulkOpen=false; },0); }
   function collapseAll(){ document.querySelectorAll('details.mind').forEach(d=>d.open=false) }
   function printPDF(){ window.print() }
-  // Acordeón 1er nivel (ignora durante expandAll)
   document.addEventListener('toggle', function(ev){
     const el = ev.target;
     if(!(el instanceof HTMLDetailsElement)) return;
@@ -260,7 +276,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
-  <!-- Sin explicación en export -->
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
   <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
