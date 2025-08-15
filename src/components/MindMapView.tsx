@@ -25,13 +25,11 @@ const PALETTE_L1: HSL[] = [
   { h: 90,  s: 70, l: 45 },
 ];
 
-// --- NUEVO: ancho máximo por nivel (en ch) para compactar bloques ---
-const maxWidthCh = (level: number) => {
-  if (level === 0) return 34; // tema central
-  if (level === 1) return 26; // ideas principales
-  if (level === 2) return 24; // subtemas
-  return 22;                  // hojas
-};
+// Compactar bloques: ancho máximo por nivel (en ch)
+const maxWidthCh = (level: number) => (level === 0 ? 34 : level === 1 ? 26 : level === 2 ? 24 : 22);
+
+const isContentful = (n?: Partial<MindMapNode>) =>
+  Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
 function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | null): React.CSSProperties {
   const common = {
@@ -42,16 +40,11 @@ function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | nul
     hyphens: "auto" as const,
     lineHeight: 1.15,
   };
-
-  if (level === 0) {
+  if (level === 0)
     return { ...common, backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
-  }
-  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) {
+  if (colorMode === MindMapColorMode.BlancoNegro || !myColor)
     return { ...common, backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
-  }
-  const bg = hslStr(myColor);
-  const bd = hslStr(darken(myColor, 10));
-  const fg = textOn(myColor);
+  const bg = hslStr(myColor), bd = hslStr(darken(myColor, 10)), fg = textOn(myColor);
   return { ...common, backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
 }
 
@@ -59,6 +52,7 @@ function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | nul
   if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) return { borderLeft: "1px solid #374151" };
   return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` };
 }
+
 function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; parentColor: HSL | null }) {
   const style: React.CSSProperties =
     colorMode === MindMapColorMode.Color && parentColor
@@ -67,19 +61,12 @@ function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; pa
   return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
 
-// Triángulo indicador
+// Triángulo indicador (solo cuando hay hijos con contenido)
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
     aria-hidden="true"
     className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
-    style={{
-      width: 0,
-      height: 0,
-      borderTop: "5px solid transparent",
-      borderBottom: "5px solid transparent",
-      borderLeft: "7px solid currentColor",
-      marginLeft: 6,
-    }}
+    style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "7px solid currentColor", marginLeft: 6 }}
   />
 );
 
@@ -93,22 +80,19 @@ const NodeBox: React.FC<{
   collapseAllSeq: number;
   accordionIndex: number | null;
   setAccordionIndex: (idx: number | null) => void;
-}> = ({
-  node, level, idx, colorMode, motherColor,
-  expandAllSeq, collapseAllSeq, accordionIndex, setAccordionIndex
-}) => {
+}> = ({ node, level, idx, colorMode, motherColor, expandAllSeq, collapseAllSeq, accordionIndex, setAccordionIndex }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
 
-  // Acordeón sincronizado en nivel 1
   useEffect(() => {
     if (level !== 1) return;
     if (accordionIndex === null) return;
     setOpen(idx === accordionIndex);
   }, [accordionIndex, level, idx]);
 
-  const hasChildren = !!(node.children && node.children.length);
+  const filteredChildren = (node.children || []).filter(isContentful);
+  const hasChildren = filteredChildren.length > 0;
 
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
@@ -148,7 +132,7 @@ const NodeBox: React.FC<{
 
       {open && hasChildren && (
         <div className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full" style={styleChildrenBorder(colorMode, myColor)}>
-          {node.children!.map((c, i) => (
+          {filteredChildren.map((c, i) => (
             <NodeBox
               key={c.id}
               node={c}
@@ -173,15 +157,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
   const [accordionIndex, setAccordionIndex] = useState<number | null>(null);
 
-  const pageTitle = useMemo(
-    () => summaryTitle || data.root.label || "Mapa mental",
-    [summaryTitle, data.root.label]
-  );
+  const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // ---------- HTML export helpers (con estilos compactos también) ----------
+  // --------- HTML export (mismo filtro para hijos con contenido) ----------
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     const common = `display:inline-block;max-width:${maxWidthCh(level)}ch;white-space:normal;word-break:break-word;hyphens:auto;line-height:1.15;`;
@@ -210,9 +191,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
       if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
       else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
     }
-    const hasChildren = !!(node.children && node.children.length);
+    const rawChildren = node.children || [];
+    const filteredChildren = rawChildren.filter(isContentful);
+    const hasChildren = filteredChildren.length > 0;
+
     const kids = hasChildren
-      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, myColor)).join("")
+      ? filteredChildren.map((c, i) => detailsTreeHTML(c as any, false, level + 1, i, myColor)).join("")
       : "";
 
     return `
@@ -306,32 +290,20 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
             </p>
           </div>
           <div className="w-full sm:w-auto">
-            <button
-              onClick={onBack}
-              className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-sm"
-            >
+            <button onClick={onBack} className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-sm">
               Volver
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button
-            onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }}
-            className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
-          >
+          <button onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
             Desplegar todos
           </button>
-          <button
-            onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }}
-            className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
-          >
+          <button onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
             Colapsar todos
           </button>
-          <button
-            onClick={downloadHTML}
-            className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
-          >
+          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
             Descargar HTML
           </button>
         </div>
