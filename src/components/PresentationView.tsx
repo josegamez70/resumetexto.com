@@ -57,7 +57,7 @@ function printPDF(){ window.print(); }
 <body class="bg-gray-900 text-white p-3 sm:p-6">
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-    <p class="text-gray-300 text-sm">Abre/cierra cada bloque para estudiar por partes. El HTML descargado se ve igual que aquí.</p>
+    <p class="text-gray-300 text-sm">¿Qué es? Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.</p>
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
     <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
   </div>
@@ -111,7 +111,9 @@ function printPDF(){ window.print(); }
       <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-          <p className="text-gray-300 text-sm">Abre/cierra cada bloque. Puedes descargar el HTML y se verá igual.</p>
+          <p className="text-gray-300 text-sm">
+            ¿Qué es? Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.
+          </p>
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>

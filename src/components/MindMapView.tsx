@@ -8,7 +8,6 @@ type Props = {
   onBack: () => void;
 };
 
-/** --------- Color helpers (HSL) ---------- */
 type HSL = { h: number; s: number; l: number };
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const hslStr = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
@@ -16,145 +15,65 @@ const lighten = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l + dl, 10, 92)
 const darken = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l - dl, 0, 90) });
 const textOn = (bg: HSL) => (bg.l >= 62 ? "#000" : "#fff");
 
-/** Paleta base para nivel 1 (hijas directas de la raíz) */
 const PALETTE_L1: HSL[] = [
-  { h: 355, s: 80, l: 45 }, // rojizo
-  { h: 45, s: 90, l: 50 },  // ámbar
-  { h: 140, s: 60, l: 40 }, // verde
-  { h: 200, s: 80, l: 45 }, // azul cielo
-  { h: 280, s: 70, l: 45 }, // fucsia
-  { h: 90, s: 70, l: 45 },  // lima
+  { h: 355, s: 80, l: 45 },
+  { h: 45,  s: 90, l: 50 },
+  { h: 140, s: 60, l: 40 },
+  { h: 200, s: 80, l: 45 },
+  { h: 280, s: 70, l: 45 },
+  { h: 90,  s: 70, l: 45 },
 ];
 
-/** Estilo de la etiqueta (botón) */
 function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | null): React.CSSProperties {
-  if (level === 0) {
-    return {
-      backgroundColor: "#000",
-      color: "#fff",
-      border: "2px solid #6b7280", // gray-500
-      fontWeight: 800,
-      padding: "10px 16px",
-      borderRadius: "12px",
-    };
-  }
-  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) {
-    return {
-      backgroundColor: "#1f2937", // gray-800
-      color: "#fff",
-      border: "1px solid #4b5563", // gray-600
-      fontWeight: 600,
-      padding: "8px 14px",
-      borderRadius: "10px",
-    };
-  }
-  const bg = hslStr(myColor);
-  const bd = hslStr(darken(myColor, 10));
-  const fg = textOn(myColor);
-  return {
-    backgroundColor: bg,
-    color: fg,
-    border: `1px solid ${bd}`,
-    fontWeight: 600,
-    padding: "8px 14px",
-    borderRadius: "10px",
-  };
+  if (level === 0) return { backgroundColor: "#000", color: "#fff", border: "2px solid #6b7280", fontWeight: 800, padding: "10px 16px", borderRadius: "12px" };
+  if (colorMode === MindMapColorMode.BlancoNegro || !myColor) return { backgroundColor: "#1f2937", color: "#fff", border: "1px solid #4b5563", fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
+  const bg = hslStr(myColor); const bd = hslStr(darken(myColor, 10)); const fg = textOn(myColor);
+  return { backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
 }
-
-/** Borde de contenedor de hijos (color de la madre) */
 function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | null): React.CSSProperties {
-  if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) {
-    return { borderLeft: "1px solid #374151" }; // gray-700
-  }
+  if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) return { borderLeft: "1px solid #374151" };
   return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` };
 }
-
-/** Conector “llave” (solo móvil) con color de la madre */
-function Connector({
-  colorMode,
-  parentColor,
-}: {
-  colorMode: MindMapColorMode;
-  parentColor: HSL | null;
-}) {
+function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; parentColor: HSL | null }) {
   const style: React.CSSProperties =
     colorMode === MindMapColorMode.Color && parentColor
-      ? {
-          width: "18px",
-          height: "12px",
-          borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}`,
-          borderBottom: `2px solid ${hslStr(darken(parentColor, 10))}`,
-          marginLeft: "1rem",
-          borderBottomLeftRadius: "8px",
-        }
-      : {
-          width: "16px",
-          height: "10px",
-          borderLeft: "1px solid #4b5563",
-          borderBottom: "1px solid #4b5563",
-          marginLeft: "1rem",
-          borderBottomLeftRadius: "8px",
-        };
+      ? { width: "18px", height: "12px", borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}`, borderBottom: `2px solid ${hslStr(darken(parentColor, 10))}`, marginLeft: "1rem", borderBottomLeftRadius: "8px" }
+      : { width: "16px", height: "10px", borderLeft: "1px solid #4b5563", borderBottom: "1px solid #4b5563", marginLeft: "1rem", borderBottomLeftRadius: "8px" };
   return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
 
-/** --------- Nodo (recursivo) ---------- */
 const NodeBox: React.FC<{
-  node: MindMapNode;
-  level: number;
-  idx: number; // índice entre sus hermanos, para elegir color en nivel 1
-  colorMode: MindMapColorMode;
-  motherColor: HSL | null; // color de la madre del nodo actual
-  expandAllSeq: number;
-  collapseAllSeq: number;
+  node: MindMapNode; level: number; idx: number;
+  colorMode: MindMapColorMode; motherColor: HSL | null;
+  expandAllSeq: number; collapseAllSeq: number;
 }> = ({ node, level, idx, colorMode, motherColor, expandAllSeq, collapseAllSeq }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
-
   const hasChildren = !!(node.children && node.children.length);
-
-  // Color de ESTA etiqueta:
-  // - nivel 0: negro (especial)
-  // - nivel 1: paleta por índice
-  // - nivel >=2: hereda color de la madre y lo aclara para ser "menos intenso"
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
     if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
     else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
   }
-
-  // Para este nodo, el color que heredarán SUS hijos es el de este nodo (myColor)
   const colorForMyChildren = myColor;
 
   return (
     <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
-      {/* Etiqueta (botón) */}
       <button
         style={styleTag(level, colorMode, myColor)}
         className="shrink-0 text-left w-full sm:w-auto"
-        onClick={() => hasChildren && setOpen((v) => !v)}
+        onClick={() => hasChildren && setOpen(v => !v)}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
       >
         <div className="leading-tight">{node.label}</div>
-        {node.note && (
-          <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">
-            {node.note}
-          </div>
-        )}
+        {node.note && <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">{node.note}</div>}
       </button>
 
-      {/* Conector móvil de la madre hacia el bloque de hijos (usa color de ESTA etiqueta) */}
       {open && hasChildren && <Connector colorMode={colorMode} parentColor={myColor} />}
 
-      {/* Hijos:
-          - móvil: debajo
-          - escritorio: a la derecha, con borde del color de ESTA etiqueta (madre) */}
       {open && hasChildren && (
-        <div
-          className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full"
-          style={styleChildrenBorder(colorMode, myColor)}
-        >
+        <div className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full" style={styleChildrenBorder(colorMode, myColor)}>
           {node.children!.map((c, i) => (
             <NodeBox
               key={c.id}
@@ -173,64 +92,32 @@ const NodeBox: React.FC<{
   );
 };
 
-/** --------- Vista principal ---------- */
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
+  const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
-  const pageTitle = useMemo(
-    () => summaryTitle || data.root.label || "Mapa mental",
-    [summaryTitle, data.root.label]
-  );
-
-  /** --------- Exportar HTML (sin React) ---------- */
-  const esc = (s: string = "") =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-  // Estilos inline equivalentes a styleTag/styleChildrenBorder/Connector
+  const esc = (s: string = "") => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
-    if (level === 0)
-      return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
-    if (cm === MindMapColorMode.BlancoNegro || !myColor)
-      return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
-    const bg = hslStr(myColor);
-    const bd = hslStr(darken(myColor, 10));
-    const fg = textOn(myColor);
+    if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
+    if (cm === MindMapColorMode.BlancoNegro || !myColor) return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
+    const bg = hslStr(myColor); const bd = hslStr(darken(myColor, 10)); const fg = textOn(myColor);
     return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
-
-  const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
-    if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "border-left:1px solid #374151;";
-    return `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
-  };
-
+  const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) => cm === MindMapColorMode.BlancoNegro || !parentColor ? "border-left:1px solid #374151;" : `border-left:2px solid ${hslStr(darken(parentColor, 10))};`;
   const connectorHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
-    if (cm === MindMapColorMode.BlancoNegro || !parentColor)
-      return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
-    const c = hslStr(darken(parentColor, 10));
-    return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
+    if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
+    const c = hslStr(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
-
-  // Genera un árbol <details> recursivo con la misma lógica de color
-  const detailsTreeHTML = (
-    node: MindMapNode,
-    open: boolean,
-    level = 0,
-    idx = 0,
-    motherColor: HSL | null = null
-  ): string => {
+  const detailsTreeHTML = (node: MindMapNode, open: boolean, level = 0, idx = 0, motherColor: HSL | null = null): string => {
     let myColor: HSL | null = null;
     if (colorMode === MindMapColorMode.Color) {
       if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
       else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
     }
-    const colorForChildren = myColor; // los hijos heredan el color de su madre (este nodo)
-
+    const colorForChildren = myColor;
     const hasChildren = !!(node.children && node.children.length);
-    const kids = hasChildren
-      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, colorForChildren)).join("")
-      : "";
-
+    const kids = hasChildren ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, colorForChildren)).join("") : "";
     return `
 <details class="mind" ${open ? "open" : ""}>
   <summary class="inline-flex items-start">
@@ -279,7 +166,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
-  <p class="text-gray-300 text-sm mb-1">Árbol del tema central. En ordenador crece a la derecha; en móvil, los hijos aparecen debajo. En modo color, cada hijo hereda el color de su madre con menor intensidad.</p>
+  <p class="text-gray-300 text-sm mb-1">¿Qué es? Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.</p>
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
   <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
@@ -302,13 +189,11 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Cabecera con explicación + Volver (borde rojo) */}
         <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
             <p className="text-gray-300 text-sm">
-              Árbol del tema central. En ordenador crece a la derecha; en móvil, los hijos aparecen debajo.
-              En modo color, cada hijo hereda el color de su madre con menor intensidad. Las “llaves” y bordes usan el color de la madre.
+              ¿Qué es? Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
             </p>
           </div>
           <div className="w-full sm:w-auto">
@@ -321,29 +206,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           </div>
         </div>
 
-        {/* Controles */}
         <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button
-            onClick={() => setExpandAllSeq((v) => v + 1)}
-            className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
-          >
-            Desplegar todos
-          </button>
-          <button
-            onClick={() => setCollapseAllSeq((v) => v + 1)}
-            className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
-          >
-            Colapsar todos
-          </button>
-          <button
-            onClick={downloadHTML}
-            className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
-          >
-            Descargar HTML
-          </button>
+          <button onClick={() => setExpandAllSeq(v => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">Desplegar todos</button>
+          <button onClick={() => setCollapseAllSeq(v => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">Colapsar todos</button>
+          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">Descargar HTML</button>
         </div>
 
-        {/* Árbol */}
         <NodeBox
           node={data.root}
           level={0}
