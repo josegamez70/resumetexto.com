@@ -4,14 +4,11 @@ import {
   PresentationType,
   PresentationData,
   MindMapData,
-  MindMapMode,
 } from "../types";
 
-// Worker de pdf.js
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc =
   `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${(pdfjsLib as any).version}/pdf.worker.min.js`;
 
-// --- PDF → texto ---
 export async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await (pdfjsLib as any).getDocument({ data: arrayBuffer }).promise;
@@ -27,7 +24,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   return text.trim();
 }
 
-// --- Resumen: devuelve SOLO string ---
 export async function summarizeContent(file: File, summaryType: SummaryType): Promise<string> {
   const text = await extractTextFromPDF(file);
   const resp = await fetch("/api/summarize", {
@@ -43,7 +39,6 @@ export async function summarizeContent(file: File, summaryType: SummaryType): Pr
   return String(data.summary);
 }
 
-// --- Mapa conceptual (antes “presentación”): recibe summaryText ---
 export async function createPresentation(
   summaryText: string,
   presentationType: PresentationType
@@ -61,15 +56,11 @@ export async function createPresentation(
   return data.presentationData as PresentationData;
 }
 
-// --- Mapa mental (modo: resumido/extendido) ---
-export async function createMindMapFromText(
-  text: string,
-  mode: MindMapMode = MindMapMode.Resumido
-): Promise<MindMapData> {
+export async function createMindMapFromText(text: string): Promise<MindMapData> {
   const resp = await fetch("/api/mindmap", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, mode }),
+    body: JSON.stringify({ text }), // extendido por defecto en la función
   });
   const raw = await resp.text();
   if (!raw) throw new Error("Respuesta vacía del servidor en mindmap.");
@@ -79,7 +70,6 @@ export async function createMindMapFromText(
   return data.mindmap as MindMapData;
 }
 
-// --- Utilidad: pasar presentación a texto lineal para el mapa mental ---
 export function flattenPresentationToText(p: PresentationData): string {
   const lines: string[] = [p.title];
   const walk = (s: any, d = 0) => {

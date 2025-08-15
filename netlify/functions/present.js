@@ -1,5 +1,4 @@
 // netlify/functions/present.js
-// Genera "Mapa conceptual" a partir de { summaryText, presentationType } con subsections RECURSIVAS
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -24,12 +23,8 @@ exports.handler = async (event) => {
       };
     }
 
-    if (!event.body) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Body vacío. Envía { summaryText, presentationType }" }) };
-    }
-
     let payload;
-    try { payload = JSON.parse(event.body); }
+    try { payload = JSON.parse(event.body || "{}"); }
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
     const summaryText = String(payload.summaryText || "");
@@ -41,13 +36,12 @@ exports.handler = async (event) => {
     const MAX = 10000;
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
-    // Reglas por tipo (incluye profundidad máxima)
     const rules = {
       Extensive: {
         title: "Extensa (en detalle)",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 4,
-        maxDepth: 3, // Sección > Sub > Sub-Sub (hasta 3 niveles)
+        maxDepth: 3, // sección > sub > sub-sub
         contentLen: "2–3 frases por sección o subsección",
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
@@ -55,15 +49,15 @@ exports.handler = async (event) => {
         title: "Completa (+50% más detalle que Extensa)",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 5,
-        maxDepth: 4, // Sección > Sub > Sub-Sub > Sub-Sub-Sub
+        maxDepth: 4, // sección > sub > sub-sub > sub-sub-sub
         contentLen: "3–4 frases por sección o subsección",
-        extra: "Amplía causas, consecuencias y ejemplos concretos.",
+        extra: "Amplía causas, consecuencias y ejemplos.",
       },
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 3,
-        maxDepth: 2, // Sección > Sub
+        maxDepth: 3, // sección > sub > sub-sub (ahora permitido)
         contentLen: "1–2 frases simples por sección o subsección",
         extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
       },
@@ -76,16 +70,17 @@ exports.handler = async (event) => {
       extra: "",
     };
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
+    const genAI = new GGA(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const prompt = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
-Estilo seleccionado: ${rules.title}.
+Estilo: ${rules.title}
 - Máximo ${rules.sectionsMax} secciones.
 - Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
 - Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
-- Longitud de contenido: ${rules.contentLen}.
+- Longitud: ${rules.contentLen}.
 - ${rules.extra}
 
 Muy importante:
@@ -93,7 +88,7 @@ Muy importante:
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
 - Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
-Formato EXACTO (ejemplo con recursividad):
+Formato EXACTO (recursivo):
 {
   "presentationData": {
     "title": "Título de la presentación",
@@ -111,14 +106,7 @@ Formato EXACTO (ejemplo con recursividad):
               {
                 "emoji": "•",
                 "title": "Sub-subsección",
-                "content": "Detalle adicional.",
-                "subsections": [
-                  {
-                    "emoji": "·",
-                    "title": "Sub-sub-subsección",
-                    "content": "Detalle si aplica."
-                  }
-                ]
+                "content": "Detalle adicional."
               }
             ]
           }
@@ -141,24 +129,16 @@ ${safe}
 
     // Parse robusto
     let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      const cleaned = raw
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```$/i, "")
-        .trim();
-      try {
-        data = JSON.parse(cleaned);
-      } catch {
-        const start = cleaned.indexOf("{");
-        const end = cleaned.lastIndexOf("}");
+    try { data = JSON.parse(raw); }
+    catch {
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+      try { data = JSON.parse(cleaned); }
+      catch {
+        const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1 && end > start) {
           const slice = cleaned.slice(start, end + 1);
-          try {
-            data = JSON.parse(slice);
-          } catch {
+          try { data = JSON.parse(slice); }
+          catch {
             console.error("[present] JSON inválido. raw:", raw);
             return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
           }
@@ -169,11 +149,7 @@ ${safe}
       }
     }
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    };
+    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
   } catch (err) {
     console.error("[present] error:", err);
     return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en present" }) };

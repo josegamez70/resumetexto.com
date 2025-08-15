@@ -17,35 +17,37 @@ import {
   PresentationData,
   PresentationType,
   MindMapData,
-  MindMapMode,
+  MindMapColorMode,
 } from "./types";
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
 
-  // Datos
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
   const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
+  const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
 
-  // UI
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const handleReset = () => {
+  const handleResetAll = () => {
     setSummary(null);
     setSummaryTitle(null);
     setPresentation(null);
     setMindmap(null);
-    setView(ViewState.UPLOADER);
     setError(null);
     setLoadingMessage(null);
+    setView(ViewState.UPLOADER);
   };
 
-  // 1) Subida + resumen
+  const handleBackToSummary = () => {
+    setView(ViewState.SUMMARY); // ← vuelve al resumen (no se borra nada)
+  };
+
   const handleFileUpload = async (file: File, summaryType: SummaryType) => {
     setError(null);
     setIsProcessing(true);
@@ -64,7 +66,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 2) Generar "Mapa conceptual"
   const handleGeneratePresentation = async () => {
     if (!summary) return;
     setIsProcessing(true);
@@ -82,21 +83,17 @@ const App: React.FC = () => {
     }
   };
 
-  // 3) Generar "Mapa mental" (resumido o extendido)
-  const handleOpenMindMap = async (mode: MindMapMode) => {
+  const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
+    setMindMapColorMode(colorMode);
     setIsProcessing(true);
-    setLoadingMessage(mode === MindMapMode.Resumido
-      ? "🧠 Generando mapa mental (resumido)..."
-      : "🧠 Generando mapa mental (extendido)...");
+    setLoadingMessage("🧠 Generando mapa mental (extendido)...");
     try {
       const baseText =
         (presentation && flattenPresentationToText(presentation)) ||
         summary ||
         "";
-      if (!baseText) {
-        throw new Error("No hay contenido para generar el mapa mental.");
-      }
-      const data = await createMindMapFromText(baseText, mode);
+      if (!baseText) throw new Error("No hay contenido para generar el mapa mental.");
+      const data = await createMindMapFromText(baseText /* extendido por defecto */);
       setMindmap(data);
       setView(ViewState.MINDMAP);
     } catch (err) {
@@ -109,13 +106,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg text-white p-6 relative">
-      {/* Error */}
+    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       {error && <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>}
 
-      {/* Overlay de carga */}
       {loadingMessage && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
           <div className="bg-yellow-500 text-black p-4 rounded-lg text-center font-semibold animate-pulse max-w-xs">
             {loadingMessage}
           </div>
@@ -133,8 +128,8 @@ const App: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap}
-          onReset={handleReset}
+          onOpenMindMap={handleOpenMindMap} // ← ahora recibe colorMode
+          onReset={handleResetAll}
         />
       )}
 
@@ -143,8 +138,7 @@ const App: React.FC = () => {
           presentation={presentation}
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
-          onMindMap={() => handleOpenMindMap(MindMapMode.Resumido)} // acceso rápido desde aquí
-          onReset={handleReset}
+          onBackToSummary={handleBackToSummary} // ← vuelve a resumen
         />
       )}
 
@@ -152,6 +146,7 @@ const App: React.FC = () => {
         <MindMapView
           data={mindmap}
           summaryTitle={summaryTitle}
+          colorMode={mindMapColorMode}
           onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
         />
       )}

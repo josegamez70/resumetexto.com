@@ -15,7 +15,7 @@ export type PresentationSection = {
   emoji: string;
   title: string;
   content: string;
-  subsections?: PresentationSection[];
+  subsections?: PresentationSection[]; // recursivo
 };
 
 export type PresentationData = {
@@ -23,7 +23,6 @@ export type PresentationData = {
   sections: PresentationSection[];
 };
 
-// --- MindMap ---
 export type MindMapNode = {
   id: string;
   label: string;
@@ -35,14 +34,15 @@ export type MindMapData = {
   root: MindMapNode;
 };
 
-export enum MindMapMode {
-  Resumido = "resumido",
-  Extendido = "extendido",
+export enum MindMapColorMode {
+  BlancoNegro = "bw",
+  Color = "color",
 }
 
+// (dejamos ViewState igual)
 export enum ViewState {
   UPLOADER,
   SUMMARY,
-  PRESENTATION, // "Mapa conceptual"
-  MINDMAP,      // "Mapa mental"
+  PRESENTATION,
+  MINDMAP,
 }
