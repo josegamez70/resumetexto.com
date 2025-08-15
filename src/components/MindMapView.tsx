@@ -43,14 +43,32 @@ function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; pa
 }
 
 const NodeBox: React.FC<{
-  node: MindMapNode; level: number; idx: number;
-  colorMode: MindMapColorMode; motherColor: HSL | null;
-  expandAllSeq: number; collapseAllSeq: number;
-}> = ({ node, level, idx, colorMode, motherColor, expandAllSeq, collapseAllSeq }) => {
+  node: MindMapNode;
+  level: number;
+  idx: number;
+  colorMode: MindMapColorMode;
+  motherColor: HSL | null;
+  expandAllSeq: number;
+  collapseAllSeq: number;
+  accordionIndex: number | null;                 // <- índice abierto en nivel 1
+  setAccordionIndex: (idx: number | null) => void;
+}> = ({
+  node, level, idx, colorMode, motherColor,
+  expandAllSeq, collapseAllSeq, accordionIndex, setAccordionIndex
+}) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
+
+  // Acordeón: si cambia el índice del padre, sincroniza los de nivel 1
+  useEffect(() => {
+    if (level !== 1) return;
+    if (accordionIndex === null) return; // no forzar cuando no hay acordeón activo
+    setOpen(idx === accordionIndex);
+  }, [accordionIndex, level, idx]);
+
   const hasChildren = !!(node.children && node.children.length);
+
   let myColor: HSL | null = null;
   if (colorMode === MindMapColorMode.Color) {
     if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
@@ -58,12 +76,24 @@ const NodeBox: React.FC<{
   }
   const colorForMyChildren = myColor;
 
+  const handleClick = () => {
+    if (level === 1) {
+      const willOpen = !open;
+      if (willOpen) setAccordionIndex(idx);
+      else setAccordionIndex(null);
+      setOpen(willOpen);
+      return;
+    }
+    // Niveles >1: comportamiento normal
+    setOpen((v) => !v);
+  };
+
   return (
     <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
       <button
         style={styleTag(level, colorMode, myColor)}
         className="shrink-0 text-left w-full sm:w-auto"
-        onClick={() => hasChildren && setOpen(v => !v)}
+        onClick={hasChildren ? handleClick : undefined}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
       >
         <div className="leading-tight">{node.label}</div>
@@ -84,6 +114,8 @@ const NodeBox: React.FC<{
               motherColor={colorForMyChildren}
               expandAllSeq={expandAllSeq}
               collapseAllSeq={collapseAllSeq}
+              accordionIndex={accordionIndex}
+              setAccordionIndex={setAccordionIndex}
             />
           ))}
         </div>
@@ -95,8 +127,11 @@ const NodeBox: React.FC<{
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
+  const [accordionIndex, setAccordionIndex] = useState<number | null>(null); // <- acordeón nivel 1
+
   const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
+  // Exporta HTML con acordeón nivel 1 (clase lvl1 y listener de toggle)
   const esc = (s: string = "") => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
@@ -109,7 +144,14 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     if (cm === MindMapColorMode.BlancoNegro || !parentColor) return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
     const c = hslStr(darken(parentColor, 10)); return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
   };
-  const detailsTreeHTML = (node: MindMapNode, open: boolean, level = 0, idx = 0, motherColor: HSL | null = null): string => {
+
+  const detailsTreeHTML = (
+    node: MindMapNode,
+    open: boolean,
+    level = 0,
+    idx = 0,
+    motherColor: HSL | null = null
+  ): string => {
     let myColor: HSL | null = null;
     if (colorMode === MindMapColorMode.Color) {
       if (level === 1) myColor = PALETTE_L1[idx % PALETTE_L1.length];
@@ -118,8 +160,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     const colorForChildren = myColor;
     const hasChildren = !!(node.children && node.children.length);
     const kids = hasChildren ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, colorForChildren)).join("") : "";
+
     return `
-<details class="mind" ${open ? "open" : ""}>
+<details class="mind${level===1 ? " lvl1" : ""}" ${open ? "open" : ""}>
   <summary class="inline-flex items-start">
     <span class="marker sm:hidden" aria-hidden="true"></span>
     <div style="${tagStyleHTML(level, colorMode, myColor)}">
@@ -162,6 +205,14 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   function expandAll(){ document.querySelectorAll('details.mind').forEach(d=>d.setAttribute('open','')) }
   function collapseAll(){ document.querySelectorAll('details.mind').forEach(d=>d.removeAttribute('open')) }
   function printPDF(){ window.print() }
+  // Acordeón PRIMER NIVEL en exportado
+  document.addEventListener('toggle', function(ev){
+    const el = ev.target;
+    if(!(el instanceof HTMLDetailsElement)) return;
+    if(el.classList.contains('lvl1') && el.open){
+      document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
+    }
+  }, true);
 </script>
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
@@ -207,9 +258,26 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
         </div>
 
         <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button onClick={() => setExpandAllSeq(v => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">Desplegar todos</button>
-          <button onClick={() => setCollapseAllSeq(v => v + 1)} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">Colapsar todos</button>
-          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">Descargar HTML</button>
+          <button
+            onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }}
+            className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
+          >
+            Desplegar todos
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5 -mt-2 sm:mt-0">
+          <button
+            onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }}
+            className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
+          >
+            Colapsar todos
+          </button>
+          <button
+            onClick={downloadHTML}
+            className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
+          >
+            Descargar HTML
+          </button>
         </div>
 
         <NodeBox
@@ -220,6 +288,8 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           motherColor={null}
           expandAllSeq={expandAllSeq}
           collapseAllSeq={collapseAllSeq}
+          accordionIndex={accordionIndex}
+          setAccordionIndex={setAccordionIndex}
         />
       </div>
     </div>

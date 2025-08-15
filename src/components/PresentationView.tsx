@@ -31,15 +31,33 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   }
 
   const expandAll = () => {
-    containerRef.current?.querySelectorAll("details").forEach(d => d.setAttribute("open", "true"));
+    containerRef.current?.querySelectorAll("details").forEach((d) => d.setAttribute("open", "true"));
   };
   const collapseAll = () => {
-    containerRef.current?.querySelectorAll("details").forEach(d => d.removeAttribute("open"));
+    containerRef.current?.querySelectorAll("details").forEach((d) => d.removeAttribute("open"));
   };
   const printPDF = () => window.print();
 
+  // Acordeón en PRIMER NIVEL dentro de la app
+  const handleTopSummaryClick = (e: React.MouseEvent, _idx: number) => {
+    e.preventDefault();
+    const summaryEl = e.currentTarget as HTMLElement;
+    const detailsEl = summaryEl.parentElement as HTMLDetailsElement;
+    if (!containerRef.current || !detailsEl) return;
+    const isOpen = detailsEl.hasAttribute("open");
+    if (isOpen) {
+      detailsEl.removeAttribute("open");
+    } else {
+      containerRef.current
+        .querySelectorAll("details.lvl1")
+        .forEach((d) => d.removeAttribute("open"));
+      detailsEl.setAttribute("open", "true");
+    }
+  };
+
   const downloadHTML = () => {
     if (!containerRef.current) return;
+
     const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${summaryTitle || presentation.title}</title>
@@ -49,9 +67,17 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
 </style>
 <script>
-function expandAll(){ document.querySelectorAll('details').forEach(d=>d.setAttribute('open','true')); }
-function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.removeAttribute('open')); }
-function printPDF(){ window.print(); }
+function expandAll(){ document.querySelectorAll('details').forEach(d=>d.setAttribute('open','true')) }
+function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.removeAttribute('open')) }
+function printPDF(){ window.print() }
+// Acordeón en PRIMER NIVEL en el HTML exportado
+document.addEventListener('toggle', function(ev){
+  const el = ev.target;
+  if(!(el instanceof HTMLDetailsElement)) return;
+  if(el.classList.contains('lvl1') && el.open){
+    document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
+  }
+}, true);
 </script>
 </head>
 <body class="bg-gray-900 text-white p-3 sm:p-6">
@@ -70,6 +96,7 @@ function printPDF(){ window.print(); }
     ${containerRef.current.innerHTML}
   </div>
 </body></html>`;
+
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -79,7 +106,7 @@ function printPDF(){ window.print(); }
     URL.revokeObjectURL(url);
   };
 
-  const renderSection = (section: any, level = 1) => {
+  const renderSection = (section: any, level = 1, idx = 0) => {
     let summaryClass =
       "bg-yellow-500 text-black px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base";
     let contentClass = "p-3 sm:p-4 whitespace-pre-line text-sm sm:text-base";
@@ -91,17 +118,28 @@ function printPDF(){ window.print(); }
       summaryClass = "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base";
       contentClass = "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base";
     }
+
+    const isTop = level === 1;
+
     return (
       <details
         className={`border rounded-lg overflow-hidden ${
-          level === 1 ? "bg-gray-800 border-gray-700"
-          : level === 2 ? "ml-2 sm:ml-4 bg-gray-700 border-gray-600"
-          : "ml-4 sm:ml-8 bg-gray-600 border-gray-500"
+          isTop
+            ? "lvl1 bg-gray-800 border-gray-700"
+            : level === 2
+            ? "ml-2 sm:ml-4 bg-gray-700 border-gray-600"
+            : "ml-4 sm:ml-8 bg-gray-600 border-gray-500"
         } w-full`}
       >
-        <summary className={summaryClass}>{section.emoji} {section.title}</summary>
+        <summary
+          className={summaryClass}
+          onClick={isTop ? (e) => handleTopSummaryClick(e, idx) : undefined}
+        >
+          {section.emoji} {section.title}
+        </summary>
         {section.content && <p className={contentClass}>{section.content}</p>}
-        {Array.isArray(section.subsections) && section.subsections.map((sub: any, i: number) => renderSection(sub, level + 1))}
+        {Array.isArray(section.subsections) &&
+          section.subsections.map((sub: any, i: number) => renderSection(sub, level + 1, i))}
       </details>
     );
   };
@@ -135,7 +173,7 @@ function printPDF(){ window.print(); }
       </div>
 
       <div ref={containerRef} className="space-y-3">
-        {presentation.sections.map(section => renderSection(section, 1))}
+        {presentation.sections.map((section, i) => renderSection(section, 1, i))}
       </div>
     </div>
   );
