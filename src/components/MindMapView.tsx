@@ -8,25 +8,85 @@ type Props = {
   onBack: () => void;
 };
 
-// paleta para modo "color"
-const palette = [
-  "bg-rose-600 text-white border-rose-700",
-  "bg-amber-500 text-black border-amber-600",
-  "bg-emerald-600 text-white border-emerald-700",
-  "bg-sky-600 text-white border-sky-700",
-  "bg-fuchsia-600 text-white border-fuchsia-700",
-  "bg-lime-600 text-black border-lime-700",
+// Paleta base para los hijos de la RAÍZ (nivel 1).
+// A partir de ahí, las ramas heredan el color y se aclara por nivel.
+type HSL = { h: number; s: number; l: number };
+const paletteLevel1: HSL[] = [
+  { h: 355, s: 80, l: 45 }, // rojizo
+  { h: 45, s: 90, l: 50 },  // ámbar
+  { h: 140, s: 60, l: 40 }, // verde
+  { h: 200, s: 80, l: 45 }, // azul cielo
+  { h: 280, s: 70, l: 45 }, // fucsia
+  { h: 90, s: 70, l: 45 },  // lima
 ];
 
-function tagClass(level: number, colorMode: MindMapColorMode, siblingIndex: number) {
+function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
+function hslStr(c: HSL) { return `hsl(${c.h}deg ${c.s}% ${c.l}%)`; }
+function lighten(c: HSL, dl: number) { return { ...c, l: clamp(c.l + dl, 10, 92) }; }
+function darken(c: HSL, dl: number) { return { ...c, l: clamp(c.l - dl, 0, 90) }; }
+function textOn(bg: HSL) { return bg.l >= 62 ? "#000" : "#fff"; }
+
+function styleForTag(level: number, colorMode: MindMapColorMode, color: HSL | null) {
   if (level === 0) {
-    return "bg-black text-white border-2 border-gray-500 font-extrabold text-sm sm:text-base px-4 py-2.5 rounded-xl";
+    return {
+      backgroundColor: "#000",
+      color: "#fff",
+      border: "2px solid #6b7280", // gris-500
+      fontWeight: 800,
+      padding: "10px 16px",
+      borderRadius: "12px",
+    } as React.CSSProperties;
   }
-  if (colorMode === MindMapColorMode.BlancoNegro) {
-    return "bg-gray-800 text-white border border-gray-600 font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg";
+  if (colorMode === MindMapColorMode.BlancoNegro || !color) {
+    return {
+      backgroundColor: "#1f2937",
+      color: "#fff",
+      border: "1px solid #4b5563",
+      fontWeight: 600,
+      padding: "8px 14px",
+      borderRadius: "10px",
+    } as React.CSSProperties;
   }
-  const pick = palette[siblingIndex % palette.length];
-  return `${pick} font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg border`;
+  const bg = hslStr(color);
+  const border = hslStr(darken(color, 10));
+  const fg = textOn(color);
+  return {
+    backgroundColor: bg,
+    color: fg,
+    border: `1px solid ${border}`,
+    fontWeight: 600,
+    padding: "8px 14px",
+    borderRadius: "10px",
+  } as React.CSSProperties;
+}
+
+function styleForChildrenContainer(colorMode: MindMapColorMode, parentColor: HSL | null) {
+  if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) {
+    return { borderLeft: "1px solid #374151" } as React.CSSProperties; // gris-700
+  }
+  return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` } as React.CSSProperties;
+}
+
+function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; parentColor: HSL | null }) {
+  const style: React.CSSProperties =
+    colorMode === MindMapColorMode.Color && parentColor
+      ? {
+          width: "18px",
+          height: "12px",
+          borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}`,
+          borderBottom: `2px solid ${hslStr(darken(parentColor, 10))}`,
+          marginLeft: "1rem",
+          borderBottomLeftRadius: "8px",
+        }
+      : {
+          width: "16px",
+          height: "10px",
+          borderLeft: "1px solid #4b5563",
+          borderBottom: "1px solid #4b5563",
+          marginLeft: "1rem",
+          borderBottomLeftRadius: "8px",
+        };
+  return <span className="sm:hidden inline-block" style={style} aria-hidden="true" />;
 }
 
 const NodeBox: React.FC<{
@@ -34,35 +94,62 @@ const NodeBox: React.FC<{
   level: number;
   idx: number;
   colorMode: MindMapColorMode;
+  branchColor: HSL | null; // color heredado de la madre
   expandAllSeq: number;
   collapseAllSeq: number;
-}> = ({ node, level, idx, colorMode, expandAllSeq, collapseAllSeq }) => {
+}> = ({ node, level, idx, colorMode, branchColor, expandAllSeq, collapseAllSeq }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
 
   const hasChildren = (node.children?.length || 0) > 0;
 
+  // Color de esta etiqueta:
+  // - nivel 0: negro
+  // - nivel 1: color de paleta por índice
+  // - nivel >=2: hereda y se aclara por nivel
+  let myColor: HSL | null = null;
+  if (colorMode === MindMapColorMode.Color) {
+    if (level === 1) myColor = paletteLevel1[idx % paletteLevel1.length];
+    else if (level >= 2) myColor = branchColor ? lighten(branchColor, 10) : null;
+  }
+
+  // Color que heredarán los hijos (color de la madre, no aclarado).
+  const nextBranchColor: HSL | null =
+    colorMode === MindMapColorMode.Color
+      ? level === 0
+        ? null
+        : myColor || branchColor
+      : null;
+
   return (
     <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
       {/* Etiqueta */}
       <button
-        className={`${tagClass(level, colorMode, idx)} shrink-0 text-left w-full sm:w-auto`}
+        style={styleForTag(level, colorMode, myColor)}
+        className="shrink-0 text-left w-full sm:w-auto"
         onClick={() => hasChildren && setOpen((v) => !v)}
         title={hasChildren ? (open ? "Colapsar" : "Expandir") : "Nodo"}
       >
         <div className="leading-tight">{node.label}</div>
-        {node.note && <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">{node.note}</div>}
+        {node.note && (
+          <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">
+            {node.note}
+          </div>
+        )}
       </button>
 
-      {/* Conector SOLO móvil cuando abierto */}
+      {/* Conector móvil como "llave" del color de la madre */}
       {open && hasChildren && (
-        <div className="sm:hidden w-px h-2 bg-gray-600 ml-4" aria-hidden="true" />
+        <Connector colorMode={colorMode} parentColor={branchColor} />
       )}
 
-      {/* Hijos: móvil debajo; desktop a la derecha con borde-l */}
+      {/* Hijos: móvil debajo; desktop a la derecha con borde-l del color de la madre */}
       {open && hasChildren && (
-        <div className="pl-3 sm:pl-4 border-l border-gray-700 flex flex-col gap-1.5 sm:gap-2 w-full">
+        <div
+          className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full"
+          style={styleForChildrenContainer(colorMode, branchColor)}
+        >
           {node.children!.map((c, i) => (
             <NodeBox
               key={c.id}
@@ -70,6 +157,7 @@ const NodeBox: React.FC<{
               level={level + 1}
               idx={i}
               colorMode={colorMode}
+              branchColor={nextBranchColor}
               expandAllSeq={expandAllSeq}
               collapseAllSeq={collapseAllSeq}
             />
@@ -90,41 +178,73 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     [summaryTitle, data.root.label]
   );
 
-  // --- Export HTML (con colorMode) ---
+  // ---- Export HTML con los mismos estilos (inline) y colores heredados ----
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  const tagClassHTML = (level: number, cm: MindMapColorMode, idx: number) => {
-    if (level === 0) return "bg-black text-white border-2 border-gray-500 font-extrabold text-sm sm:text-base px-4 py-2.5 rounded-xl";
-    if (cm === "bw") return "bg-gray-800 text-white border border-gray-600 font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg";
-    const pick = palette[idx % palette.length];
-    return `${pick} font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg border`;
+  const tagStyleHTML = (level: number, cm: MindMapColorMode, color: HSL | null) => {
+    if (level === 0) return "background:#000;color:#fff;border:2px solid #6b7280;font-weight:800;padding:.65rem 1rem;border-radius:12px;";
+    if (cm === "bw" || !color)
+      return "background:#1f2937;color:#fff;border:1px solid #4b5563;font-weight:600;padding:.5rem .9rem;border-radius:10px;";
+    const bg = hslStr(color);
+    const bd = hslStr(darken(color, 10));
+    const fg = textOn(color);
+    return `background:${bg};color:${fg};border:1px solid ${bd};font-weight:600;padding:.5rem .9rem;border-radius:10px;`;
   };
 
-  const detailsTreeHTML = (node: MindMapNode, open: boolean, level = 0, idx = 0): string => {
+  const childrenBorderHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
+    if (cm === "bw" || !parentColor) return "border-left:1px solid #374151;";
+    return `border-left:2px solid ${hslStr(darken(parentColor,10))};`;
+  };
+
+  const connectorHTML = (cm: MindMapColorMode, parentColor: HSL | null) => {
+    if (cm === "bw" || !parentColor)
+      return "width:16px;height:10px;border-left:1px solid #4b5563;border-bottom:1px solid #4b5563;margin-left:1rem;border-bottom-left-radius:8px;";
+    const c = hslStr(darken(parentColor, 10));
+    return `width:18px;height:12px;border-left:2px solid ${c};border-bottom:2px solid ${c};margin-left:1rem;border-bottom-left-radius:8px;`;
+  };
+
+  const detailsTreeHTML = (
+    node: MindMapNode,
+    open: boolean,
+    level = 0,
+    idx = 0,
+    branchColor: HSL | null = null
+  ): string => {
+    // Color de ESTA etiqueta
+    let myColor: HSL | null = null;
+    if (colorMode === MindMapColorMode.Color) {
+      if (level === 1) myColor = paletteLevel1[idx % paletteLevel1.length];
+      else if (level >= 2) myColor = branchColor ? lighten(branchColor, 10) : null;
+    }
+    // Color que heredan los hijos
+    const nextBranch = colorMode === MindMapColorMode.Color ? (level === 0 ? null : (myColor || branchColor)) : null;
+
     const hasChildren = (node.children?.length || 0) > 0;
-    const kids = hasChildren ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i)).join("") : "";
-    const tag = tagClassHTML(level, colorMode, idx);
+    const kids = hasChildren
+      ? node.children!.map((c, i) => detailsTreeHTML(c, false, level + 1, i, nextBranch)).join("")
+      : "";
+
     return `
 <details class="mind" ${open ? "open" : ""}>
   <summary class="inline-flex items-start">
     <span class="marker sm:hidden" aria-hidden="true"></span>
-    <div class="${tag}">
+    <div style="${tagStyleHTML(level, colorMode, myColor)}">
       <div class="leading-tight">${esc(node.label)}</div>
-      ${node.note ? `<div class="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">${esc(node.note)}</div>` : ""}
+      ${node.note ? `<div style="opacity:.9;font-size:.75rem;margin-top:.15rem;line-height:1.1">${esc(node.note)}</div>` : ""}
     </div>
   </summary>
   ${
     hasChildren
-      ? `<div class="connector sm:hidden" aria-hidden="true"></div>
-         <div class="children">${kids}</div>`
+      ? `<span class="connector sm:hidden" style="${connectorHTML(colorMode, branchColor)}" aria-hidden="true"></span>
+         <div class="children" style="padding-left:.75rem;${childrenBorderHTML(colorMode, branchColor)}">${kids}</div>`
       : ""
   }
 </details>`;
   };
 
   const downloadHTML = () => {
-    const tree = detailsTreeHTML(data.root, true, 0, 0);
+    const tree = detailsTreeHTML(data.root, true, 0, 0, null);
     const html = `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -138,13 +258,11 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
   details.mind[open] > summary .marker::after{content:"−"}
   details.mind:not([open]) > summary .marker::after{content:"+"}
-  .connector{width:1px;height:.6rem;background:#374151;margin-left:1.65rem}
-  .children{padding-left:.6rem}
   @media (min-width:640px){
     body{overflow-x:auto}
     details.mind{flex-direction:row;align-items:flex-start;gap:.75rem}
-    .connector{display:none}
-    .children{border-left:1px solid #374151;padding-left:1rem}
+    .connector{display:none!important}
+    .children{padding-left:1rem!important}
   }
 </style>
 <script>
@@ -210,6 +328,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
             level={0}
             idx={0}
             colorMode={colorMode}
+            branchColor={null}
             expandAllSeq={expandAllSeq}
             collapseAllSeq={collapseAllSeq}
           />
