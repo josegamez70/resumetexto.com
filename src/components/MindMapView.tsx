@@ -27,7 +27,6 @@ const PALETTE_L1: HSL[] = [
 
 // Compactar bloques: ancho máximo por nivel (en ch)
 const maxWidthCh = (level: number) => (level === 0 ? 34 : level === 1 ? 26 : level === 2 ? 24 : 22);
-
 const isContentful = (n?: Partial<MindMapNode>) =>
   Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
@@ -47,12 +46,10 @@ function styleTag(level: number, colorMode: MindMapColorMode, myColor: HSL | nul
   const bg = hslStr(myColor), bd = hslStr(darken(myColor, 10)), fg = textOn(myColor);
   return { ...common, backgroundColor: bg, color: fg, border: `1px solid ${bd}`, fontWeight: 600, padding: "8px 14px", borderRadius: "10px" };
 }
-
 function styleChildrenBorder(colorMode: MindMapColorMode, parentColor: HSL | null): React.CSSProperties {
   if (colorMode === MindMapColorMode.BlancoNegro || !parentColor) return { borderLeft: "1px solid #374151" };
   return { borderLeft: `2px solid ${hslStr(darken(parentColor, 10))}` };
 }
-
 function Connector({ colorMode, parentColor }: { colorMode: MindMapColorMode; parentColor: HSL | null }) {
   const style: React.CSSProperties =
     colorMode === MindMapColorMode.Color && parentColor
@@ -162,7 +159,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // --------- HTML export (mismo filtro para hijos con contenido) ----------
+  // ---------- HTML export helpers (compact + izquierda + imprimir PDF) ----------
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     const common = `display:inline-block;max-width:${maxWidthCh(level)}ch;white-space:normal;word-break:break-word;hyphens:auto;line-height:1.15;`;
@@ -192,7 +189,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
       else if (level >= 2) myColor = motherColor ? lighten(motherColor, 10) : null;
     }
     const rawChildren = node.children || [];
-    const filteredChildren = rawChildren.filter(isContentful);
+    const filteredChildren = rawChildren.filter((c) => Boolean(String(c?.label ?? "").trim() || String(c?.note ?? "").trim()));
     const hasChildren = filteredChildren.length > 0;
 
     const kids = hasChildren
@@ -236,6 +233,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   details.mind:not([open]) > summary .marker::after{content:"+"}
   .tri{display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;margin-left:.35rem;transform:rotate(0deg);transition:transform .15s ease}
   details[open] > summary .tri{transform:rotate(90deg)}
+  /* Botones compactos y alineados a la izquierda */
+  .btns{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-start}
+  .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .7rem;font-size:.85rem;border-radius:.5rem}
   @media (min-width:640px){
     body{overflow-x:auto}
     details.mind{flex-direction:row;align-items:flex-start;gap:.75rem}
@@ -259,13 +259,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </script>
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
-  <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
-  <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
+  <h1 class="text-xl sm:text-2xl font-bold mb-3">Mapa mental</h1>
 
-  <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
-    <button onclick="expandAll()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
-    <button onclick="collapseAll()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
-    <button onclick="printPDF()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">🖨 Imprimir a PDF</button>
+  <div class="btns mb-4">
+    <button onclick="expandAll()" class="btn bg-green-600 hover:bg-green-700 text-white">📂 Desplegar todos</button>
+    <button onclick="collapseAll()" class="btn bg-red-600 hover:bg-red-700 text-white">📁 Colapsar todos</button>
+    <button onclick="printPDF()" class="btn bg-blue-600 hover:bg-blue-700 text-white">🖨 Imprimir a PDF</button>
   </div>
 
   <div>${tree}</div>
@@ -285,25 +284,38 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
         <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
-            <p className="text-gray-300 text-sm">
-              ¿Qué es? Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
-            </p>
+            {/* Explicación eliminada en la presentación */}
           </div>
           <div className="w-full sm:w-auto">
-            <button onClick={onBack} className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-sm">
+            <button
+              onClick={onBack}
+              className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-sm"
+            >
               Volver
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
+          <button
+            onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }}
+            className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
+          >
             Desplegar todos
           </button>
-          <button onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
+        </div>
+
+        <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
+          <button
+            onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }}
+            className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
+          >
             Colapsar todos
           </button>
-          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+          <button
+            onClick={downloadHTML}
+            className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
+          >
             Descargar HTML
           </button>
         </div>
