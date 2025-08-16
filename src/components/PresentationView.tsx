@@ -56,6 +56,12 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   const downloadHTML = () => {
     if (!containerRef.current) return;
 
+    // ► Nombre de archivo seguro (sin comillas ni caracteres problemáticos)
+    const safeTitle =
+      (summaryTitle || presentation.title || "presentacion")
+        .replace(/["'<>:|?*\\/]/g, "")
+        .trim() || "presentacion";
+
     const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${summaryTitle || presentation.title}</title>
@@ -63,28 +69,37 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
   details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
-  /* Botones compactos y alineados a la izquierda */
+  /* Botones compactos y alineados a la izquierda (~30% menos anchos) */
   .btns{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:flex-start}
   .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .7rem;font-size:.9rem;border-radius:.55rem}
 </style>
 <script>
-window._bulkOpen = false;
-function expandAll(){
-  window._bulkOpen = true;
-  document.querySelectorAll('details').forEach(d=>d.open=true);
-  setTimeout(()=>{ window._bulkOpen = false; }, 0);
-}
-function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
-function printPDF(){ window.print() }
-// Acordeón 1er nivel (ignorar durante expandAll)
-document.addEventListener('toggle', function(ev){
-  const el = ev.target;
-  if(!(el instanceof HTMLDetailsElement)) return;
-  if(window._bulkOpen) return;
-  if(el.classList.contains('lvl1') && el.open){
-    document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
+  window._bulkOpen = false;
+  function expandAll(){
+    window._bulkOpen = true;
+    document.querySelectorAll('details').forEach(d=>d.open=true);
+    setTimeout(()=>{ window._bulkOpen = false; }, 0);
   }
-}, true);
+  function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
+  function printPDF(){ window.print() }
+  function downloadSelf(){
+    const html = document.documentElement.outerHTML;
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.download = '${safeTitle}.html';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+  }
+  // Acordeón 1er nivel (ignorar durante expandAll)
+  document.addEventListener('toggle', function(ev){
+    const el = ev.target;
+    if(!(el instanceof HTMLDetailsElement)) return;
+    if(window._bulkOpen) return;
+    if(el.classList.contains('lvl1') && el.open){
+      document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
+    }
+  }, true);
 </script>
 </head>
 <body class="bg-gray-900 text-white p-3 sm:p-6">
@@ -98,7 +113,7 @@ document.addEventListener('toggle', function(ev){
     <button onclick="expandAll()" class="btn bg-green-500 hover:bg-green-600 text-white">📂 Desplegar todos</button>
     <button onclick="collapseAll()" class="btn bg-red-500 hover:bg-red-600 text-white">📁 Colapsar todos</button>
     <button onclick="printPDF()" class="btn bg-blue-500 hover:bg-blue-600 text-white">🖨 Imprimir</button>
-    <button onclick="(()=>{const a=document.createElement('a');a.download='${(summaryTitle || presentation.title).replace(/\"/g,'')}.html';a.href=URL.createObjectURL(new Blob([document.documentElement.outerHTML],{type:'text/html'}));a.click()})()" class="btn bg-indigo-600 hover:bg-indigo-700 text-white">💾 Descargar HTML</button>
+    <button onclick="downloadSelf()" class="btn bg-indigo-600 hover:bg-indigo-700 text-white">💾 Descargar HTML</button>
   </div>
   <div class="space-y-3">
     ${containerRef.current.innerHTML}
@@ -109,7 +124,7 @@ document.addEventListener('toggle', function(ev){
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${summaryTitle || presentation.title}.html`;
+    a.download = `${safeTitle}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
