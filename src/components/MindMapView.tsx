@@ -15,7 +15,7 @@ const lighten = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l + dl, 10, 92)
 const darken = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l - dl, 0, 90) });
 const textOn = (bg: HSL) => (bg.l >= 62 ? "#000" : "#fff");
 
-// Paleta nivel 1
+// Paleta L1
 const PALETTE_L1: HSL[] = [
   { h: 355, s: 80, l: 45 },
   { h: 45,  s: 90, l: 50 },
@@ -159,7 +159,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // ---------- HTML export helpers (compact + izquierda) ----------
+  // ---------- HTML export helpers ----------
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     const common = `display:inline-block;max-width:${maxWidthCh(level)}ch;white-space:normal;word-break:break-word;hyphens:auto;line-height:1.15;`;
@@ -225,7 +225,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  details.mind{display:flex;flex-direction:column;gap:.5rem;margin:.2rem 0}
+  /* Zona y bloques de presentación con fondo gris medio */
+  .stage{background:rgba(55,65,81,.45);border-radius:12px;padding:.75rem}
+  details.mind{display:flex;flex-direction:column;gap:.5rem;margin:.25rem 0;background:rgba(75,85,99,.35);border-radius:.75rem;overflow:hidden}
   details.mind > summary{display:inline-flex;align-items:flex-start;list-style:none;cursor:pointer}
   summary::-webkit-details-marker{display:none}
   .marker{display:inline-flex;width:1.25rem;height:1.25rem;border-radius:.375rem;background:#374151;align-items:center;justify-content:center;margin-right:.4rem;font-weight:700;color:#fff;font-size:.8rem;line-height:1.25rem}
@@ -267,7 +269,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
     <button onclick="printPDF()" class="btn bg-blue-600 hover:bg-blue-700 text-white">🖨 Imprimir a PDF</button>
   </div>
 
-  <div>${tree}</div>
+  <div class="stage">
+    ${tree}
+  </div>
 </body></html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -296,7 +300,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           </div>
         </div>
 
-        {/* Botonera: izquierda y ~30% menos ancha (px reducido) */}
+        {/* Botonera compacta a la izquierda */}
         <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-5">
           <button
             onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }}
@@ -321,6 +325,15 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           </button>
         </div>
 
+        <div className="max-w-[1200px]">
+          {/* El árbol en la app mantiene su UI existente */}
+          {/* (el fondo gris medio se aplica solo en los HTML exportados) */}
+          {/* Si también lo quieres en la app, lo envolvemos con un div con bg-gray-700/50 aquí */}
+        </div>
+
+        {/* Render del árbol */}
+        {/* Root */}
+        {/* (El componente NodeBox pinta todo) */}
         <NodeBox
           node={data.root}
           level={0}

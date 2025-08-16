@@ -56,10 +56,10 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   const downloadHTML = () => {
     if (!containerRef.current) return;
 
-    // ► Nombre de archivo seguro (sin comillas ni caracteres problemáticos)
+    // Nombre de archivo seguro (sin caracteres problemáticos)
     const safeTitle =
       (summaryTitle || presentation.title || "presentacion")
-        .replace(/["'<>:|?*\\/]/g, "")
+        .replace(/[^a-z0-9_\- .]/gi, "")
         .trim() || "presentacion";
 
     const html = `<!DOCTYPE html><html lang="es"><head>
@@ -68,10 +68,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
   /* Botones compactos y alineados a la izquierda (~30% menos anchos) */
   .btns{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:flex-start}
   .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .7rem;font-size:.9rem;border-radius:.55rem}
+  /* Zona y bloques de presentación con fondo gris medio */
+  .stage{background:rgba(55,65,81,.45);border-radius:12px;padding:.75rem}
+  details{background:rgba(75,85,99,.35);border-radius:.75rem;margin:.25rem 0;overflow:hidden}
+  summary{list-style:none} summary::-webkit-details-marker{display:none}
 </style>
 <script>
   window._bulkOpen = false;
@@ -82,15 +85,6 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   }
   function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
   function printPDF(){ window.print() }
-  function downloadSelf(){
-    const html = document.documentElement.outerHTML;
-    const blob = new Blob([html], { type: 'text/html' });
-    const a = document.createElement('a');
-    a.download = '${safeTitle}.html';
-    a.href = URL.createObjectURL(blob);
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 500);
-  }
   // Acordeón 1er nivel (ignorar durante expandAll)
   document.addEventListener('toggle', function(ev){
     const el = ev.target;
@@ -113,9 +107,9 @@ const PresentationView: React.FC<PresentationViewProps> = ({
     <button onclick="expandAll()" class="btn bg-green-500 hover:bg-green-600 text-white">📂 Desplegar todos</button>
     <button onclick="collapseAll()" class="btn bg-red-500 hover:bg-red-600 text-white">📁 Colapsar todos</button>
     <button onclick="printPDF()" class="btn bg-blue-500 hover:bg-blue-600 text-white">🖨 Imprimir</button>
-    <button onclick="downloadSelf()" class="btn bg-indigo-600 hover:bg-indigo-700 text-white">💾 Descargar HTML</button>
+    <!-- SIN botón de descargar dentro del HTML exportado -->
   </div>
-  <div class="space-y-3">
+  <div class="stage space-y-3">
     ${containerRef.current.innerHTML}
   </div>
 </body></html>`;
