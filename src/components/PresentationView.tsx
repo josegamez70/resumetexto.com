@@ -56,60 +56,47 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   const downloadHTML = () => {
     if (!containerRef.current) return;
 
-    // Nombre de archivo seguro (sin caracteres problemáticos)
-    const safeTitle =
-      (summaryTitle || presentation.title || "presentacion")
-        .replace(/[^a-z0-9_\- .]/gi, "")
-        .trim() || "presentacion";
-
     const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${summaryTitle || presentation.title}</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  /* Botones compactos y alineados a la izquierda (~30% menos anchos) */
-  .btns{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:flex-start}
-  .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.5rem .7rem;font-size:.9rem;border-radius:.55rem}
-  /* Zona y bloques de presentación con fondo gris medio */
-  .stage{background:rgba(55,65,81,.45);border-radius:12px;padding:.75rem}
-  details{background:rgba(75,85,99,.35);border-radius:.75rem;margin:.25rem 0;overflow:hidden}
-  summary{list-style:none} summary::-webkit-details-marker{display:none}
+  details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
 </style>
 <script>
-  window._bulkOpen = false;
-  function expandAll(){
-    window._bulkOpen = true;
-    document.querySelectorAll('details').forEach(d=>d.open=true);
-    setTimeout(()=>{ window._bulkOpen = false; }, 0);
+window._bulkOpen = false;
+function expandAll(){
+  window._bulkOpen = true;
+  document.querySelectorAll('details').forEach(d=>d.open=true);
+  setTimeout(()=>{ window._bulkOpen = false; }, 0);
+}
+function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
+function printPDF(){ window.print() }
+// Acordeón 1er nivel (ignorar durante expandAll)
+document.addEventListener('toggle', function(ev){
+  const el = ev.target;
+  if(!(el instanceof HTMLDetailsElement)) return;
+  if(window._bulkOpen) return;
+  if(el.classList.contains('lvl1') && el.open){
+    document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
   }
-  function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
-  function printPDF(){ window.print() }
-  // Acordeón 1er nivel (ignorar durante expandAll)
-  document.addEventListener('toggle', function(ev){
-    const el = ev.target;
-    if(!(el instanceof HTMLDetailsElement)) return;
-    if(window._bulkOpen) return;
-    if(el.classList.contains('lvl1') && el.open){
-      document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
-    }
-  }, true);
+}, true);
 </script>
 </head>
 <body class="bg-gray-900 text-white p-3 sm:p-6">
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-    <!-- sin explicación -->
+    <!-- Sin explicación "¿Qué es?" en el HTML exportado -->
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
     <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
   </div>
-  <div class="btns mb-4">
-    <button onclick="expandAll()" class="btn bg-green-500 hover:bg-green-600 text-white">📂 Desplegar todos</button>
-    <button onclick="collapseAll()" class="btn bg-red-500 hover:bg-red-600 text-white">📁 Colapsar todos</button>
-    <button onclick="printPDF()" class="btn bg-blue-500 hover:bg-blue-600 text-white">🖨 Imprimir</button>
-    <!-- SIN botón de descargar dentro del HTML exportado -->
+  <div class="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
+    <button onclick="expandAll()" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
+    <button onclick="collapseAll()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
+    <button onclick="printPDF()" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm">🖨 Imprimir</button>
   </div>
-  <div class="stage space-y-3">
+  <div class="space-y-3">
     ${containerRef.current.innerHTML}
   </div>
 </body></html>`;
@@ -118,7 +105,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${safeTitle}.html`;
+    a.download = `${summaryTitle || presentation.title}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -166,7 +153,9 @@ const PresentationView: React.FC<PresentationViewProps> = ({
       <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-          {/* explicación eliminada en la presentación */}
+          <p className="text-gray-300 text-sm">
+            ¿Qué es? Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.
+          </p>
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
@@ -180,36 +169,11 @@ const PresentationView: React.FC<PresentationViewProps> = ({
         </div>
       </div>
 
-      {/* Botonera: izquierda y ~30% menos ancha (px reducido) */}
-      <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-6">
-        <button
-          onClick={expandAll}
-          className="bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-sm"
-          style={{ paddingLeft: "0.7rem", paddingRight: "0.7rem" }}
-        >
-          📂 Desplegar todos
-        </button>
-        <button
-          onClick={collapseAll}
-          className="bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm"
-          style={{ paddingLeft: "0.7rem", paddingRight: "0.7rem" }}
-        >
-          📁 Colapsar todos
-        </button>
-        <button
-          onClick={printPDF}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm"
-          style={{ paddingLeft: "0.7rem", paddingRight: "0.7rem" }}
-        >
-          🖨 Imprimir
-        </button>
-        <button
-          onClick={downloadHTML}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm"
-          style={{ paddingLeft: "0.7rem", paddingRight: "0.7rem" }}
-        >
-          💾 Descargar HTML
-        </button>
+      <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-6">
+        <button onClick={expandAll} className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
+        <button onClick={collapseAll} className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
+        <button onClick={printPDF} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">🖨 Imprimir</button>
+        <button onClick={downloadHTML} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">💾 Descargar HTML</button>
       </div>
 
       <div ref={containerRef} className="space-y-3">
