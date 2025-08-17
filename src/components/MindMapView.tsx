@@ -113,8 +113,11 @@ const NodeBox: React.FC<{
     setOpen((v) => !v);
   };
 
+  // --- NUEVO: desplazamiento sutil a la derecha al abrir (solo móvil) ---
+  const mobileShift = open ? "translate-x-[8px] sm:translate-x-0" : "translate-x-0";
+
   return (
-    <div className="flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5">
+    <div className={`flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5 transition-transform duration-150 ${mobileShift}`}>
       <button
         style={styleTag(level, colorMode, myColor)}
         className="shrink-0 text-left w-full sm:w-auto"
@@ -162,7 +165,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // --------- HTML export (mismo filtro para hijos con contenido) ----------
+  // --------- HTML export (con tarjeta gris y sin explicación) ----------
   const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
   const tagStyleHTML = (level: number, cm: MindMapColorMode, myColor: HSL | null) => {
     const common = `display:inline-block;max-width:${maxWidthCh(level)}ch;white-space:normal;word-break:break-word;hyphens:auto;line-height:1.15;`;
@@ -260,15 +263,19 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
 </head>
 <body class="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-bold mb-1">Mapa mental</h1>
+  <!-- sin explicación -->
   <h3 class="text-base sm:text-lg italic text-yellow-400 mb-4">${esc(pageTitle)}</h3>
 
-  <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mb-4">
-    <button onclick="expandAll()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
-    <button onclick="collapseAll()" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
-    <button onclick="printPDF()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">🖨 Imprimir a PDF</button>
+  <div class="flex flex-wrap gap-2 justify-start mb-4">
+    <button onclick="expandAll()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
+    <button onclick="collapseAll()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
+    <button onclick="printPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">🖨 Imprimir a PDF</button>
   </div>
 
-  <div>${tree}</div>
+  <!-- TARJETA gris que enmarca la presentación exportada -->
+  <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
+    ${tree}
+  </div>
 </body></html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -280,14 +287,12 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-[1200px] mx-auto">
         <div className="flex items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental</h2>
-            <p className="text-gray-300 text-sm">
-              ¿Qué es? Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
-            </p>
+            {/* explicación eliminada en la presentación */}
           </div>
           <div className="w-full sm:w-auto">
             <button onClick={onBack} className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-sm">
@@ -296,29 +301,32 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, colorMode, onBack })
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-          <button onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
+        <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-5">
+          <button onClick={() => { setAccordionIndex(null); setExpandAllSeq((v) => v + 1); }} className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm">
             Desplegar todos
           </button>
-          <button onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }} className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
+          <button onClick={() => { setAccordionIndex(null); setCollapseAllSeq((v) => v + 1); }} className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
             Colapsar todos
           </button>
-          <button onClick={downloadHTML} className="w-full sm:w-auto px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+          <button onClick={downloadHTML} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
             Descargar HTML
           </button>
         </div>
 
-        <NodeBox
-          node={data.root}
-          level={0}
-          idx={0}
-          colorMode={colorMode}
-          motherColor={null}
-          expandAllSeq={expandAllSeq}
-          collapseAllSeq={collapseAllSeq}
-          accordionIndex={accordionIndex}
-          setAccordionIndex={setAccordionIndex}
-        />
+        {/* TARJETA gris que enmarca la presentación en app */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
+          <NodeBox
+            node={data.root}
+            level={0}
+            idx={0}
+            colorMode={colorMode}
+            motherColor={null}
+            expandAllSeq={expandAllSeq}
+            collapseAllSeq={collapseAllSeq}
+            accordionIndex={accordionIndex}
+            setAccordionIndex={setAccordionIndex}
+          />
+        </div>
       </div>
     </div>
   );

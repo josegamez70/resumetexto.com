@@ -56,6 +56,11 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   const downloadHTML = () => {
     if (!containerRef.current) return;
 
+    const safeTitle =
+      (summaryTitle || presentation.title || "presentacion")
+        .replace(/[^a-z0-9_\- .]/gi, "")
+        .trim() || "presentacion";
+
     const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${summaryTitle || presentation.title}</title>
@@ -87,16 +92,17 @@ document.addEventListener('toggle', function(ev){
 <body class="bg-gray-900 text-white p-3 sm:p-6">
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-    <!-- Sin explicación "¿Qué es?" en el HTML exportado -->
+    <!-- sin explicación -->
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
     <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
   </div>
-  <div class="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-5">
-    <button onclick="expandAll()" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
-    <button onclick="collapseAll()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
-    <button onclick="printPDF()" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm">🖨 Imprimir</button>
+  <div class="flex flex-wrap gap-2 justify-start mb-4">
+    <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">📂 Desplegar todos</button>
+    <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">📁 Colapsar todos</button>
+    <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">🖨 Imprimir</button>
   </div>
-  <div class="space-y-3">
+  <!-- TARJETA gris que enmarca la presentación -->
+  <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 space-y-3">
     ${containerRef.current.innerHTML}
   </div>
 </body></html>`;
@@ -105,7 +111,7 @@ document.addEventListener('toggle', function(ev){
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${summaryTitle || presentation.title}.html`;
+    a.download = `${safeTitle}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -153,9 +159,7 @@ document.addEventListener('toggle', function(ev){
       <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-          <p className="text-gray-300 text-sm">
-            ¿Qué es? Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.
-          </p>
+          {/* explicación eliminada en la presentación */}
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
@@ -169,15 +173,18 @@ document.addEventListener('toggle', function(ev){
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:flex gap-2 mb-3 sm:mb-6">
-        <button onClick={expandAll} className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📂 Desplegar todos</button>
-        <button onClick={collapseAll} className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">📁 Colapsar todos</button>
-        <button onClick={printPDF} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">🖨 Imprimir</button>
-        <button onClick={downloadHTML} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">💾 Descargar HTML</button>
+      <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-6">
+        <button onClick={expandAll} className="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">📂 Desplegar todos</button>
+        <button onClick={collapseAll} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">📁 Colapsar todos</button>
+        <button onClick={printPDF} className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">🖨 Imprimir</button>
+        <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-3 rounded-lg text-sm">💾 Descargar HTML</button>
       </div>
 
-      <div ref={containerRef} className="space-y-3">
-        {presentation.sections.map((section, i) => renderSection(section, 1, i))}
+      {/* TARJETA gris que enmarca la presentación en app */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
+        <div ref={containerRef} className="space-y-3">
+          {presentation.sections.map((section, i) => renderSection(section, 1, i))}
+        </div>
       </div>
     </div>
   );
