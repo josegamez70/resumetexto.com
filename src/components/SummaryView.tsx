@@ -1,5 +1,7 @@
+// components/SummaryView.tsx
+
 import React, { useEffect, useRef, useState } from "react";
-import { PresentationType, MindMapColorMode } from "../types";
+import { PresentationType, MindMapColorMode, SummaryType } from "../types"; // <-- Asegúrate de importar SummaryType si no estaba
 
 interface SummaryViewProps {
   summary: string;
@@ -8,6 +10,7 @@ interface SummaryViewProps {
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
   onOpenMindMap: (colorMode: MindMapColorMode) => void;
+  onGenerateFlashcards: () => void; // <-- NUEVO PROP
   onReset: () => void;
 }
 
@@ -18,6 +21,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   setPresentationType,
   onGeneratePresentation,
   onOpenMindMap,
+  onGenerateFlashcards, // <-- NUEVO PROP
   onReset,
 }) => {
   const [colorMode, setColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
@@ -145,6 +149,17 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           <div className="mt-4">
             <button onClick={() => onOpenMindMap(colorMode)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
           </div>
+        </div>
+      </div>
+
+      {/* NUEVA CAJA: Flashcards */}
+      <div className="mt-4 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2">📇 Flashcards</h2>
+        <p className="text-gray-300 mb-4 text-sm sm:text-base">
+          <strong>¿Qué son?</strong> Tarjetas con una pregunta por delante y su respuesta por detrás. Ideal para el repaso activo y la memorización de conceptos clave.
+        </p>
+        <div className="mt-4">
+          <button onClick={onGenerateFlashcards} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Generar flashcards</button>
         </div>
       </div>
 

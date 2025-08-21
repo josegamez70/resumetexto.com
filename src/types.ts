@@ -1,3 +1,5 @@
+// types.ts
+
 export enum SummaryType {
   Short = "Short",
   Medium = "Medium",
@@ -45,4 +47,12 @@ export enum ViewState {
   SUMMARY,
   PRESENTATION,
   MINDMAP,
+  FLASHCARDS, // <-- ¡NUEVO! Añadimos el estado para las flashcards
+}
+
+// <-- ¡NUEVO TIPO! Para las flashcards -->
+export interface Flashcard {
+  id: string; // Identificador único para cada tarjeta
+  question: string;
+  answer: string;
 }

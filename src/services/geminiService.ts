@@ -1,9 +1,13 @@
+// services/geminiService.ts
+
 import * as pdfjsLib from "pdfjs-dist";
 import {
   SummaryType,
   PresentationType,
   PresentationData,
   MindMapData,
+  Flashcard, // ¡Importa el nuevo tipo Flashcard!
+  PresentationSection, // <-- ¡Importa tu tipo PresentationSection!
 } from "../types";
 
 // Worker de PDF.js desde CDN
@@ -142,14 +146,56 @@ export async function createMindMapFromText(text: string): Promise<MindMapData> 
   return data.mindmap as MindMapData;
 }
 
-// -------- 4) Utilidad: aplanar presentación → texto --------
+// -------- 4) Generar Flashcards (¡NUEVO!) --------
+export async function generateFlashcards(
+  summaryText: string
+): Promise<Flashcard[]> {
+  const textToSend = String(summaryText || "").trim();
+  if (!textToSend) {
+    throw new Error("No hay resumen para generar las flashcards.");
+  }
+
+  const resp = await fetch("/api/flashcards", { // <-- Nueva ruta de API
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ summaryText: textToSend }),
+  });
+
+  const raw = await resp.text();
+  if (!raw) throw new Error("Respuesta vacía del servidor al generar flashcards.");
+
+  let data: any;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("La respuesta no es JSON válido al generar flashcards: " + raw);
+  }
+
+  if (!resp.ok) throw new Error(data.error || "Error al generar las flashcards.");
+
+  // Asumimos que `data.flashcards` es un array de objetos { question: string, answer: string }
+  // Aquí añadimos un ID único a cada flashcard y filtramos cualquier tarjeta vacía.
+  const flashcards: Flashcard[] = (data.flashcards || []).map((card: any, index: number) => ({
+    id: `card-${index}-${Date.now()}`, // Genera un ID único para cada tarjeta
+    question: String(card.question || "").trim(),
+    answer: String(card.answer || "").trim(),
+  })).filter((card: Flashcard) => card.question && card.answer); // Filtrar tarjetas sin contenido
+
+  if (flashcards.length === 0) {
+    throw new Error("No se generaron flashcards válidas. Intenta con un resumen más detallado.");
+  }
+
+  return flashcards;
+}
+
+// -------- 5) Utilidad: aplanar presentación → texto (usa PresentationSection) --------
 export function flattenPresentationToText(p: PresentationData): string {
   const lines: string[] = [p.title];
-  const walk = (s: any, d = 0) => {
+  const walk = (s: PresentationSection, d = 0) => { // <-- Usa PresentationSection
     const prefix = "  ".repeat(d);
     lines.push(`${prefix}${s.emoji ? s.emoji + " " : ""}${s.title}`);
     if (s.content) lines.push(`${prefix}${s.content}`);
-    (s.subsections || []).forEach((ss: any) => walk(ss, d + 1));
+    (s.subsections || []).forEach((ss: PresentationSection) => walk(ss, d + 1)); // <-- Usa PresentationSection
   };
   p.sections.forEach((sec) => walk(sec, 0));
   return lines.join("\n");

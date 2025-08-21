@@ -1,27 +1,32 @@
+// App.tsx
+
 import React, { useState } from "react";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
 import MindMapView from "./components/MindMapView";
+import FlashcardView from "./components/FlashcardView"; // <-- NUEVO COMPONENTE
 
 import {
   summarizeContent,
   createPresentation,
   createMindMapFromText,
   flattenPresentationToText,
+  generateFlashcards, // <-- NUEVA FUNCIÓN
 } from "./services/geminiService";
 
 import {
-  ViewState,
+  ViewState, // <-- Usa tus ViewState numéricos
   SummaryType,
   PresentationData,
   PresentationType,
   MindMapData,
   MindMapColorMode,
+  Flashcard, // <-- NUEVO TIPO
 } from "./types";
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
+  const [view, setView] = useState<ViewState>(ViewState.UPLOADER); // Inicia con UPLOADER (0)
 
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
@@ -29,6 +34,7 @@ const App: React.FC = () => {
   const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
   const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
+  const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null); // <-- NUEVO ESTADO
 
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
@@ -39,13 +45,14 @@ const App: React.FC = () => {
     setSummaryTitle(null);
     setPresentation(null);
     setMindmap(null);
+    setFlashcards(null); // <-- Resetear flashcards
     setError(null);
     setLoadingMessage(null);
     setView(ViewState.UPLOADER);
   };
 
   const handleBackToSummary = () => {
-    setView(ViewState.SUMMARY); // ← vuelve al resumen (no se borra nada)
+    setView(ViewState.SUMMARY);
   };
 
   const handleFileUpload = async (file: File, summaryType: SummaryType) => {
@@ -105,6 +112,25 @@ const App: React.FC = () => {
     }
   };
 
+  // NUEVA FUNCIÓN: Generar Flashcards
+  const handleGenerateFlashcards = async () => {
+    if (!summary) return;
+    setIsProcessing(true);
+    setLoadingMessage("📇 Generando flashcards, un momento por favor...");
+    try {
+      const generatedFlashcards = await generateFlashcards(summary);
+      setFlashcards(generatedFlashcards);
+      setView(ViewState.FLASHCARDS); // <-- Cambiar vista a flashcards
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Error al generar las flashcards.");
+    } finally {
+      setLoadingMessage(null);
+      setIsProcessing(false);
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       {error && <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>}
@@ -128,7 +154,8 @@ const App: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap} // ← ahora recibe colorMode
+          onOpenMindMap={handleOpenMindMap}
+          onGenerateFlashcards={handleGenerateFlashcards} // <-- Pasar la nueva función
           onReset={handleResetAll}
         />
       )}
@@ -138,7 +165,7 @@ const App: React.FC = () => {
           presentation={presentation}
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
-          onBackToSummary={handleBackToSummary} // ← vuelve a resumen
+          onBackToSummary={handleBackToSummary}
         />
       )}
 
@@ -148,6 +175,15 @@ const App: React.FC = () => {
           summaryTitle={summaryTitle}
           colorMode={mindMapColorMode}
           onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
+        />
+      )}
+
+      {/* NUEVA VISTA: Flashcards */}
+      {view === ViewState.FLASHCARDS && flashcards && (
+        <FlashcardView
+          flashcards={flashcards}
+          summaryTitle={summaryTitle}
+          onBack={handleBackToSummary} // Volver al resumen
         />
       )}
     </div>
