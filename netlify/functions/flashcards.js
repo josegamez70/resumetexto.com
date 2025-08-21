@@ -1,24 +1,28 @@
 // netlify/functions/flashcards.js
+// Usar require() para GoogleGenerativeAI es más consistente con tus otras funciones de Netlify
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Asume que tu clave de API está configurada como GOOGGLE_AI_API_KEY en las variables de entorno de Netlify
-const apiKey = process.env.GOOGGLE_AI_API_KEY; // Confirmado: este nombre está bien
+// NOTA: No declaramos apiKey aquí. Se obtendrá DENTRO del handler.
 
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
-  // --- AÑADIR ESTE LOG PARA VER LA CLAVE ---
+  // --- AHORA OBTENEMOS LA CLAVE AQUÍ, DENTRO DEL CONTEXTO DE LA FUNCIÓN ---
+  const apiKey = process.env.GOOGGLE_AI_API_KEY; 
+
   console.log('Flashcards function started.');
   if (apiKey) {
-    console.log('API Key available (length:', apiKey.length, ', starts with:', apiKey.substring(0, 5), '...).');
+    console.log('API Key successfully loaded (length:', apiKey.length, ', starts with:', apiKey.substring(0, 5), '...).');
   } else {
-    console.error('API Key is NOT available in environment variable GOOGGLE_AI_API_KEY.');
+    // Este error indica que la variable de entorno NO está configurada en Netlify.
+    // Si estás viendo esto, tienes que ir a Netlify Site Settings -> Environment Variables.
+    console.error('CRITICAL ERROR: API Key is NOT available in environment variable GOOGGLE_AI_API_KEY.');
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "API Key is missing for flashcards function." }),
+      body: JSON.stringify({ error: "Configuration Error: API Key is missing for flashcards function." }),
       headers: { "Content-Type": "application/json" }
     };
   }
-  // --- FIN LOG ---
+  // --- FIN LOG Y VERIFICACIÓN ---
 
   // Asegúrate de que solo se acepten solicitudes POST
   if (event.httpMethod !== "POST") {
@@ -50,16 +54,15 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Replicamos la inicialización de GoogleGenerativeAI.
-  // Intentamos un patrón que puede ser más robusto en ciertos entornos Node.
+  // --- Inicialización del modelo, ahora dentro del handler ---
   let genAIInstance;
   try {
-    genAIInstance = new GoogleGenerativeAI(apiKey);
+    genAIInstance = new GoogleGenerativeAI(apiKey); // Usar la clave obtenida dentro del handler
   } catch (initError) {
-    console.error("Error initializing GoogleGenerativeAI:", initError);
+    console.error("Error initializing GoogleGenerativeAI instance:", initError);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to initialize AI model. Check API Key validity." }),
+      body: JSON.stringify({ error: "Failed to initialize AI model instance. Check API Key validity and Google Cloud project setup." }),
       headers: { "Content-Type": "application/json" }
     };
   }
