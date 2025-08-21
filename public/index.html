@@ -13,38 +13,7 @@
     <meta name="description" content="Webapp para resumir textos y generar presentaciones interactivas" />
     <title>RESÚMELO!</title>
 
-    <!-- Tailwind CSS desde CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'brand-bg': '#1e2029',
-              'brand-surface': '#2b2e41',
-              'brand-primary': '#8b5cf6', // violet-500
-              'brand-secondary': '#6366f1', // indigo-500
-              'brand-muted': '#4b5563', // gray-600
-              'brand-action': '#22c55e', // green-500
-              'brand-text': '#f8f9fa',
-              'brand-text-muted': '#adb5bd',
-            },
-            animation: {
-              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'fade-in': 'fadeIn 0.5s ease-in-out',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: 0, transform: 'translateY(10px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' },
-              }
-            }
-          }
-        }
-      }
-    </script>
-
-    <!-- PDF.js -->
+    <!-- PDF.js - Mantienes la CDN aquí ya que no la estás procesando localmente con Webpack/Rollup -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
