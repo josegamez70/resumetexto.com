@@ -105,6 +105,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     }
   };
 
+  // --- HTML Descargado Interactivo (AJUSTADO: Colores, Ancho, Espaciado) ---
   const downloadHTMLFlashcards = () => {
     const safeTitle = (summaryTitle || "flashcards")
       .replace(/[^a-z0-9_\- .]/gi, "")
@@ -122,16 +123,30 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${esc(safeTitle)} - Flashcards</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #e0e0e0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        h1 { color: #facc15; text-align: center; margin-bottom: 20px; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #1a1a2e; /* Fondo oscuro similar al de tu app */
+            color: #e0e0e0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        h1 { 
+            color: #facc15; /* Amarillo brillante para el título */
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
         .flashcard-wrapper {
             perspective: 1000px;
-            width: 90%;
-            max-width: 500px;
+            width: 95%; /* Más ancho */
+            max-width: 600px; /* Ancho máximo aumentado */
             margin: 20px auto;
             position: relative;
-            min-height: 250px;
-            flex-grow: 1;
+            min-height: 250px; /* Altura mínima para la tarjeta */
+            flex-grow: 1; /* Para que ocupe espacio y empuje los botones hacia abajo */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -143,7 +158,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             text-align: center;
             transition: transform 0.6s ease-in-out;
             transform-style: preserve-3d;
-            background: #2b2e41;
+            background: #2b2e41; /* Fondo de la tarjeta */
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             display: flex;
@@ -167,12 +182,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             box-sizing: border-box;
             overflow-y: auto;
             word-wrap: break-word;
+            text-align: center;
         }
         .flashcard-face p {
             margin: 0;
-            line-height: 1.6;
+            line-height: 1.8;
             font-size: 1.3rem;
-            color: #f8f9fa;
+            padding: 10px;
+        }
+        .flashcard-front p {
+            color: #FFC0CB; /* Rosado */
+        }
+        .flashcard-back p {
+            color: #90EE90; /* Verde claro */
         }
         .flashcard-back {
             transform: rotateY(180deg);
@@ -181,8 +203,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             display: flex;
             justify-content: space-between;
             align-items: center;
-            width: 90%;
-            max-width: 500px;
+            width: 95%;
+            max-width: 600px;
             margin-top: 20px;
         }
         .counter {
@@ -350,9 +372,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       {/* Contenedor de la tarjeta principal (con perspectiva para 3D) */}
       <div className="flashcard-container w-full mb-6">
         <div
-          // MODIFICACIÓN CLAVE AQUÍ: Asegurarse de que la clase is-flipped se aplica.
-          // ELIMINA la clase transform-style-3d del JSX directo.
-          // El 'flashcard-inner' tiene el 'transform-style-3d' en el CSS puro.
           className={`flashcard-inner relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
                       bg-gray-800 rounded-lg shadow-lg cursor-pointer 
                       flex items-center justify-center p-4 sm:p-6 ${isFlipped ? 'is-flipped' : ''}`}
@@ -360,12 +379,14 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         >
           {/* Parte frontal (pregunta) */}
           <div className="flashcard-face flashcard-front absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.question}</p>
+            {/* Pregunta en color rosado */}
+            <p className="p-2 sm:p-4 text-center text-rose-300 font-semibold leading-[1.8]">{currentCard.question}</p> {/* <-- Ajustado leading */}
           </div>
 
           {/* Parte trasera (respuesta) */}
           <div className="flashcard-face flashcard-back absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.answer}</p>
+            {/* Respuesta en color verde claro */}
+            <p className="p-2 sm:p-4 text-center text-lime-300 font-semibold leading-[1.8]">{currentCard.answer}</p> {/* <-- Ajustado leading */}
           </div>
         </div>
       </div>
@@ -403,14 +424,17 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         /* Este estilo asegura que el contexto 3D esté bien definido */
         .flashcard-container {
           perspective: 1000px;
-          position: relative; /* Asegura el contexto de posicionamiento */
+          position: relative;
         }
 
         .flashcard-inner {
-          transform-style: preserve-3d; /* CRÍTICO: Mantiene los hijos en 3D */
+          transform-style: preserve-3d;
           transition: transform 0.5s ease-in-out;
+          will-change: transform;
           position: relative;
-          /* will-change: transform; /* Puede ayudar en algunos navegadores */ */
+          background: #2b2e41; /* Fondo de la tarjeta, como antes */
+          border-radius: 12px;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
         .flashcard-inner.is-flipped {
@@ -421,7 +445,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           position: absolute;
           width: 100%;
           height: 100%;
-          backface-visibility: hidden; /* CRÍTICO: Oculta la cara trasera */
+          backface-visibility: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -430,8 +454,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           padding: 20px;
           box-sizing: border-box;
           text-align: center;
-          /* Forzar renderizado en capa 3D para evitar glitches */
-          transform: translateZ(0); 
+          transform: translateZ(0); /* Forzar aceleración de hardware */
         }
 
         .flashcard-front {
@@ -439,20 +462,20 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         }
 
         .flashcard-back {
-          transform: rotateY(180deg); /* La cara trasera comienza volteada */
+          transform: rotateY(180deg);
         }
         
         /* Ajustes de tipografía para el contenido de la flashcard */
         .flashcard-face p {
           margin: 0;
-          line-height: 1.6;
+          line-height: 1.8; /* Asegura un buen espaciado */
           white-space: pre-wrap;
           word-break: break-word;
           hyphens: auto;
-          text-align: center;
           font-size: inherit;
-          color: inherit;
+          text-align: center;
           font-weight: inherit;
+          /* Los colores se aplicarán mediante las clases de Tailwind en el JSX */
         }
         `}
       </style>
