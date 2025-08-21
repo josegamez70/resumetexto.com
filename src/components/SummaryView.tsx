@@ -1,7 +1,8 @@
 // components/SummaryView.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-import { PresentationType, MindMapColorMode, SummaryType } from "../types"; // <-- Asegúrate de importar SummaryType si no estaba
+// QUITA 'SummaryType' de aquí
+import { PresentationType, MindMapColorMode } from "../types"; 
 
 interface SummaryViewProps {
   summary: string;
@@ -10,7 +11,7 @@ interface SummaryViewProps {
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
   onOpenMindMap: (colorMode: MindMapColorMode) => void;
-  onGenerateFlashcards: () => void; // <-- NUEVO PROP
+  onGenerateFlashcards: () => void;
   onReset: () => void;
 }
 
@@ -21,7 +22,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   setPresentationType,
   onGeneratePresentation,
   onOpenMindMap,
-  onGenerateFlashcards, // <-- NUEVO PROP
+  onGenerateFlashcards,
   onReset,
 }) => {
   const [colorMode, setColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
