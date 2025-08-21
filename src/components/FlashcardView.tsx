@@ -44,12 +44,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const currentCard = shuffledFlashcards[currentIndex];
 
   const handleNext = () => {
-    setIsFlipped(false);
+    setIsFlipped(false); // Reinicia el estado de volteo al cambiar de tarjeta
     setCurrentIndex((prevIndex) => (prevIndex + 1) % shuffledFlashcards.length);
   };
 
   const handlePrev = () => {
-    setIsFlipped(false);
+    setIsFlipped(false); // Reinicia el estado de volteo al cambiar de tarjeta
     setCurrentIndex((prevIndex) =>
       prevIndex === 0 ? shuffledFlashcards.length - 1 : prevIndex - 1
     );
@@ -190,24 +190,21 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       </div>
 
       {/* Contenedor de la tarjeta principal (con perspectiva para 3D) */}
-      <div className="perspective-1000 w-full mb-6">
+      <div className="flashcard-container w-full mb-6"> {/* Clase custom para estilos específicos */}
         <div
-          className={`relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
+          className={`flashcard-inner relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
                       bg-gray-800 rounded-lg shadow-lg cursor-pointer 
-                      transform-style-3d transition-transform duration-500 
-                      flex items-center justify-center p-4 sm:p-6`} 
+                      transform-style-3d transition-transform duration-500`}
           onClick={handleFlip}
-          // Asegúrate de que no haya style={{ backfaceVisibility: 'hidden' }} aquí
-          // Ya lo eliminamos, ¡pero doble comprobación!
         >
           {/* Parte frontal (pregunta) */}
-          <div className="flashcard-face absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4 leading-relaxed z-10"> {/* <-- Añadido z-10 */}
-            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.question}</p>
+          <div className="flashcard-face flashcard-front absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
+            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.question}</p> {/* Ajustado leading, font-weight, color */}
           </div>
 
           {/* Parte trasera (respuesta) */}
-          <div className="flashcard-face absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4 leading-relaxed rotate-y-180">
-            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.answer}</p>
+          <div className="flashcard-face flashcard-back absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
+            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.answer}</p> {/* Ajustado leading, font-weight, color */}
           </div>
         </div>
       </div>
@@ -238,6 +235,63 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           Siguiente ➡️
         </button>
       </div>
+
+      {/* ESTILOS CSS INLINE para controlar el volteo 3D de forma estricta */}
+      {/* Estas reglas son CRÍTICAS para el efecto 3D y la visibilidad */}
+      <style>
+        {`
+        .flashcard-container {
+          perspective: 1000px; /* Necesario para el efecto 3D */
+          position: relative; /* Asegura el contexto de posicionamiento para los hijos */
+        }
+
+        .flashcard-inner {
+          transform-style: preserve-3d;
+          transition: transform 0.5s ease-in-out; /* Transición para el volteo */
+          position: relative; /* Para que inset-0 funcione en las caras */
+        }
+
+        .flashcard-face {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          backface-visibility: hidden; /* Oculta la cara cuando está volteada */
+          display: flex; /* Para centrar el contenido */
+          align-items: center;
+          justify-content: center;
+          background: inherit; /* Hereda el fondo del contenedor interior */
+          border-radius: inherit; /* Hereda el border-radius del contenedor interior */
+        }
+
+        .flashcard-front {
+          transform: rotateY(0deg);
+          z-index: 2; /* Asegura que esté por encima cuando no está volteada */
+        }
+
+        .flashcard-back {
+          transform: rotateY(180deg); /* La cara trasera comienza volteada */
+          z-index: 1; /* Estará detrás de la frontal inicialmente */
+        }
+
+        /* Cuando el contenedor interior rota, las caras se mueven */
+        .flashcard-inner.rotate-y-180 .flashcard-front {
+          transform: rotateY(-180deg);
+        }
+
+        .flashcard-inner.rotate-y-180 .flashcard-back {
+          transform: rotateY(0deg);
+        }
+
+        /* Ajustes de tipografía para el contenido de la flashcard */
+        .flashcard-face p {
+          margin: 0; /* Elimina márgenes por defecto del párrafo */
+          line-height: 1.5; /* Espaciado de línea más legible */
+          white-space: pre-wrap; /* Permite saltos de línea y respeta espacios */
+          word-break: break-word; /* Rompe palabras largas */
+          hyphens: auto; /* Permite guiones para mejor ajuste */
+        }
+        `}
+      </style>
     </div>
   );
 };
