@@ -2,29 +2,22 @@
 // Usar require() para GoogleGenerativeAI es más consistente con tus otras funciones de Netlify
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// NOTA: No declaramos apiKey aquí. Se obtendrá DENTRO del handler.
-
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
-  // --- AHORA OBTENEMOS LA CLAVE AQUÍ, DENTRO DEL CONTEXTO DE LA FUNCIÓN ---
-  const apiKey = process.env.GOOGLE_AI_API_KEY; // ¡Una sola 'G' ahora!
+  const apiKey = process.env.GOOGLE_AI_API_KEY; // ¡Asegúrate de que este nombre sea correcto en Netlify!
 
   console.log('Flashcards function started.');
   if (apiKey) {
     console.log('API Key successfully loaded (length:', apiKey.length, ', starts with:', apiKey.substring(0, 5), '...).');
   } else {
-    // Este error indica que la variable de entorno NO está configurada en Netlify.
-    // Si estás viendo esto, tienes que ir a Netlify Site Settings -> Environment Variables.
-    console.error('CRITICAL ERROR: API Key is NOT available in environment variable GOOGGLE_AI_API_KEY.');
+    console.error('CRITICAL ERROR: API Key is NOT available in environment variable GOOGLE_AI_API_KEY.');
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Configuration Error: API Key is missing for flashcards function." }),
       headers: { "Content-Type": "application/json" }
     };
   }
-  // --- FIN LOG Y VERIFICACIÓN ---
 
-  // Asegúrate de que solo se acepten solicitudes POST
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -54,10 +47,9 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // --- Inicialización del modelo, ahora dentro del handler ---
   let genAIInstance;
   try {
-    genAIInstance = new GoogleGenerativeAI(apiKey); // Usar la clave obtenida dentro del handler
+    genAIInstance = new GoogleGenerativeAI(apiKey);
   } catch (initError) {
     console.error("Error initializing GoogleGenerativeAI instance:", initError);
     return {
@@ -67,46 +59,48 @@ exports.handler = async (event, context) => {
     };
   }
 
-  const model = genAIInstance.getGenerativeModel({ model: "gemini-1.5-pro" }); // Usando el modelo que ya funciona
+  const model = genAIInstance.getGenerativeModel({ model: "gemini-1.5-pro" });
 
+  // --- CAMBIO AQUÍ PARA PEDIR 10-20 FLASHCARDS ---
+  const prompt = `A partir del siguiente resumen, genera entre 10 y 20 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa y directa. Asegúrate de que la pregunta y la respuesta sean claras y distintas.
+  Formatea la salida estrictamente como un array JSON de objetos, donde cada objeto tenga las propiedades "question" y "answer".
 
-  const prompt = `A partir del siguiente resumen, genera entre 10 y 15 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa. Formatea la salida estrictamente como un array JSON de objetos, donde cada objeto tenga las propiedades "question" y "answer".
-  
   Ejemplo de formato:
   [
-    { "question": "Pregunta sobre el concepto A", "answer": "Definición o explicación del concepto A" },
-    { "question": "¿Cuál es la capital de Francia?", "answer": "París" }
+    { "question": "¿Quién fue el líder de la Alemania nazi?", "answer": "Adolf Hitler" },
+    { "question": "¿Cuándo empezó la Segunda Guerra Mundial?", "answer": "El 1 de septiembre de 1939" }
   ]
-  
+
   Resumen:\n${summaryText}`;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2 }, // Reducir temperatura para menos creatividad y más fidelidad
+    });
+
     const response = await result.response;
     let text = response.text();
 
-    // Limpiar la salida si la IA incluye markdown (ej. ```json ... ```)
     text = text.replace(/```json\n?|\n?```/g, "").trim();
 
     let flashcards;
     try {
       flashcards = JSON.parse(text);
-      // Validar que es un array y que sus elementos tienen la estructura esperada
       if (!Array.isArray(flashcards) || !flashcards.every(f => typeof f === 'object' && f !== null && 'question' in f && 'answer' in f)) {
         console.error("AI returned invalid flashcards structure:", flashcards);
         throw new Error("AI returned invalid flashcards structure.");
       }
     } catch (parseAndValidateError) {
       console.error("Error parsing or validating AI response JSON:", parseAndValidateError);
-      console.error("Raw AI response:", text); // Log the raw response for debugging
+      console.error("Raw AI response:", text);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Failed to parse AI response for flashcards." }),
+        body: JSON.stringify({ error: "Failed to parse AI response for flashcards. Raw response logged." }),
         headers: { "Content-Type": "application/json" }
       };
     }
 
-    // Filtrar flashcards que puedan haber quedado vacías si la IA no generó bien
     const validFlashcards = flashcards.filter(card => 
       String(card.question || '').trim().length > 0 && 
       String(card.answer || '').trim().length > 0
@@ -115,12 +109,11 @@ exports.handler = async (event, context) => {
     if (validFlashcards.length === 0) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "AI generated no valid flashcards. Please try a more detailed summary." }),
+        body: JSON.stringify({ error: "AI generated no valid flashcards. Please try a more detailed summary or adjust AI prompt." }),
         headers: { "Content-Type": "application/json" }
       };
     }
 
-    // Si todo va bien, devuelve el array de flashcards
     return {
       statusCode: 200,
       body: JSON.stringify({ flashcards: validFlashcards }),
@@ -129,10 +122,9 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error("Error during flashcard generation process:", error);
-    // Captura cualquier otro error durante la llamada a Gemini o procesamiento
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error?.message || "Error interno en flashcards function" }),
+      body: JSON.stringify({ error: error?.message || "Internal error in flashcards function" }),
       headers: { "Content-Type": "application/json" }
     };
   }
