@@ -105,11 +105,20 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     }
   };
 
-  // --- HTML Descargado Interactivo (AJUSTADO: Colores de Fondo de Cara, Ancho, Espaciado) ---
+  // --- HTML Descargado Interactivo (AJUSTADO FINALMENTE) ---
   const downloadHTMLFlashcards = () => {
-    const safeTitle = (summaryTitle || "flashcards")
-      .replace(/[^a-z0-9_\- .]/gi, "")
-      .trim() || "flashcards";
+    // Intentar decodificar y limpiar el título para el nombre del archivo y el título HTML
+    let cleanSummaryTitle = summaryTitle || "Flashcards";
+    try {
+        // Primero, decodificar el URL-encoding si viene de un nombre de archivo
+        cleanSummaryTitle = decodeURIComponent(cleanSummaryTitle);
+    } catch (e) {
+        // Si falla la decodificación, no es URL-encoded, usarlo tal cual
+        console.error("Error decoding summaryTitle, using as is.", e);
+    }
+    // Eliminar caracteres no alfanuméricos seguros para nombres de archivo y HTML
+    cleanSummaryTitle = cleanSummaryTitle.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_.]/g, '').trim();
+    const safeTitle = cleanSummaryTitle || "Flashcards"; // Fallback final
 
     const allFlashcardsData = shuffledFlashcards.map(card => ({
       q: esc(card.question),
@@ -142,29 +151,32 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .flashcard-wrapper {
             perspective: 1000px;
             width: 95%; /* Más ancho */
-            max-width: 700px; /* Ancho máximo aumentado a 700px */
+            max-width: 800px; /* Ancho máximo AUMENTADO para el HTML descargado */
             margin: 20px auto;
             position: relative;
-            min-height: 280px; /* Altura mínima para la tarjeta en HTML descargado */
-            flex-grow: 1;
-            display: flex;
+            /* Altura flexible, se adapta al contenido */
+            /* min-height: 280px;  REMOVIDO */
+            /* flex-grow: 1; REMOVIDO */
+            display: flex; /* Para centrar la tarjeta */
             align-items: center;
             justify-content: center;
         }
         .flashcard-inner {
             position: relative;
             width: 100%;
-            height: 100%;
+            height: auto; /* IMPORTANTE: Altura automática para adaptarse al contenido */
+            min-height: 250px; /* Altura mínima para que no sea diminuta con textos cortos */
             text-align: center;
             transition: transform 0.6s ease-in-out;
             transform-style: preserve-3d;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             display: flex;
-            align-items: center;
+            align-items: stretch; /* Estirar hijos para ocupar toda la altura */
             justify-content: center;
             padding: 20px;
             box-sizing: border-box;
+            background: #2b2e41; /* Fondo de la tarjeta, por si las caras no cubren todo */
         }
         .flashcard-inner.is-flipped {
             transform: rotateY(180deg);
@@ -172,44 +184,64 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .flashcard-face {
             position: absolute;
             width: 100%;
-            height: 100%;
+            height: 100%; /* Ocupa el 100% de la altura del inner */
             backface-visibility: hidden;
             display: flex;
+            flex-direction: column; /* Centrado vertical en columna */
             align-items: center;
             justify-content: center;
             padding: 15px;
             box-sizing: border-box;
-            overflow-y: auto; /* Mantener scroll si el contenido es gigante */
+            /* overflow-y: auto; REMOVIDO PARA EVITAR SCROLL - EL CONTENEDOR PARENT SE ADAPTA */
             word-wrap: break-word;
             text-align: center;
-            font-size: 1.3rem; /* Tamaño de texto de tarjeta aumentado */
-            line-height: 1.8; /* Aún más espaciado de línea */
+            font-size: 1.3rem; /* Tamaño de texto de tarjeta */
+            line-height: 1.8; /* Espaciado de línea */
+            /* Asegurar que se renderice en su propia capa para 3D */
+            transform: translateZ(0); 
         }
         .flashcard-front {
             background: #FFC0CB; /* Fondo rosado para la pregunta */
             color: #333; /* Texto oscuro para contrastar con el fondo claro */
             transform: rotateY(0deg);
+            z-index: 2; /* Para que siempre esté encima cuando visible */
         }
         .flashcard-back {
             background: #90EE90; /* Fondo verde claro para la respuesta */
             color: #333; /* Texto oscuro para contrastar con el fondo claro */
             transform: rotateY(180deg);
+            z-index: 1; /* Para que esté detrás inicialmente */
         }
         .flashcard-face p {
             margin: 0;
-            padding: 10px; /* Padding dentro del párrafo para más "aire" */
+            padding: 10px;
+            width: 100%; /* Asegurar que el párrafo ocupe el ancho */
         }
         .controls {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 95%;
-            max-width: 600px; /* Ancho máximo aumentado */
+            max-width: 700px;
             margin-top: 20px;
+            flex-wrap: wrap; /* Permitir que los botones se envuelvan en móvil */
+            justify-content: center; /* Centrar botones en móvil */
         }
         .counter {
             color: #adb5bd;
             font-size: 0.9rem;
+            flex-basis: 100%; /* Ocupar todo el ancho en móvil */
+            text-align: center;
+            margin-bottom: 10px; /* Separación en móvil */
+        }
+        @media (min-width: 600px) { /* Para pantallas más grandes, distribuir botones */
+            .controls {
+                justify-content: space-between;
+            }
+            .counter {
+                flex-basis: auto;
+                margin-bottom: 0;
+            }
         }
         button {
             padding: 10px 18px;
@@ -221,6 +253,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             color: #fff;
             transition: background-color 0.3s ease;
             margin: 5px;
+            min-width: 120px; /* Asegurar un ancho mínimo para los botones */
         }
         .btn-flip { background: #8b5cf6; }
         .btn-flip:hover { background: #7c3aed; }
@@ -379,13 +412,13 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         >
           {/* Parte frontal (pregunta) */}
           <div className="flashcard-face flashcard-front absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            {/* Pregunta con fondo rosado */}
+            {/* Pregunta con fondo rosado, texto oscuro */}
             <p className="p-2 sm:p-4 text-center text-gray-900 font-semibold leading-[1.8]">{currentCard.question}</p>
           </div>
 
           {/* Parte trasera (respuesta) */}
           <div className="flashcard-face flashcard-back absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            {/* Respuesta con fondo verde claro */}
+            {/* Respuesta con fondo verde claro, texto oscuro */}
             <p className="p-2 sm:p-4 text-center text-gray-900 font-semibold leading-[1.8]">{currentCard.answer}</p>
           </div>
         </div>
@@ -432,10 +465,9 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           transition: transform 0.5s ease-in-out;
           will-change: transform;
           position: relative;
-          /* Fondo de la tarjeta se aplicará por las caras */
-          /* background: #2b2e41; REMOVIDO DE AQUÍ */
           border-radius: 12px;
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+          /* Quitado el background de aquí, se define en las caras */
         }
 
         .flashcard-inner.is-flipped {
@@ -455,7 +487,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           box-sizing: border-box;
           text-align: center;
           transform: translateZ(0); /* Forzar aceleración de hardware */
-          /* Fondo de cada cara (rosado y verde) y color de texto */
         }
 
         .flashcard-front {
@@ -473,7 +504,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         /* Ajustes de tipografía para el contenido de la flashcard */
         .flashcard-face p {
           margin: 0;
-          line-height: 1.8;
+          line-height: 1.8; /* Asegura un buen espaciado */
           white-space: pre-wrap;
           word-break: break-word;
           hyphens: auto;
