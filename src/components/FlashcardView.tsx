@@ -5,7 +5,7 @@ import { Flashcard } from "../types";
 interface FlashcardViewProps {
   flashcards: Flashcard[];
   summaryTitle: string | null;
-  onBack: () => void; // Para volver a la vista anterior (resumen)
+  onBack: () => void;
 }
 
 const FlashcardView: React.FC<FlashcardViewProps> = ({
@@ -16,7 +16,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Mezclar las tarjetas al iniciar (opcional)
   const [shuffledFlashcards] = useState(() => {
     const arr = [...flashcards];
     if (arr.length > 1) {
@@ -66,7 +65,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         <div>
           <h2 className="text-2xl font-bold">📚 Flashcards</h2>
           {summaryTitle && (
-            // Aumentar tamaño de fuente en móvil para el título del resumen si es muy corto
             <h3 className="text-base sm:text-lg italic text-yellow-400">
               {summaryTitle}
             </h3>
@@ -80,30 +78,29 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         </button>
       </div>
 
-      {/* Contenedor de la tarjeta */}
-      <div className="perspective-1000 w-full mb-6"> {/* Eliminar h-80 para altura flexible */}
+      {/* Contenedor de la tarjeta principal (con perspectiva para 3D) */}
+      <div className="perspective-1000 w-full mb-6">
         <div
-          className={`relative w-full min-h-[200px] sm:min-h-[280px] md:min-h-[300px] flex items-center justify-center 
+          className={`relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
                       bg-gray-800 rounded-lg shadow-lg cursor-pointer 
-                      transform-style-3d transition-transform duration-500 p-4 sm:p-6 ${ // Añadir padding
-            isFlipped ? "rotate-y-180" : ""
-          }`}
+                      transform-style-3d transition-transform duration-500 
+                      flex items-center justify-center p-4 sm:p-6`} 
           onClick={handleFlip}
-          style={{ backfaceVisibility: 'hidden' }} // Asegurarse de que el contenedor principal también lo tenga si es necesario
+          // ELIMINA ESTA LÍNEA: style={{ backfaceVisibility: 'hidden' }}
         >
           {/* Parte frontal (pregunta) */}
-          <div className="absolute inset-0 backface-hidden flex items-center justify-center text-center text-base sm:text-lg overflow-y-auto px-4 py-2 leading-relaxed">
-            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.question}</p> {/* Más padding y espaciado de línea */}
+          <div className="absolute inset-0 backface-hidden flex items-center justify-center text-center text-base sm:text-lg overflow-y-auto p-4 leading-relaxed">
+            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.question}</p>
           </div>
 
           {/* Parte trasera (respuesta) */}
-          <div className="absolute inset-0 backface-hidden flex items-center justify-center text-center text-base sm:text-lg overflow-y-auto px-4 py-2 leading-relaxed rotate-y-180">
-            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.answer}</p> {/* Más padding y espaciado de línea */}
+          <div className="absolute inset-0 backface-hidden flex items-center justify-center text-center text-base sm:text-lg overflow-y-auto p-4 leading-relaxed rotate-y-180">
+            <p className="p-2 sm:p-4 leading-relaxed">{currentCard.answer}</p>
           </div>
         </div>
       </div>
 
-      {/* Navegación y botones */}
+
       <div className="flex justify-between items-center mb-4">
         <span className="text-gray-400 text-sm">
           {currentIndex + 1} / {shuffledFlashcards.length}
@@ -130,9 +127,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           Siguiente ➡️
         </button>
       </div>
-
-      {/* NOTA: Ya no necesitamos la etiqueta <style jsx> si todas las clases son de Tailwind o CSS global */}
-      {/* Si aún necesitas estilos CSS no-Tailwind aquí, considera moverlos a index.css */}
     </div>
   );
 };
