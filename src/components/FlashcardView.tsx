@@ -44,12 +44,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const currentCard = shuffledFlashcards[currentIndex];
 
   const handleNext = () => {
-    setIsFlipped(false); // Reinicia el estado de volteo al cambiar de tarjeta
+    setIsFlipped(false);
     setCurrentIndex((prevIndex) => (prevIndex + 1) % shuffledFlashcards.length);
   };
 
   const handlePrev = () => {
-    setIsFlipped(false); // Reinicia el estado de volteo al cambiar de tarjeta
+    setIsFlipped(false);
     setCurrentIndex((prevIndex) =>
       prevIndex === 0 ? shuffledFlashcards.length - 1 : prevIndex - 1
     );
@@ -106,49 +106,207 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   };
 
   const downloadHTMLFlashcards = () => {
-    const flashcardsHtml = shuffledFlashcards.map((card) => `
-      <div class="flashcard-item" style="margin-bottom: 20px; padding: 15px; border: 1px solid #4b5563; border-radius: 8px; background: #1f2937; color: #f8f9fa;">
-        <p style="font-weight: bold; margin-bottom: 5px;">Q: ${esc(card.question)}</p>
-        <p>A: ${esc(card.answer)}</p>
-      </div>
-    `).join("");
+    const safeTitle = (summaryTitle || "flashcards")
+      .replace(/[^a-z0-9_\- .]/gi, "")
+      .trim() || "flashcards";
 
-    const pageTitle = (summaryTitle || "flashcards").replace(/[^a-z0-9_\- .]/gi, "").trim() || "flashcards";
+    const allFlashcardsData = shuffledFlashcards.map(card => ({
+      q: esc(card.question),
+      a: esc(card.answer)
+    }));
+
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${esc(pageTitle)} - Flashcards</title>
+    <title>${esc(safeTitle)} - Flashcards</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #111827; color: #f8f9fa; }
-        h1 { text-align: center; margin-bottom: 30px; color: #facc15; }
-        .flashcard-item {
-            margin-bottom: 20px;
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #e0e0e0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        h1 { color: #facc15; text-align: center; margin-bottom: 20px; }
+        .flashcard-wrapper {
+            perspective: 1000px;
+            width: 90%;
+            max-width: 500px;
+            margin: 20px auto;
+            position: relative;
+            min-height: 250px;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s ease-in-out;
+            transform-style: preserve-3d;
+            background: #2b2e41;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .flashcard-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .flashcard-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 15px;
-            border: 1px solid #4b5563;
-            border-radius: 8px;
-            background: #1f2937;
+            box-sizing: border-box;
+            overflow-y: auto;
+            word-wrap: break-word;
+        }
+        .flashcard-face p {
+            margin: 0;
+            line-height: 1.6;
+            font-size: 1.3rem;
             color: #f8f9fa;
         }
-        .flashcard-item p {
-            margin: 0;
-            line-height: 1.5;
+        .flashcard-back {
+            transform: rotateY(180deg);
         }
-        .flashcard-item p:first-child {
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+        .counter {
+            color: #adb5bd;
+            font-size: 0.9rem;
+        }
+        button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
             font-weight: bold;
-            margin-bottom: 5px;
+            color: #fff;
+            transition: background-color 0.3s ease;
+            margin: 5px;
+        }
+        .btn-flip { background: #8b5cf6; }
+        .btn-flip:hover { background: #7c3aed; }
+        .btn-nav { background: #3b82f6; }
+        .btn-nav:hover { background: #2563eb; }
+        .btn-secondary { background: #ef4444; }
+        .btn-secondary:hover { background: #dc2626; }
+        .hidden-card {
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s 0.6s, opacity 0.6s linear;
+        }
+        .visible-card {
+            visibility: visible;
+            opacity: 1;
+            transition: opacity 0.6s linear;
         }
     </style>
 </head>
 <body>
-    <h1>${esc(pageTitle)} - Flashcards</h1>
-    <p style="text-align: center; margin-bottom: 20px; color: #adb5bd;">
-        Estas son tus flashcards. Puedes imprimir esta página a PDF desde tu navegador.
-    </p>
-    <div style="max-width: 800px; margin: 0 auto;">
-      ${flashcardsHtml}
+    <h1>${esc(safeTitle)} - Flashcards</h1>
+    <div class="flashcard-wrapper" id="flashcard-wrapper">
+        <div class="flashcard-inner" id="flashcard-inner">
+            <div class="flashcard-face flashcard-front" id="flashcard-question">
+                <p></p>
+            </div>
+            <div class="flashcard-face flashcard-back" id="flashcard-answer">
+                <p></p>
+            </div>
+        </div>
     </div>
+    <div class="controls">
+        <button class="btn-nav" id="prev-btn">⬅️ Anterior</button>
+        <span class="counter" id="card-counter"></span>
+        <button class="btn-nav" id="next-btn">Siguiente ➡️</button>
+    </div>
+    <button class="btn-flip" id="flip-btn">Mostrar Respuesta</button>
+    <button class="btn-secondary" id="back-btn" style="margin-top: 20px;">Volver a Inicio</button>
+
+    <script>
+        const flashcards = ${JSON.stringify(allFlashcardsData)};
+        let currentCardIndex = 0;
+        let isFlipped = false;
+
+        const flashcardInner = document.getElementById('flashcard-inner');
+        const flashcardQuestion = document.querySelector('#flashcard-question p');
+        const flashcardAnswer = document.querySelector('#flashcard-answer p');
+        const cardCounter = document.getElementById('card-counter');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const flipBtn = document.getElementById('flip-btn');
+        const backBtn = document.getElementById('back-btn');
+        const flashcardWrapper = document.getElementById('flashcard-wrapper');
+
+        function updateFlashcardDisplay() {
+            if (flashcards.length === 0) {
+                flashcardWrapper.classList.remove('visible-card');
+                flashcardWrapper.classList.add('hidden-card');
+                flashcardInner.innerHTML = '<p style="font-size:1.5rem; color:#adb5bd;">No hay flashcards para mostrar.</p>';
+                return;
+            } else {
+                flashcardWrapper.classList.remove('hidden-card');
+                flashcardWrapper.classList.add('visible-card');
+            }
+
+            const card = flashcards[currentCardIndex];
+            flashcardQuestion.innerHTML = card.q;
+            flashcardAnswer.innerHTML = card.a;
+            cardCounter.textContent = \`\${currentCardIndex + 1} / \${flashcards.length}\`;
+
+            if (isFlipped) {
+                flashcardInner.classList.add('is-flipped');
+                flipBtn.textContent = 'Mostrar Pregunta';
+            } else {
+                flashcardInner.classList.remove('is-flipped');
+                flipBtn.textContent = 'Mostrar Respuesta';
+            }
+        }
+
+        flashcardInner.addEventListener('click', () => {
+            isFlipped = !isFlipped;
+            updateFlashcardDisplay();
+        });
+
+        flipBtn.addEventListener('click', () => {
+            isFlipped = !isFlipped;
+            updateFlashcardDisplay();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            isFlipped = false;
+            currentCardIndex = (currentCardIndex === 0) ? flashcards.length - 1 : currentCardIndex - 1;
+            updateFlashcardDisplay();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            isFlipped = false;
+            currentCardIndex = (currentCardIndex === flashcards.length - 1) ? 0 : currentCardIndex + 1;
+            updateFlashcardDisplay();
+        });
+
+        backBtn.addEventListener('click', () => {
+            console.log("Volver a inicio no implementado en archivo descargado.");
+            alert("No se puede volver a la aplicación desde el archivo descargado. Cierra esta ventana.");
+        });
+
+        document.addEventListener('DOMContentLoaded', updateFlashcardDisplay);
+    </script>
 </body>
 </html>`;
 
@@ -156,7 +314,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${pageTitle}_flashcards.html`;
+    a.download = `${safeTitle}_flashcards.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -190,21 +348,22 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       </div>
 
       {/* Contenedor de la tarjeta principal (con perspectiva para 3D) */}
-      <div className="flashcard-container w-full mb-6"> {/* Clase custom para estilos específicos */}
+      <div className="flashcard-container w-full mb-6">
         <div
           className={`flashcard-inner relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
                       bg-gray-800 rounded-lg shadow-lg cursor-pointer 
-                      transform-style-3d transition-transform duration-500`}
+                      transform-style-3d transition-transform duration-500 
+                      flex items-center justify-center p-4 sm:p-6 ${isFlipped ? 'is-flipped' : ''}`} {/* <-- Añadido is-flipped */}
           onClick={handleFlip}
         >
           {/* Parte frontal (pregunta) */}
           <div className="flashcard-face flashcard-front absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.question}</p> {/* Ajustado leading, font-weight, color */}
+            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.question}</p>
           </div>
 
           {/* Parte trasera (respuesta) */}
           <div className="flashcard-face flashcard-back absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
-            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.answer}</p> {/* Ajustado leading, font-weight, color */}
+            <p className="p-2 sm:p-4 text-center text-current font-semibold leading-normal">{currentCard.answer}</p>
           </div>
         </div>
       </div>
@@ -237,58 +396,62 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       </div>
 
       {/* ESTILOS CSS INLINE para controlar el volteo 3D de forma estricta */}
-      {/* Estas reglas son CRÍTICAS para el efecto 3D y la visibilidad */}
       <style>
         {`
+        /* Importante: Estas reglas necesitan ser aplicadas directamente en CSS,
+           ya que algunas utilidades de Tailwind pueden no funcionar como se espera
+           para animaciones 3D complejas en algunos navegadores. */
         .flashcard-container {
-          perspective: 1000px; /* Necesario para el efecto 3D */
-          position: relative; /* Asegura el contexto de posicionamiento para los hijos */
+          perspective: 1000px;
         }
 
         .flashcard-inner {
           transform-style: preserve-3d;
-          transition: transform 0.5s ease-in-out; /* Transición para el volteo */
-          position: relative; /* Para que inset-0 funcione en las caras */
+          transition: transform 0.5s ease-in-out;
+          /* Añadido para asegurar que la animación es suave */
+          will-change: transform;
+        }
+
+        .flashcard-inner.is-flipped {
+          transform: rotateY(180deg);
         }
 
         .flashcard-face {
           position: absolute;
           width: 100%;
           height: 100%;
-          backface-visibility: hidden; /* Oculta la cara cuando está volteada */
-          display: flex; /* Para centrar el contenido */
+          backface-visibility: hidden;
+          display: flex;
           align-items: center;
           justify-content: center;
-          background: inherit; /* Hereda el fondo del contenedor interior */
-          border-radius: inherit; /* Hereda el border-radius del contenedor interior */
+          /* Hereda el fondo y border-radius del flashcard-inner */
+          background: inherit;
+          border-radius: inherit;
+          padding: 20px; /* Ajuste de padding de la cara */
+          box-sizing: border-box; /* Incluir padding en el width/height */
+          text-align: center;
+          /* Asegurar que se renderice en su propia capa para 3D */
+          transform: translateZ(0); 
         }
 
         .flashcard-front {
           transform: rotateY(0deg);
-          z-index: 2; /* Asegura que esté por encima cuando no está volteada */
         }
 
         .flashcard-back {
-          transform: rotateY(180deg); /* La cara trasera comienza volteada */
-          z-index: 1; /* Estará detrás de la frontal inicialmente */
+          transform: rotateY(180deg);
         }
-
-        /* Cuando el contenedor interior rota, las caras se mueven */
-        .flashcard-inner.rotate-y-180 .flashcard-front {
-          transform: rotateY(-180deg);
-        }
-
-        .flashcard-inner.rotate-y-180 .flashcard-back {
-          transform: rotateY(0deg);
-        }
-
+        
         /* Ajustes de tipografía para el contenido de la flashcard */
         .flashcard-face p {
-          margin: 0; /* Elimina márgenes por defecto del párrafo */
-          line-height: 1.5; /* Espaciado de línea más legible */
-          white-space: pre-wrap; /* Permite saltos de línea y respeta espacios */
+          margin: 0;
+          line-height: 1.6; /* Un poco más de espaciado */
+          white-space: pre-wrap; /* Permite saltos de línea y espacios */
           word-break: break-word; /* Rompe palabras largas */
-          hyphens: auto; /* Permite guiones para mejor ajuste */
+          hyphens: auto; /* Permite guiones */
+          font-size: inherit; /* Hereda el tamaño del padre (text-xl sm:text-2xl) */
+          color: inherit; /* Hereda el color */
+          font-weight: inherit; /* Hereda el peso de la fuente */
         }
         `}
       </style>
