@@ -1,13 +1,25 @@
 // netlify/functions/flashcards.js
-// AHORA: Usa require para GoogleGenerativeAI para consistencia con tus otras funciones
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Asume que tu clave de API está configurada como GOOGGLE_AI_API_KEY en las variables de entorno de Netlify
-// No hay cambio en cómo se obtiene la clave, asumimos que GOOGGLE_AI_API_KEY es correcta
-const apiKey = process.env.GOOGGLE_AI_API_KEY; // Reconfirmado, este es el nombre de tu variable
+const apiKey = process.env.GOOGGLE_AI_API_KEY; // Confirmado: este nombre está bien
 
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
+  // --- AÑADIR ESTE LOG PARA VER LA CLAVE ---
+  console.log('Flashcards function started.');
+  if (apiKey) {
+    console.log('API Key available (length:', apiKey.length, ', starts with:', apiKey.substring(0, 5), '...).');
+  } else {
+    console.error('API Key is NOT available in environment variable GOOGGLE_AI_API_KEY.');
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "API Key is missing for flashcards function." }),
+      headers: { "Content-Type": "application/json" }
+    };
+  }
+  // --- FIN LOG ---
+
   // Asegúrate de que solo se acepten solicitudes POST
   if (event.httpMethod !== "POST") {
     return {
@@ -38,13 +50,21 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // --- CAMBIO CLAVE AQUÍ ---
-  // Replicamos la inicialización de GoogleGenerativeAI como en present.js
-  const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
-  const genAI = new GGA(apiKey);
-  // Re-confirmamos el modelo que sabemos que funciona con tu clave
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-  // --- FIN CAMBIO CLAVE ---
+  // Replicamos la inicialización de GoogleGenerativeAI.
+  // Intentamos un patrón que puede ser más robusto en ciertos entornos Node.
+  let genAIInstance;
+  try {
+    genAIInstance = new GoogleGenerativeAI(apiKey);
+  } catch (initError) {
+    console.error("Error initializing GoogleGenerativeAI:", initError);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Failed to initialize AI model. Check API Key validity." }),
+      headers: { "Content-Type": "application/json" }
+    };
+  }
+
+  const model = genAIInstance.getGenerativeModel({ model: "gemini-1.5-pro" }); // Usando el modelo que ya funciona
 
 
   const prompt = `A partir del siguiente resumen, genera entre 10 y 15 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa. Formatea la salida estrictamente como un array JSON de objetos, donde cada objeto tenga las propiedades "question" y "answer".
@@ -109,7 +129,7 @@ exports.handler = async (event, context) => {
     // Captura cualquier otro error durante la llamada a Gemini o procesamiento
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to generate flashcards. Please check function logs." }),
+      body: JSON.stringify({ error: error?.message || "Error interno en flashcards function" }),
       headers: { "Content-Type": "application/json" }
     };
   }
