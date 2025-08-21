@@ -1,10 +1,10 @@
 // netlify/functions/flashcards.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// AHORA: Usa require para GoogleGenerativeAI para consistencia con tus otras funciones
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Asume que tu clave de API está configurada como GOOGGLE_AI_API_KEY en las variables de entorno de Netlify
-const genAI = new GoogleGenerativeAI(process.env.GOOGGLE_AI_API_KEY); // Confirmado: este nombre está bien
-// CAMBIA AQUÍ EL MODELO:
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // <-- ¡USA ESTE MODELO! (O "gemini-2.0-flash")
+// No hay cambio en cómo se obtiene la clave, asumimos que GOOGGLE_AI_API_KEY es correcta
+const apiKey = process.env.GOOGGLE_AI_API_KEY; // Reconfirmado, este es el nombre de tu variable
 
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
@@ -19,7 +19,6 @@ exports.handler = async (event, context) => {
 
   let summaryText;
   try {
-    // El cuerpo de la solicitud (JSON) está en event.body
     const body = JSON.parse(event.body);
     summaryText = body.summaryText;
   } catch (parseError) {
@@ -38,6 +37,15 @@ exports.handler = async (event, context) => {
       headers: { "Content-Type": "application/json" }
     };
   }
+
+  // --- CAMBIO CLAVE AQUÍ ---
+  // Replicamos la inicialización de GoogleGenerativeAI como en present.js
+  const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
+  const genAI = new GGA(apiKey);
+  // Re-confirmamos el modelo que sabemos que funciona con tu clave
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  // --- FIN CAMBIO CLAVE ---
+
 
   const prompt = `A partir del siguiente resumen, genera entre 10 y 15 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa. Formatea la salida estrictamente como un array JSON de objetos, donde cada objeto tenga las propiedades "question" y "answer".
   
