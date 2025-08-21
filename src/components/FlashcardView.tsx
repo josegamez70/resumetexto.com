@@ -19,9 +19,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   // Mezclar las tarjetas al iniciar (opcional)
   const [shuffledFlashcards] = useState(() => {
     const arr = [...flashcards];
-    // Evitar mutación directa si el estado de las flashcards puede ser el mismo en el futuro
-    // y quieres mezclar solo una vez al cargar el componente.
-    // Si quieres mezclar cada vez que entras a la vista, esta lógica está bien.
     if (arr.length > 1) { // Solo mezcla si hay más de una tarjeta
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -88,13 +85,13 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           onClick={handleFlip}
         >
           {/* Parte frontal (pregunta) */}
-          <div className="flashcard-face absolute inset-0 backface-hidden flex items-center justify-center p-6 text-center text-lg overflow-auto">
-            <p className="leading-relaxed">{currentCard.question}</p> {/* Añadir leading-relaxed */}
+          <div className="absolute inset-0 backface-hidden flex items-center justify-center p-6 text-center text-lg overflow-auto">
+            <p className="leading-relaxed">{currentCard.question}</p>
           </div>
 
           {/* Parte trasera (respuesta) */}
-          <div className="flashcard-face absolute inset-0 backface-hidden flex items-center justify-center p-6 text-center text-lg overflow-auto rotate-y-180">
-            <p className="leading-relaxed">{currentCard.answer}</p> {/* Añadir leading-relaxed */}
+          <div className="absolute inset-0 backface-hidden flex items-center justify-center p-6 text-center text-lg overflow-auto rotate-y-180">
+            <p className="leading-relaxed">{currentCard.answer}</p>
           </div>
         </div>
       </div>
@@ -127,41 +124,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         </button>
       </div>
 
-      {/* Tailwind CSS para las transformaciones 3D */}
-      {/* Las siguientes reglas CSS aseguran que la rotación inicial de la cara trasera
-          sea 180deg y que la cara frontal no tenga esa rotación,
-          y que la transición solo afecte al contenedor principal de la tarjeta.
-          Esto debería estar ya cubierto por las clases de Tailwind y tu config.js.
-          Si aún hay superposición, es posible que necesitemos una clase `transform-hidden` o similar
-          que aplique `transform: rotateY(90deg)` para ocultar completamente la cara no visible durante la transición.
-      */}
-      <style jsx>{`
-        /* Este estilo asegura que la cara trasera esté volteada inicialmente para no superponerse */
-        .flashcard-face {
-          transform: rotateY(var(--tw-rotate-y, 0)); /* fallback para asegurarse */
-        }
-        .flashcard-face.absolute:first-child {
-          z-index: 2; /* Asegura que la cara frontal esté por encima cuando no está volteada */
-        }
-        .flashcard-face.absolute:last-child {
-          transform: rotateY(180deg) var(--tw-rotate-y, 0); /* La cara trasera siempre empieza volteada */
-        }
-        /* Cuando el contenedor principal rota, estas caras giran con él */
-        .rotate-y-180 .flashcard-face.absolute:first-child {
-          transform: rotateY(-180deg); /* La frontal gira para irse */
-        }
-        .rotate-y-180 .flashcard-face.absolute:last-child {
-          transform: rotateY(0deg); /* La trasera gira para mostrarse */
-        }
-        /* Asegura que los textos no se desborden de su caja */
-        .overflow-auto {
-            display: flex; /* Para centrar contenido */
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            width: 100%;
-        }
-      `}</style>
+      {/* TODAS las reglas CSS para el volteo deben estar en index.css o tailwind.config.js */}
+      {/* NO HAY ETIQUETAS <style jsx> AQUÍ */}
     </div>
   );
 };
