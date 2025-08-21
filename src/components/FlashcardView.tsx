@@ -350,10 +350,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       {/* Contenedor de la tarjeta principal (con perspectiva para 3D) */}
       <div className="flashcard-container w-full mb-6">
         <div
+          // MODIFICACIÓN CLAVE AQUÍ: Asegurarse de que la clase is-flipped se aplica.
+          // ELIMINA la clase transform-style-3d del JSX directo.
+          // El 'flashcard-inner' tiene el 'transform-style-3d' en el CSS puro.
           className={`flashcard-inner relative w-full h-[280px] sm:h-[350px] md:h-[400px] 
                       bg-gray-800 rounded-lg shadow-lg cursor-pointer 
-                      transform-style-3d transition-transform duration-500 
-                      flex items-center justify-center p-4 sm:p-6 ${isFlipped ? 'is-flipped' : ''}`} {/* <-- Añadido is-flipped */}
+                      flex items-center justify-center p-4 sm:p-6 ${isFlipped ? 'is-flipped' : ''}`}
           onClick={handleFlip}
         >
           {/* Parte frontal (pregunta) */}
@@ -398,18 +400,17 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       {/* ESTILOS CSS INLINE para controlar el volteo 3D de forma estricta */}
       <style>
         {`
-        /* Importante: Estas reglas necesitan ser aplicadas directamente en CSS,
-           ya que algunas utilidades de Tailwind pueden no funcionar como se espera
-           para animaciones 3D complejas en algunos navegadores. */
+        /* Este estilo asegura que el contexto 3D esté bien definido */
         .flashcard-container {
           perspective: 1000px;
+          position: relative; /* Asegura el contexto de posicionamiento */
         }
 
         .flashcard-inner {
-          transform-style: preserve-3d;
+          transform-style: preserve-3d; /* CRÍTICO: Mantiene los hijos en 3D */
           transition: transform 0.5s ease-in-out;
-          /* Añadido para asegurar que la animación es suave */
-          will-change: transform;
+          position: relative;
+          /* will-change: transform; /* Puede ayudar en algunos navegadores */ */
         }
 
         .flashcard-inner.is-flipped {
@@ -420,17 +421,16 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           position: absolute;
           width: 100%;
           height: 100%;
-          backface-visibility: hidden;
+          backface-visibility: hidden; /* CRÍTICO: Oculta la cara trasera */
           display: flex;
           align-items: center;
           justify-content: center;
-          /* Hereda el fondo y border-radius del flashcard-inner */
           background: inherit;
           border-radius: inherit;
-          padding: 20px; /* Ajuste de padding de la cara */
-          box-sizing: border-box; /* Incluir padding en el width/height */
+          padding: 20px;
+          box-sizing: border-box;
           text-align: center;
-          /* Asegurar que se renderice en su propia capa para 3D */
+          /* Forzar renderizado en capa 3D para evitar glitches */
           transform: translateZ(0); 
         }
 
@@ -439,19 +439,20 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         }
 
         .flashcard-back {
-          transform: rotateY(180deg);
+          transform: rotateY(180deg); /* La cara trasera comienza volteada */
         }
         
         /* Ajustes de tipografía para el contenido de la flashcard */
         .flashcard-face p {
           margin: 0;
-          line-height: 1.6; /* Un poco más de espaciado */
-          white-space: pre-wrap; /* Permite saltos de línea y espacios */
-          word-break: break-word; /* Rompe palabras largas */
-          hyphens: auto; /* Permite guiones */
-          font-size: inherit; /* Hereda el tamaño del padre (text-xl sm:text-2xl) */
-          color: inherit; /* Hereda el color */
-          font-weight: inherit; /* Hereda el peso de la fuente */
+          line-height: 1.6;
+          white-space: pre-wrap;
+          word-break: break-word;
+          hyphens: auto;
+          text-align: center;
+          font-size: inherit;
+          color: inherit;
+          font-weight: inherit;
         }
         `}
       </style>
