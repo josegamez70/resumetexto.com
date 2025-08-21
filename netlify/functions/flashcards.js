@@ -7,7 +7,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
   // --- AHORA OBTENEMOS LA CLAVE AQUÍ, DENTRO DEL CONTEXTO DE LA FUNCIÓN ---
-  const apiKey = process.env.GOOGGLE_AI_API_KEY; 
+  const apiKey = process.env.GOOGLE_AI_API_KEY; // ¡Una sola 'G' ahora!
 
   console.log('Flashcards function started.');
   if (apiKey) {
