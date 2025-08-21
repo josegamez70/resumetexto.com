@@ -79,7 +79,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       <div className="perspective-1000">
         <div
           className={`relative w-full h-80 bg-gray-800 rounded-lg shadow-lg mb-6 cursor-pointer transform-style-3d transition-transform duration-500 ${
-            isFlipped ? "rotate-y-180" : ""
+            isFlipped ? "rotate-y-180" : "" // Esta clase se controlará desde tailwind
           }`}
           onClick={handleFlip}
         >
@@ -123,52 +123,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         </button>
       </div>
 
-      {/* Tailwind CSS para las transformaciones 3D */}
-      {/* Añade esto en tu `tailwind.config.js` si no lo tienes: */}
-      {/*
-      module.exports = {
-        theme: {
-          extend: {
-            transformOrigin: {
-              'center-3d': '50% 50% -100px', // Puedes ajustar el valor '100px'
-            },
-            transform: {
-              'rotate-y-180': 'rotateY(180deg)',
-            },
-            backfaceVisibility: {
-              'hidden': 'backface-visibility: hidden;',
-            },
-            perspective: {
-              '1000': 'perspective: 1000px;',
-            },
-            transformStyle: {
-              '3d': 'transform-style: preserve-3d;',
-            },
-          },
-        },
-        variants: {
-          extend: {
-            transform: ['group-hover'],
-            backfaceVisibility: ['group-hover'],
-          },
-        },
-        plugins: [],
-      }
-      */}
-      <style jsx>{`
-        .backface-hidden {
-          backface-visibility: hidden;
-        }
-        .transform-style-3d {
-          transform-style: preserve-3d;
-        }
-        .perspective-1000 {
-          perspective: 1000px;
-        }
-        .rotate-y-180 {
-          transform: rotateY(180deg);
-        }
-      `}</style>
+      {/* NO HAY ETIQUETAS <style jsx> AQUÍ */}
     </div>
   );
 };
