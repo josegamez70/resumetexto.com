@@ -62,63 +62,65 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // --- MODIFICADO: Función para IMPRIMIR todas las flashcards ---
   const handlePrintFlashcards = () => {
-    const flashcardsHtml = shuffledFlashcards.map((card) => `
-      <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; color: #333;">
-        <p style="font-weight: bold; margin-bottom: 5px;">Q: ${esc(card.question)}</p>
-        <p>A: ${esc(card.answer)}</p>
+    const pageTitle = summaryTitle || "Flashcards";
+    // Construir solo el contenido imprimible (sin el body completo, para incrustar en un iframe temporal)
+    const printableContent = shuffledFlashcards.map((card) => `
+      <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; color: #333; page-break-inside: avoid;">
+        <p style="font-weight: bold; margin-bottom: 5px; line-height: 1.5;">Q: ${esc(card.question)}</p>
+        <p style="line-height: 1.5;">A: ${esc(card.answer)}</p>
       </div>
     `).join("");
 
-    const pageTitle = summaryTitle || "Flashcards";
-    const htmlContent = `<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${esc(pageTitle)} - Flashcards</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; color: #333; }
-        h1 { text-align: center; margin-bottom: 30px; }
-        @media print {
-            .no-print { display: none; }
-            body { margin: 0; }
-            div { page-break-inside: avoid; }
-        }
-    </style>
-</head>
-<body>
-    <h1 class="no-print">${esc(pageTitle)} - Flashcards</h1>
-    <p class="no-print" style="text-align: center; margin-bottom: 20px;">
-        Esta es una lista imprimible de tus flashcards.
-    </p>
-    ${flashcardsHtml}
-    <script>window.addEventListener('load', () => { window.print(); });</script>
-</body>
-</html>`;
+    const printHtml = `
+      <style>
+          body { font-family: sans-serif; margin: 20px; color: #333; }
+          h1 { text-align: center; margin-bottom: 30px; }
+          @media print {
+              body { margin: 0; }
+          }
+      </style>
+      <h1>${esc(pageTitle)} - Flashcards para Imprimir</h1>
+      <p style="text-align: center; margin-bottom: 20px;">
+          Preguntas y respuestas de las flashcards.
+      </p>
+      ${printableContent}
+    `;
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-    }
+    // Usar un iframe temporal para imprimir sin abrir una ventana nueva
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none'; // Ocultar el iframe
+    document.body.appendChild(iframe);
+
+    iframe.contentDocument?.open();
+    iframe.contentDocument?.write(printHtml);
+    iframe.contentDocument?.close();
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error("Error printing:", err);
+        alert("Hubo un problema al imprimir. Puede que tu navegador bloquee la impresión desde iframes. Intenta la descarga HTML y luego imprímelo.");
+      } finally {
+        document.body.removeChild(iframe); // Eliminar el iframe después de imprimir
+      }
+    };
   };
 
-  // --- HTML Descargado Interactivo (AJUSTADO FINALMENTE) ---
+  // --- HTML Descargado Interactivo (AJUSTADO: Eliminado botón "Volver a Inicio") ---
   const downloadHTMLFlashcards = () => {
-    // Intentar decodificar y limpiar el título para el nombre del archivo y el título HTML
+    // Limpiar el título para la descarga
     let cleanSummaryTitle = summaryTitle || "Flashcards";
     try {
-        // Primero, decodificar el URL-encoding si viene de un nombre de archivo
         cleanSummaryTitle = decodeURIComponent(cleanSummaryTitle);
     } catch (e) {
-        // Si falla la decodificación, no es URL-encoded, usarlo tal cual
-        console.error("Error decoding summaryTitle, using as is.", e);
+        console.error("Error decoding summaryTitle for filename, using as is.", e);
     }
-    // Eliminar caracteres no alfanuméricos seguros para nombres de archivo y HTML
     cleanSummaryTitle = cleanSummaryTitle.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_.]/g, '').trim();
-    const safeTitle = cleanSummaryTitle || "Flashcards"; // Fallback final
+    const safeTitle = cleanSummaryTitle || "Flashcards";
 
     const allFlashcardsData = shuffledFlashcards.map(card => ({
       q: esc(card.question),
@@ -155,8 +157,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             margin: 20px auto;
             position: relative;
             /* Altura flexible, se adapta al contenido */
-            /* min-height: 280px;  REMOVIDO */
-            /* flex-grow: 1; REMOVIDO */
             display: flex; /* Para centrar la tarjeta */
             align-items: center;
             justify-content: center;
@@ -192,13 +192,11 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             justify-content: center;
             padding: 15px;
             box-sizing: border-box;
-            /* overflow-y: auto; REMOVIDO PARA EVITAR SCROLL - EL CONTENEDOR PARENT SE ADAPTA */
             word-wrap: break-word;
             text-align: center;
-            font-size: 1.3rem; /* Tamaño de texto de tarjeta */
-            line-height: 1.8; /* Espaciado de línea */
-            /* Asegurar que se renderice en su propia capa para 3D */
-            transform: translateZ(0); 
+            font-size: 1.3rem;
+            line-height: 1.8;
+            /* overflow-y: auto; REMOVIDO DE LAS CARAS */
         }
         .flashcard-front {
             background: #FFC0CB; /* Fondo rosado para la pregunta */
@@ -224,17 +222,17 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             width: 95%;
             max-width: 700px;
             margin-top: 20px;
-            flex-wrap: wrap; /* Permitir que los botones se envuelvan en móvil */
-            justify-content: center; /* Centrar botones en móvil */
+            flex-wrap: wrap;
+            justify-content: center;
         }
         .counter {
             color: #adb5bd;
             font-size: 0.9rem;
-            flex-basis: 100%; /* Ocupar todo el ancho en móvil */
+            flex-basis: 100%;
             text-align: center;
-            margin-bottom: 10px; /* Separación en móvil */
+            margin-bottom: 10px;
         }
-        @media (min-width: 600px) { /* Para pantallas más grandes, distribuir botones */
+        @media (min-width: 600px) {
             .controls {
                 justify-content: space-between;
             }
@@ -253,7 +251,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             color: #fff;
             transition: background-color 0.3s ease;
             margin: 5px;
-            min-width: 120px; /* Asegurar un ancho mínimo para los botones */
+            min-width: 120px;
         }
         .btn-flip { background: #8b5cf6; }
         .btn-flip:hover { background: #7c3aed; }
@@ -291,7 +289,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         <button class="btn-nav" id="next-btn">Siguiente ➡️</button>
     </div>
     <button class="btn-flip" id="flip-btn">Mostrar Respuesta</button>
-    <button class="btn-secondary" id="back-btn" style="margin-top: 20px;">Volver a Inicio</button>
+    <!-- ELIMINADO: BOTÓN "Volver a Inicio" -->
 
     <script>
         const flashcards = ${JSON.stringify(allFlashcardsData)};
@@ -305,7 +303,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const flipBtn = document.getElementById('flip-btn');
-        const backBtn = document.getElementById('back-btn');
+        // const backBtn = document.getElementById('back-btn'); REMOVIDO backBtn
         const flashcardWrapper = document.getElementById('flashcard-wrapper');
 
         function updateFlashcardDisplay() {
@@ -355,10 +353,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             updateFlashcardDisplay();
         });
 
-        backBtn.addEventListener('click', () => {
-            console.log("Volver a inicio no implementado en archivo descargado.");
-            alert("No se puede volver a la aplicación desde el archivo descargado. Cierra esta ventana.");
-        });
+        // backBtn.addEventListener('click', ... REMOVIDO LISTENER DE backBtn
 
         document.addEventListener('DOMContentLoaded', updateFlashcardDisplay);
     </script>
