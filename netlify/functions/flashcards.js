@@ -1,9 +1,10 @@
 // netlify/functions/flashcards.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Asume que tu clave de API está configurada como GEMINI_API_KEY en las variables de entorno de Netlify
-const genAI = new GoogleGenerativeAI(process.env.GOOGGLE_AI_API_KEY); // Fíjate en la doble 'G'
-const model = genAI.getGenerativeModel({ model: "gemini-pro" }); // O "gemini-1.5-pro", etc.
+// Asume que tu clave de API está configurada como GOOGGLE_AI_API_KEY en las variables de entorno de Netlify
+const genAI = new GoogleGenerativeAI(process.env.GOOGGLE_AI_API_KEY); // Confirmado: este nombre está bien
+// CAMBIA AQUÍ EL MODELO:
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // <-- ¡USA ESTE MODELO! (O "gemini-2.0-flash")
 
 // La función handler para Netlify Functions
 exports.handler = async (event, context) => {
