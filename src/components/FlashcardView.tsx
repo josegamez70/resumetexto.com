@@ -1,5 +1,5 @@
 // components/FlashcardView.tsx
-import React, { useState } = "react";
+import React, { useState } from "react"; // <-- ¡CORREGIDO AQUÍ!
 import { Flashcard } from "../types";
 
 interface FlashcardViewProps {
@@ -62,7 +62,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // --- Función para IMPRIMIR todas las flashcards (sin cambios sustanciales aquí) ---
   const handlePrintFlashcards = () => {
     const pageTitle = summaryTitle || "Flashcards";
     const printableItems = shuffledFlashcards.map((card, index) => `
@@ -122,7 +121,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     };
   };
 
-  // --- MODIFICADO: HTML Descargado Interactivo (ANCHO -20%, COLOR COMPLETO, BOTÓN IMPRIMIR) ---
+  // --- HTML Descargado Interactivo (AJUSTADO: Eliminado botón "Volver a Inicio") ---
   const downloadHTMLFlashcards = () => {
     // Limpiar el título para la descarga
     let cleanSummaryTitle = summaryTitle || "Flashcards";
@@ -139,14 +138,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       a: esc(card.answer)
     }));
 
-    // --- HTML para el botón de Imprimir todas en el archivo descargado ---
-    const printableItemsHtml = shuffledFlashcards.map((card, index) => `
-      <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; color: #333; page-break-inside: avoid;">
-        <p style="font-weight: bold; margin-bottom: 3px; line-height: 1.4; font-size: 0.9rem;">${index + 1}. Pregunta: ${esc(card.q)}</p>
-        <p style="margin-bottom: 0; line-height: 1.4; font-size: 0.8rem;">Respuesta: ${esc(card.a)}</p>
-      </div>
-    `).join("");
-
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -154,7 +145,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${esc(safeTitle)} - Flashcards</title>
     <style>
-        /* Estilos generales */
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             margin: 0; 
@@ -172,11 +162,10 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             margin-bottom: 20px; 
             width: 100%; 
         }
-        /* Contenedor de la flashcard interactiva */
         .flashcard-wrapper {
             perspective: 1000px;
-            width: 75%; /* ANCHO REDUCIDO AL 75% del max-width de 800px (es decir, 600px max) */
-            max-width: 600px; /* Nuevo max-width efectivo para la tarjeta */
+            width: 95%; /* Más ancho */
+            max-width: 800px; /* Ancho máximo AUMENTADO para el HTML descargado */
             margin: 20px auto;
             position: relative;
             display: flex; 
@@ -187,7 +176,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             position: relative;
             width: 100%;
             height: auto; 
-            min-height: 250px;
+            min-height: 250px; 
             text-align: center;
             transition: transform 0.6s ease-in-out;
             transform-style: preserve-3d;
@@ -196,9 +185,13 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             display: flex;
             align-items: stretch; 
             justify-content: center;
-            padding: 0px; /* IMPORTANTE: QUITAR PADDING DEL INNER para que las caras llenen */
+            padding: 20px; /* Restablecido padding en inner para una caja más pequeña dentro del wrapper */
             box-sizing: border-box;
-            /* background: #2b2e41; REMOVIDO: el fondo lo pondrán las caras */
+            background: #2b2e41; /* Fondo de la tarjeta por defecto, antes de que las caras lo cubran */
+            /* REDUCIR ANCHO DE LA CAJA (20% menos) - NUEVO */
+            max-width: 640px; /* 80% de 800px */
+            margin-left: auto; /* Centrar la caja dentro de su wrapper */
+            margin-right: auto;
         }
         .flashcard-inner.is-flipped {
             transform: rotateY(180deg);
@@ -209,18 +202,16 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             height: 100%; 
             backface-visibility: hidden;
             display: flex;
-            flex-direction: column;
+            flex-direction: column; 
             align-items: center;
             justify-content: center;
-            padding: 20px; /* Padding interior de las caras */
+            padding: 15px;
             box-sizing: border-box;
             word-wrap: break-word;
             text-align: center;
-            font-size: 1.3rem; 
+            font-size: 1.3rem;
             line-height: 1.8;
             transform: translateZ(0); 
-            border-radius: inherit; /* Hereda el border-radius del inner */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Sombra para cada cara */
         }
         .flashcard-front {
             background: #FFC0CB; /* Fondo rosado para la pregunta */
@@ -236,19 +227,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         }
         .flashcard-face p {
             margin: 0;
+            padding: 10px;
             width: 100%; 
             height: 100%; 
             display: flex; 
             align-items: center;
             justify-content: center;
         }
-        /* Controles de navegación */
         .controls {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 95%;
-            max-width: 700px;
+            max-width: 700px; /* Ancho máximo aumentado */
             margin-top: 20px;
             flex-wrap: wrap; 
             justify-content: center; 
@@ -280,13 +271,13 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .btn-flip:hover { background: #7c3aed; }
         .btn-nav { background: #3b82f6; }
         .btn-nav:hover { background: #2563eb; }
-        .btn-print-html { background: #008080; } /* Un color distintivo para imprimir */
+        .btn-print-html { background: #008080; }
         .btn-print-html:hover { background: #006666; }
         .hidden-card { visibility: hidden; opacity: 0; transition: visibility 0s 0.6s, opacity 0.6s linear; }
         .visible-card { visibility: visible; opacity: 1; transition: opacity 0.6s linear; }
         /* Estilos para el div oculto con la lista de impresión */
         #printable-list-container {
-            display: none; /* Ocultar por defecto */
+            display: none; 
             max-width: 800px;
             margin: 30px auto;
             background: #fff;
@@ -311,7 +302,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             margin: 0;
             line-height: 1.4;
             font-size: 0.9rem;
-            text-align: left; /* Alineación izquierda para la lista */
+            text-align: left;
             color: #333;
         }
         .printable-item p:first-child { font-weight: bold; margin-bottom: 5px; }
@@ -421,26 +412,25 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             updateFlashcardDisplay();
         });
         
-        // Listener para el botón de imprimir todas en el HTML descargado
         printAllBtn.addEventListener('click', () => {
-            // Ocultar la interfaz interactiva y mostrar la lista imprimible
             flashcardWrapper.style.display = 'none';
             document.querySelector('.controls').style.display = 'none';
             flipBtn.style.display = 'none';
-            printAllBtn.style.display = 'none'; // También ocultar el propio botón de imprimir
+            printAllBtn.style.display = 'none'; 
 
-            printableListContainer.style.display = 'block'; // Mostrar el contenedor de la lista
+            printableListContainer.style.display = 'block';
 
-            window.print(); // Disparar la impresión
+            window.print();
 
-            // Restaurar la visibilidad después de la impresión (opcional, si el usuario cierra la ventana de impresión)
-            // setTimeout(() => {
-            //     flashcardWrapper.style.display = 'flex';
-            //     document.querySelector('.controls').style.display = 'flex';
-            //     flipBtn.style.display = 'block';
-            //     printAllBtn.style.display = 'block';
-            //     printableListContainer.style.display = 'none';
-            // }, 500); 
+            setTimeout(() => { 
+                // Restaurar la visibilidad después de que se cierre la ventana de impresión
+                printableListContainer.style.display = 'none';
+                flashcardWrapper.style.display = 'flex'; // Restaurar flex para la tarjeta
+                document.querySelector('.controls').style.display = 'flex';
+                flipBtn.style.display = 'block';
+                printAllBtn.style.display = 'block';
+                updateFlashcardDisplay(); // Asegurarse de que la tarjeta interactiva se muestre correctamente
+            }, 500); 
         });
 
         document.addEventListener('DOMContentLoaded', updateFlashcardDisplay);
