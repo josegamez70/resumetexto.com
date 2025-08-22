@@ -1,5 +1,5 @@
 // components/FlashcardView.tsx
-import React, { useState } from "react"; // <-- ¡CORREGIDO AQUÍ!
+import React, { useState } from "react";
 import { Flashcard } from "../types";
 
 interface FlashcardViewProps {
@@ -62,15 +62,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // --- NUEVO: Generar la lista imprimible UNA SOLA VEZ ---
+  const printableItemsHtml = shuffledFlashcards.map((card, index) => `
+    <div class="flashcard-print-item" style="margin-bottom: 25px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #333; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      <p style="font-weight: bold; margin-bottom: 8px; line-height: 1.6; font-size: 1.1rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
+      <p style="margin-bottom: 0; line-height: 1.6; font-size: 1.0rem;">Respuesta: ${esc(card.answer)}</p>
+    </div>
+  `).join("");
+
+
+  // --- MODIFICADO: Función para IMPRIMIR todas las flashcards ---
   const handlePrintFlashcards = () => {
     const pageTitle = summaryTitle || "Flashcards";
-    const printableItems = shuffledFlashcards.map((card, index) => `
-      <div class="flashcard-print-item" style="margin-bottom: 25px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #333; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-        <p style="font-weight: bold; margin-bottom: 8px; line-height: 1.6; font-size: 1.1rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
-        <p style="margin-bottom: 0; line-height: 1.6; font-size: 1.0rem;">Respuesta: ${esc(card.answer)}</p>
-      </div>
-    `).join("");
-
+    
     const printHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -94,7 +98,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     <h1>${esc(pageTitle)} - Lista de Flashcards</h1>
     <p>Una herramienta de estudio rápido para repasar conceptos clave.</p>
     <div class="flashcards-container">
-        ${printableItems}
+        ${printableItemsHtml}  <!-- ¡Ahora accesible! -->
     </div>
     <script>window.addEventListener('load', () => { window.print(); });</script>
 </body>
@@ -423,13 +427,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             window.print();
 
             setTimeout(() => { 
-                // Restaurar la visibilidad después de que se cierre la ventana de impresión
                 printableListContainer.style.display = 'none';
-                flashcardWrapper.style.display = 'flex'; // Restaurar flex para la tarjeta
+                flashcardWrapper.style.display = 'flex';
                 document.querySelector('.controls').style.display = 'flex';
                 flipBtn.style.display = 'block';
                 printAllBtn.style.display = 'block';
-                updateFlashcardDisplay(); // Asegurarse de que la tarjeta interactiva se muestre correctamente
+                updateFlashcardDisplay(); 
             }, 500); 
         });
 
