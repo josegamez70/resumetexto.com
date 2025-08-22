@@ -1,5 +1,5 @@
 // components/FlashcardView.tsx
-import React, { useState } from "react";
+import React, { useState } = "react";
 import { Flashcard } from "../types";
 
 interface FlashcardViewProps {
@@ -62,7 +62,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // --- MODIFICADO: Función para IMPRIMIR todas las flashcards ---
+  // --- Función para IMPRIMIR todas las flashcards (sin cambios sustanciales aquí) ---
   const handlePrintFlashcards = () => {
     const pageTitle = summaryTitle || "Flashcards";
     const printableItems = shuffledFlashcards.map((card, index) => `
@@ -101,9 +101,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
 </body>
 </html>`;
 
-    // Usar un iframe temporal para imprimir sin abrir una ventana nueva
     const iframe = document.createElement('iframe');
-    iframe.style.display = 'none'; // Ocultar el iframe
+    iframe.style.display = 'none';
     document.body.appendChild(iframe);
 
     iframe.contentDocument?.open();
@@ -118,13 +117,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         console.error("Error printing:", err);
         alert("Hubo un problema al imprimir. Puede que tu navegador bloquee la impresión desde iframes. Intenta la descarga HTML interactiva y luego imprímelo desde allí si es posible.");
       } finally {
-        // Un pequeño retraso para asegurar que la ventana de impresión se abre antes de eliminar el iframe
         setTimeout(() => document.body.removeChild(iframe), 1000); 
       }
     };
   };
 
-  // --- MODIFICADO: HTML Descargado Interactivo (diseño adaptado) ---
+  // --- MODIFICADO: HTML Descargado Interactivo (ANCHO -20%, COLOR COMPLETO, BOTÓN IMPRIMIR) ---
   const downloadHTMLFlashcards = () => {
     // Limpiar el título para la descarga
     let cleanSummaryTitle = summaryTitle || "Flashcards";
@@ -133,7 +131,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     } catch (e) {
         console.error("Error decoding summaryTitle for filename, using as is.", e);
     }
-    // Eliminar caracteres no alfanuméricos seguros para nombres de archivo y HTML
     cleanSummaryTitle = cleanSummaryTitle.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s\-_.]/g, '').trim();
     const safeTitle = cleanSummaryTitle || "Flashcards";
 
@@ -141,6 +138,14 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       q: esc(card.question),
       a: esc(card.answer)
     }));
+
+    // --- HTML para el botón de Imprimir todas en el archivo descargado ---
+    const printableItemsHtml = shuffledFlashcards.map((card, index) => `
+      <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; color: #333; page-break-inside: avoid;">
+        <p style="font-weight: bold; margin-bottom: 3px; line-height: 1.4; font-size: 0.9rem;">${index + 1}. Pregunta: ${esc(card.q)}</p>
+        <p style="margin-bottom: 0; line-height: 1.4; font-size: 0.8rem;">Respuesta: ${esc(card.a)}</p>
+      </div>
+    `).join("");
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -165,16 +170,15 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             color: #facc15; /* Amarillo brillante para el título */
             text-align: center; 
             margin-bottom: 20px; 
-            width: 100%; /* Asegurar que el título ocupe el ancho */
+            width: 100%; 
         }
         /* Contenedor de la flashcard interactiva */
         .flashcard-wrapper {
             perspective: 1000px;
-            width: 95%; /* Más ancho */
-            max-width: 800px; /* Ancho máximo AUMENTADO */
+            width: 75%; /* ANCHO REDUCIDO AL 75% del max-width de 800px (es decir, 600px max) */
+            max-width: 600px; /* Nuevo max-width efectivo para la tarjeta */
             margin: 20px auto;
             position: relative;
-            /* Eliminamos min-height y flex-grow para que se adapte al contenido */
             display: flex; 
             align-items: center; 
             justify-content: center;
@@ -182,19 +186,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .flashcard-inner {
             position: relative;
             width: 100%;
-            height: auto; /* Altura automática para adaptarse al contenido */
-            min-height: 250px; /* Altura mínima para que no sea diminuta con textos cortos */
+            height: auto; 
+            min-height: 250px;
             text-align: center;
             transition: transform 0.6s ease-in-out;
             transform-style: preserve-3d;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             display: flex;
-            align-items: stretch; /* Estirar hijos para ocupar toda la altura */
+            align-items: stretch; 
             justify-content: center;
-            padding: 20px;
+            padding: 0px; /* IMPORTANTE: QUITAR PADDING DEL INNER para que las caras llenen */
             box-sizing: border-box;
-            background: #2b2e41; /* Fondo de la tarjeta, por si las caras no cubren todo */
+            /* background: #2b2e41; REMOVIDO: el fondo lo pondrán las caras */
         }
         .flashcard-inner.is-flipped {
             transform: rotateY(180deg);
@@ -202,38 +206,39 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .flashcard-face {
             position: absolute;
             width: 100%;
-            height: 100%; /* Ocupa el 100% de la altura del inner */
+            height: 100%; 
             backface-visibility: hidden;
             display: flex;
-            flex-direction: column; /* Centrado vertical en columna */
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 15px;
+            padding: 20px; /* Padding interior de las caras */
             box-sizing: border-box;
             word-wrap: break-word;
             text-align: center;
-            font-size: 1.3rem; /* Tamaño de texto de tarjeta */
-            line-height: 1.8; /* Espaciado de línea */
-            /* overflow-y: auto; <-- REMOVIDO PARA ADAPTAR ALTURA */
+            font-size: 1.3rem; 
+            line-height: 1.8;
+            transform: translateZ(0); 
+            border-radius: inherit; /* Hereda el border-radius del inner */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Sombra para cada cara */
         }
         .flashcard-front {
             background: #FFC0CB; /* Fondo rosado para la pregunta */
             color: #333; /* Texto oscuro para contrastar con el fondo claro */
             transform: rotateY(0deg);
-            z-index: 2; /* Para que siempre esté encima cuando visible */
+            z-index: 2; 
         }
         .flashcard-back {
             background: #90EE90; /* Fondo verde claro para la respuesta */
             color: #333; /* Texto oscuro para contrastar con el fondo claro */
             transform: rotateY(180deg);
-            z-index: 1; /* Para que esté detrás inicialmente */
+            z-index: 1; 
         }
         .flashcard-face p {
             margin: 0;
-            padding: 10px;
-            width: 100%; /* Asegurar que el párrafo ocupe el ancho */
-            height: 100%; /* Hacer el párrafo flexible para ocupar la cara */
-            display: flex; /* Para centrar el texto dentro del párrafo si es corto */
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
             align-items: center;
             justify-content: center;
         }
@@ -275,11 +280,49 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         .btn-flip:hover { background: #7c3aed; }
         .btn-nav { background: #3b82f6; }
         .btn-nav:hover { background: #2563eb; }
-        /* .btn-secondary { background: #ef4444; } REMOVIDO */
-        /* .btn-secondary:hover { background: #dc2626; } REMOVIDO */
-        /* Clases para ocultar/mostrar (aunque no se usan en este HTML, es bueno tenerlas) */
+        .btn-print-html { background: #008080; } /* Un color distintivo para imprimir */
+        .btn-print-html:hover { background: #006666; }
         .hidden-card { visibility: hidden; opacity: 0; transition: visibility 0s 0.6s, opacity 0.6s linear; }
         .visible-card { visibility: visible; opacity: 1; transition: opacity 0.6s linear; }
+        /* Estilos para el div oculto con la lista de impresión */
+        #printable-list-container {
+            display: none; /* Ocultar por defecto */
+            max-width: 800px;
+            margin: 30px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            color: #333;
+        }
+        #printable-list-container h2 {
+            text-align: center;
+            color: #212529;
+            margin-bottom: 20px;
+        }
+        .printable-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background: #fdfdfd;
+        }
+        .printable-item p {
+            margin: 0;
+            line-height: 1.4;
+            font-size: 0.9rem;
+            text-align: left; /* Alineación izquierda para la lista */
+            color: #333;
+        }
+        .printable-item p:first-child { font-weight: bold; margin-bottom: 5px; }
+
+        @media print {
+            body { background: #fff; color: #000; padding: 0; margin: 0; }
+            #flashcard-wrapper, .controls, #flip-btn, .btn-print-html { display: none !important; }
+            #printable-list-container { display: block !important; box-shadow: none; padding: 0; margin: 0 auto; }
+            .printable-item { border-color: #ccc !important; background: #fff !important; }
+            .printable-item p { color: #000 !important; }
+        }
     </style>
 </head>
 <body>
@@ -295,12 +338,21 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         </div>
     </div>
     <div class="controls">
-        <button class="btn-nav" id="prev-btn"⬅️ Anterior</button>
+        <button class="btn-nav" id="prev-btn">⬅️ Anterior</button>
         <span class="counter" id="card-counter"></span>
         <button class="btn-nav" id="next-btn">Siguiente ➡️</button>
     </div>
     <button class="btn-flip" id="flip-btn">Mostrar Respuesta</button>
-    <!-- ELIMINADO: BOTÓN "Volver a Inicio" -->
+    <button class="btn-print-html" id="print-all-btn" style="margin-top: 20px;">🖨 Imprimir todas (lista)</button>
+
+    <!-- Contenedor oculto para la lista imprimible -->
+    <div id="printable-list-container">
+        <h2>${esc(safeTitle)} - Lista de Flashcards</h2>
+        <p>Una herramienta de estudio rápido para repasar conceptos clave.</p>
+        <div class="flashcards-content">
+            ${printableItemsHtml}
+        </div>
+    </div>
 
     <script>
         const flashcards = ${JSON.stringify(allFlashcardsData)};
@@ -314,17 +366,22 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const flipBtn = document.getElementById('flip-btn');
-        // const backBtn = document.getElementById('back-btn'); // Removido backBtn
         const flashcardWrapper = document.getElementById('flashcard-wrapper');
+        const printAllBtn = document.getElementById('print-all-btn');
+        const printableListContainer = document.getElementById('printable-list-container');
+
 
         function updateFlashcardDisplay() {
             if (flashcards.length === 0) {
-                // Manejo de caso sin flashcards en el HTML descargado
-                flashcardWrapper.style.display = 'none'; // Ocultar si no hay tarjetas
+                flashcardWrapper.style.display = 'none';
+                document.querySelector('.controls').style.display = 'none';
+                flipBtn.style.display = 'none';
+                printAllBtn.style.display = 'none';
+
                 const message = document.createElement('p');
                 message.textContent = 'No hay flashcards para mostrar.';
                 message.style.cssText = 'font-size:1.5rem; color:#adb5bd; text-align:center;';
-                document.body.insertBefore(message, document.querySelector('.controls')); // Insertar antes de controles
+                document.body.insertBefore(message, document.querySelector('h1').nextSibling); 
                 return;
             } 
 
@@ -363,9 +420,28 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             currentCardIndex = (currentCardIndex === flashcards.length - 1) ? 0 : currentCardIndex + 1;
             updateFlashcardDisplay();
         });
+        
+        // Listener para el botón de imprimir todas en el HTML descargado
+        printAllBtn.addEventListener('click', () => {
+            // Ocultar la interfaz interactiva y mostrar la lista imprimible
+            flashcardWrapper.style.display = 'none';
+            document.querySelector('.controls').style.display = 'none';
+            flipBtn.style.display = 'none';
+            printAllBtn.style.display = 'none'; // También ocultar el propio botón de imprimir
 
-        // Event listener para el botón de "Volver a Inicio" ya no es necesario, lo eliminamos del HTML
-        // backBtn.addEventListener('click', () => { ... }); 
+            printableListContainer.style.display = 'block'; // Mostrar el contenedor de la lista
+
+            window.print(); // Disparar la impresión
+
+            // Restaurar la visibilidad después de la impresión (opcional, si el usuario cierra la ventana de impresión)
+            // setTimeout(() => {
+            //     flashcardWrapper.style.display = 'flex';
+            //     document.querySelector('.controls').style.display = 'flex';
+            //     flipBtn.style.display = 'block';
+            //     printAllBtn.style.display = 'block';
+            //     printableListContainer.style.display = 'none';
+            // }, 500); 
+        });
 
         document.addEventListener('DOMContentLoaded', updateFlashcardDisplay);
     </script>
