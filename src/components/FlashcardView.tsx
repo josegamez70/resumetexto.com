@@ -42,15 +42,11 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   }
 
   const currentCard = shuffledFlashcards[currentIndex];
-  // Número de la tarjeta actual (basado en 1)
-  const cardNumber = currentIndex + 1;
+  const cardNumber = currentIndex + 1; // Número de la tarjeta actual (basado en 1)
 
-  // --- MODIFICADO: Lógica de navegación con volteo condicional ---
   const navigateCard = (direction: 'next' | 'prev') => {
     if (isFlipped) {
-      // Si está volteada, primero la volteamos a la pregunta
       setIsFlipped(false);
-      // Y luego, un pequeño retraso para cambiar la tarjeta después de la animación de volteo
       setTimeout(() => {
         setCurrentIndex((prevIndex) => {
           if (direction === 'next') {
@@ -61,7 +57,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         });
       }, 500); // 500ms = duración de la transición CSS
     } else {
-      // Si no está volteada, simplemente cambiamos la tarjeta
       setCurrentIndex((prevIndex) => {
         if (direction === 'next') {
           return (prevIndex + 1) % shuffledFlashcards.length;
@@ -74,7 +69,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
 
   const handleNext = () => navigateCard('next');
   const handlePrev = () => navigateCard('prev');
-  // --- FIN MODIFICACIÓN Lógica de navegación ---
 
   const handleFlip = () => {
     setIsFlipped((prev) => !prev);
@@ -83,15 +77,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // --- GENERACIÓN DE LA LISTA IMPRIMIBLE (UNA SOLA VEZ) ---
+  const printableItems = shuffledFlashcards.map((card, index) => `
+    <div class="flashcard-print-item" style="margin-bottom: 25px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #333; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      <p style="font-weight: bold; margin-bottom: 8px; line-height: 1.6; font-size: 1.1rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
+      <p style="margin-bottom: 0; line-height: 1.6; font-size: 1.0rem;">Respuesta: ${esc(card.answer)}</p>
+    </div>
+  `).join("");
+
+
+  // --- MODIFICADO: Función para IMPRIMIR todas las flashcards ---
   const handlePrintFlashcards = () => {
     const pageTitle = summaryTitle || "Flashcards";
-    const printableItems = shuffledFlashcards.map((card, index) => `
-      <div class="flashcard-print-item" style="margin-bottom: 25px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #333; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-        <p style="font-weight: bold; margin-bottom: 8px; line-height: 1.6; font-size: 1.1rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
-        <p style="margin-bottom: 0; line-height: 1.6; font-size: 1.0rem;">Respuesta: ${esc(card.answer)}</p>
-      </div>
-    `).join("");
-
+    
     const printHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -115,7 +113,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     <h1>${esc(pageTitle)} - Lista de Flashcards</h1>
     <p>Una herramienta de estudio rápido para repasar conceptos clave.</p>
     <div class="flashcards-container">
-        ${printableItemsHtml}
+        ${printableItems}  <!-- ¡CORREGIDO: Ahora usa printableItems! -->
     </div>
     <script>window.addEventListener('load', () => { window.print(); });</script>
 </body>
@@ -142,7 +140,9 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     };
   };
 
+  // --- HTML Descargado Interactivo (AJUSTADO: Eliminado botón "Volver a Inicio") ---
   const downloadHTMLFlashcards = () => {
+    // Limpiar el título para la descarga
     let cleanSummaryTitle = summaryTitle || "Flashcards";
     try {
         cleanSummaryTitle = decodeURIComponent(cleanSummaryTitle);
@@ -153,8 +153,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     const safeTitle = cleanSummaryTitle || "Flashcards";
 
     const allFlashcardsData = shuffledFlashcards.map((card, index) => ({
-      q: `Q${index + 1}: ${esc(card.question)}`, // <-- Prefijo y número para HTML descargado
-      a: `R${index + 1}: ${esc(card.answer)}`   // <-- Prefijo y número para HTML descargado
+      q: `Q${index + 1}: ${esc(card.question)}`, // Prefijo y número para HTML descargado
+      a: `R${index + 1}: ${esc(card.answer)}`   // Prefijo y número para HTML descargado
     }));
 
     const htmlContent = `<!DOCTYPE html>
@@ -206,7 +206,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             justify-content: center;
             padding: 20px; 
             box-sizing: border-box;
-            background: #2b2e41;
+            background: #2b2e41; 
+            /* REDUCIR ANCHO DE LA CAJA (20% menos) - NUEVO */
             max-width: 640px; 
             margin-left: auto; 
             margin-right: auto;
@@ -380,7 +381,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         const printAllBtn = document.getElementById('print-all-btn');
         const printableListContainer = document.getElementById('printable-list-container');
 
-        // --- FUNCIONES JS PARA EL HTML DESCARGADO ---
+
         function updateFlashcardDisplay() {
             if (flashcards.length === 0) {
                 flashcardWrapper.style.display = 'none';
@@ -429,7 +430,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
                         currentCardIndex = (currentCardIndex === 0) ? flashcards.length - 1 : currentCardIndex - 1;
                     }
                     updateFlashcardDisplay();
-                }, 600); // Coincide con la duración de la transición + un pequeño margen
+                }, 600); // Coincide con la duración de la transición CSS
             } else {
                 // Si ya estaba en la pregunta, simplemente cambiar
                 if (direction === 'next') {
@@ -522,16 +523,16 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           {/* Parte frontal (pregunta) */}
           <div className="flashcard-face flashcard-front absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
             {/* Pregunta con fondo rosado, texto oscuro */}
-            <p className="p-2 sm:p-4 text-left text-gray-900 font-semibold leading-[1.8]"> {/* Alineado a la izquierda */}
-              <span className="inline-block mr-2 text-rose-700 font-bold">Q${cardNumber}:</span> {currentCard.question} {/* <-- AÑADIDO Prefijo y Número */}
+            <p className="p-2 sm:p-4 text-left text-gray-900 font-semibold leading-[1.8]">
+              <span className="inline-block mr-2 text-rose-700 font-bold">Q${cardNumber}:</span> {currentCard.question}
             </p>
           </div>
 
           {/* Parte trasera (respuesta) */}
           <div className="flashcard-face flashcard-back absolute inset-0 backface-hidden flex items-center justify-center text-center text-xl sm:text-2xl overflow-y-auto p-4">
             {/* Respuesta con fondo verde claro, texto oscuro */}
-            <p className="p-2 sm:p-4 text-left text-gray-900 font-semibold leading-[1.8]"> {/* Alineado a la izquierda */}
-              <span className="inline-block mr-2 text-lime-700 font-bold">R${cardNumber}:</span> {currentCard.answer} {/* <-- AÑADIDO Prefijo y Número */}
+            <p className="p-2 sm:p-4 text-left text-gray-900 font-semibold leading-[1.8]">
+              <span className="inline-block mr-2 text-lime-700 font-bold">R${cardNumber}:</span> {currentCard.answer}
             </p>
           </div>
         </div>
@@ -580,6 +581,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           position: relative;
           border-radius: 12px;
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+          /* Quitado el background de aquí, se define en las caras */
         }
 
         .flashcard-inner.is-flipped {
@@ -592,10 +594,9 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
           height: 100%;
           backface-visibility: hidden;
           display: flex;
-          /* ALINEACIÓN SUPERIOR EN LA APP PRINCIPAL */
           align-items: flex-start; /* Alinea el contenido arriba */
           justify-content: flex-start; /* Alinea el contenido a la izquierda */
-          border-radius: inherit;
+          border-radius: inherit; /* Hereda el border-radius del flashcard-inner */
           padding: 20px;
           box-sizing: border-box;
           transform: translateZ(0); /* Forzar aceleración de hardware */
@@ -616,14 +617,14 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         /* Ajustes de tipografía para el contenido de la flashcard */
         .flashcard-face p {
           margin: 0;
-          line-height: 1.8;
+          line-height: 1.8; /* Asegura un buen espaciado */
           white-space: pre-wrap;
           word-break: break-word;
           hyphens: auto;
-          font-size: inherit;
+          font-size: inherit; /* Hereda de text-xl sm:text-2xl */
           text-align: left; /* Alineado a la izquierda */
           font-weight: inherit;
-          /* El span Q/R tendrá su propio estilo */
+          /* Color de texto se hereda de la cara (.flashcard-front o .flashcard-back) */
         }
         `}
       </style>
