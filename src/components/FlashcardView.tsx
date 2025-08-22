@@ -55,7 +55,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             return (prevIndex === 0) ? shuffledFlashcards.length - 1 : prevIndex - 1;
           }
         });
-      }, 500); // 500ms = duración de la transición CSS
+      }, 600); // Coincide con la duración de la transición CSS (0.5s + margen)
     } else {
       setCurrentIndex((prevIndex) => {
         if (direction === 'next') {
@@ -77,8 +77,8 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
   const esc = (s: string = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // --- GENERACIÓN DE LA LISTA IMPRIMIBLE (UNA SOLA VEZ) ---
-  const printableItems = shuffledFlashcards.map((card, index) => `
+  // --- GENERACIÓN DE LA LISTA IMPRIMIBLE PARA LA FUNCIÓN handlePrintFlashcards ---
+  const printableItemsForPrint = shuffledFlashcards.map((card, index) => `
     <div class="flashcard-print-item" style="margin-bottom: 25px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #333; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
       <p style="font-weight: bold; margin-bottom: 8px; line-height: 1.6; font-size: 1.1rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
       <p style="margin-bottom: 0; line-height: 1.6; font-size: 1.0rem;">Respuesta: ${esc(card.answer)}</p>
@@ -113,7 +113,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
     <h1>${esc(pageTitle)} - Lista de Flashcards</h1>
     <p>Una herramienta de estudio rápido para repasar conceptos clave.</p>
     <div class="flashcards-container">
-        ${printableItems}  <!-- ¡CORREGIDO: Ahora usa printableItems! -->
+        ${printableItemsForPrint}  <!-- ¡Usa la variable correcta aquí! -->
     </div>
     <script>window.addEventListener('load', () => { window.print(); });</script>
 </body>
@@ -156,6 +156,15 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
       q: `Q${index + 1}: ${esc(card.question)}`, // Prefijo y número para HTML descargado
       a: `R${index + 1}: ${esc(card.answer)}`   // Prefijo y número para HTML descargado
     }));
+
+    // --- NUEVO: Generar la lista imprimible para el div oculto del HTML descargado aquí ---
+    const printableItemsHtmlForDownload = shuffledFlashcards.map((card, index) => `
+      <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fdfdfd; color: #333; page-break-inside: avoid;">
+        <p style="font-weight: bold; margin-bottom: 3px; line-height: 1.4; font-size: 0.9rem;">${index + 1}. Pregunta: ${esc(card.question)}</p>
+        <p style="margin-bottom: 0; line-height: 1.4; font-size: 0.8rem;">Respuesta: ${esc(card.answer)}</p>
+      </div>
+    `).join("");
+
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -207,7 +216,6 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             padding: 20px; 
             box-sizing: border-box;
             background: #2b2e41; 
-            /* REDUCIR ANCHO DE LA CAJA (20% menos) - NUEVO */
             max-width: 640px; 
             margin-left: auto; 
             margin-right: auto;
@@ -222,13 +230,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
             backface-visibility: hidden;
             display: flex;
             flex-direction: column; 
-            /* ALINEACIÓN SUPERIOR (start) - HTML DESCARGADO */
-            align-items: flex-start; /* Alinea el contenido a la izquierda/arriba */
-            justify-content: flex-start; /* Alinea el contenido arriba */
+            align-items: flex-start; 
+            justify-content: flex-start; 
             padding: 15px;
             box-sizing: border-box;
             word-wrap: break-word;
-            text-align: left; /* Texto alineado a la izquierda */
+            text-align: left; 
             font-size: 1.3rem;
             line-height: 1.8;
             transform: translateZ(0); 
@@ -247,12 +254,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         }
         .flashcard-face p {
             margin: 0;
-            padding: 0; /* Quitar padding del p si ya está en la cara */
+            padding: 0; 
             width: 100%; 
-            height: auto; /* Permitir que el p se adapte a su contenido */
-            display: flex; /* Para centrar el texto si es corto, ahora será flex-start */
-            align-items: flex-start; /* Alinea el texto del párrafo arriba */
-            justify-content: flex-start; /* Alinea el texto del párrafo a la izquierda */
+            height: auto; 
+            display: flex; 
+            align-items: flex-start; 
+            justify-content: flex-start; 
         }
         .controls {
             display: flex;
@@ -361,7 +368,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({
         <h2>${esc(safeTitle)} - Lista de Flashcards</h2>
         <p>Una herramienta de estudio rápido para repasar conceptos clave.</p>
         <div class="flashcards-content">
-            ${printableItemsHtml}
+            ${printableItemsHtmlForDownload} <!-- ¡CORREGIDO: Usa la variable correcta aquí! -->
         </div>
     </div>
 
