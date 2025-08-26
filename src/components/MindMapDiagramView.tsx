@@ -11,7 +11,6 @@ const STOP = new Set([
   "que","se","su","sus","es","son","como","si","no","más","menos","lo","las","les","le","e"
 ]);
 
-/** Reduce un label largo a un concepto corto (2–4 palabras clave) */
 function simplifyLabel(raw: string, maxWords = 4) {
   const clean = (raw || "")
     .replace(/[().,:;/-]+/g, " ")
@@ -50,7 +49,6 @@ const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   />
 );
 
-/** Tarjeta compacta (evita texto en columna) */
 const Box: React.FC<{ level: number; open?: boolean; clickable?: boolean; children: React.ReactNode }> = ({ level, open, clickable, children }) => (
   <div
     className={`select-none ${clickable ? "cursor-pointer" : ""}`}
@@ -74,7 +72,6 @@ const Box: React.FC<{ level: number; open?: boolean; clickable?: boolean; childr
   </div>
 );
 
-/** Conector curvo de raíz→primer nivel (horizontal) */
 const ConnectorRight: React.FC = () => (
   <svg width="42" height="30" viewBox="0 0 42 30" className="hidden sm:block shrink-0" aria-hidden="true">
     <path d="M2 2 C 2 18, 40 2, 40 28" stroke="rgba(148,163,184,.6)" strokeWidth="1.5" fill="none" />
@@ -83,17 +80,12 @@ const ConnectorRight: React.FC = () => (
 
 // ──────────────────────────────────────────────
 // Nodo interactivo
-//  - Nivel 0 muestra hijos en FILA (horizontal, colapsados)
-//  - Niveles ≥1 abren hacia ABAJO al tocar
 // ──────────────────────────────────────────────
 const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
-  // Hook siempre al inicio (no condicional)
   const [open, setOpen] = useState(false);
-
   const kids = (node.children || []).filter(c => String(c?.label ?? "").trim());
 
   if (level === 0) {
-    // Fila horizontal de conceptos principales (todos colapsados)
     return (
       <div className="flex sm:flex-row flex-col sm:items-center items-stretch gap-4">
         <Box level={0}>{simplifyLabel(node.label)}</Box>
@@ -109,7 +101,6 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
     );
   }
 
-  // Niveles ≥1: caja clicable; hijos verticales (abajo) al abrir
   const toggle = () => hasKids(node) && setOpen(v => !v);
 
   return (
@@ -125,9 +116,7 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
 
       {open && hasKids(node) && (
         <>
-          {/* Conector vertical desde la tarjeta hacia las ramas */}
           <div className="h-4 w-px bg-slate-500/70 my-2" />
-          {/* Ramas hacia abajo */}
           <div className="flex flex-col gap-3">
             {kids.map((k) => (
               <div key={k.id} className="flex flex-col items-center">
@@ -142,25 +131,23 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
 };
 
 // ──────────────────────────────────────────────
-// Vista principal con Pan/Zoom + export HTML interactivo
+// Vista principal con Pan/Zoom + export HTML
 // ──────────────────────────────────────────────
 type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void };
 
 const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
-  // Pan & Zoom
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
 
-  // Gestión de gestos (punteros)
+  // Punteros + gestos
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const panRef = useRef(false);
+  const panActive = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const pinch = useRef<{ active: boolean; startDist: number; startScale: number }>({
-    active: false,
-    startDist: 0,
-    startScale: 1,
+    active: false, startDist: 0, startScale: 1,
   });
+  const MOVE_THRESHOLD = 3; // px: evita robar el click en desktop
 
   const title = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
@@ -173,16 +160,12 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // ❌ no usamos setPointerCapture: así no anulamos el click de las tarjetas
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastPan.current = { x: e.clientX, y: e.clientY };
+    panActive.current = false; // se activará si superamos el umbral
 
-    if (pointers.current.size === 1) {
-      // Pan
-      panRef.current = true;
-      lastPan.current = { x: e.clientX, y: e.clientY };
-    } else if (pointers.current.size === 2) {
-      // Pinch
-      panRef.current = false;
+    if (pointers.current.size === 2) {
       pinch.current.active = true;
       pinch.current.startDist = getDist();
       pinch.current.startScale = s;
@@ -193,47 +176,42 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+    // Pinch
     if (pinch.current.active && pointers.current.size >= 2) {
       const dist = getDist() || 1;
       const factor = dist / (pinch.current.startDist || 1);
-      setS(clamp(pinch.current.startScale * factor, 0.28, 2)); // min 0.28
+      setS(clamp(pinch.current.startScale * factor, 0.28, 2));
       return;
     }
 
-    if (panRef.current) {
+    // Pan con umbral para no interferir con click
+    if (pointers.current.size === 1) {
       const dx = e.clientX - lastPan.current.x;
       const dy = e.clientY - lastPan.current.y;
-      lastPan.current = { x: e.clientX, y: e.clientY };
-      setTx(v => v + dx);
-      setTy(v => v + dy);
+      const d = Math.hypot(dx, dy);
+      if (!panActive.current && d > MOVE_THRESHOLD) panActive.current = true;
+      if (panActive.current) {
+        lastPan.current = { x: e.clientX, y: e.clientY };
+        setTx(v => v + dx);
+        setTy(v => v + dy);
+      }
     }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
     pointers.current.delete(e.pointerId);
-
-    if (pointers.current.size < 2) {
-      pinch.current.active = false;
-    }
-    if (pointers.current.size === 1) {
-      // volver a pan con el dedo restante
-      const only = Array.from(pointers.current.values())[0];
-      panRef.current = true;
-      lastPan.current = { x: only.x, y: only.y };
-    } else if (pointers.current.size === 0) {
-      panRef.current = false;
-    }
+    if (pointers.current.size < 2) pinch.current.active = false;
+    if (pointers.current.size === 0) panActive.current = false;
   };
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.28, 2)); // ← min 0.28
+    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.28, 2));
   };
 
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // ===== Export HTML (interactivo con el mismo comportamiento) =====
+  // Export HTML con mismo comportamiento
   const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
   const serialize = (n: MindMapNode, level = 0): string => {
@@ -287,64 +265,41 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 </div>
 <div id="vp"><div id="world">${serialize(data.root)}</div></div>
 <script>
-let s=1,tx=0,ty=0,pan=false,lastPan={x:0,y:0};
+let s=1,tx=0,ty=0;
 const pointers=new Map();
+let panActive=false; let lastPan={x:0,y:0};
 const pinch={active:false,startDist:0,startScale:1};
+const MOVE_THRESHOLD=3;
+
 const vp=document.getElementById('vp'), world=document.getElementById('world');
-
 function apply(){ world.style.transform = \`translate(calc(-50% + \${tx}px), calc(-50% + \${ty}px)) scale(\${s})\`; }
-function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); } // ← min 0.28
+function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); }
 function center(){ tx=0; ty=0; s=1; apply(); }
-
-function getDist(){
-  const pts=[...pointers.values()];
-  if(pts.length<2) return 0;
-  const dx=pts[0].x-pts[1].x, dy=pts[0].y-pts[1].y;
-  return Math.hypot(dx,dy);
-}
+function getDist(){ const a=[...pointers.values()]; if(a.length<2) return 0; const dx=a[0].x-a[1].x, dy=a[0].y-a[1].y; return Math.hypot(dx,dy); }
 
 vp.addEventListener('pointerdown',e=>{
-  vp.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pointers.size===1){ pan=true; lastPan={x:e.clientX,y:e.clientY}; }
-  else if(pointers.size===2){ pan=false; pinch.active=true; pinch.startDist=getDist(); pinch.startScale=s; }
+  lastPan={x:e.clientX,y:e.clientY}; panActive=false;
+  if(pointers.size===2){ pinch.active=true; pinch.startDist=getDist(); pinch.startScale=s; }
 });
-
 vp.addEventListener('pointermove',e=>{
   if(!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch.active && pointers.size>=2){
     const dist=getDist()||1, factor=dist/(pinch.startDist||1);
-    s=Math.max(0.28, Math.min(2.0, pinch.startScale*factor));
-    apply();
-    return;
+    s=Math.max(0.28, Math.min(2.0, pinch.startScale*factor)); apply(); return;
   }
-  if(pan){
-    const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y;
-    lastPan={x:e.clientX,y:e.clientY};
-    tx+=dx; ty+=dy; apply();
-  }
-}, {passive:false});
-
-function endPointer(e){
-  try{ vp.releasePointerCapture(e.pointerId);}catch{}
-  pointers.delete(e.pointerId);
-  if(pointers.size<2){ pinch.active=false; }
   if(pointers.size===1){
-    const only=[...pointers.values()][0];
-    pan=true; lastPan={x:only.x,y:only.y};
-  }else if(pointers.size===0){
-    pan=false;
+    const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y, d=Math.hypot(dx,dy);
+    if(!panActive && d>MOVE_THRESHOLD) panActive=true;
+    if(panActive){ lastPan={x:e.clientX,y:e.clientY}; tx+=dx; ty+=dy; apply(); }
   }
-}
-
-vp.addEventListener('pointerup', endPointer);
-vp.addEventListener('pointercancel', endPointer);
-vp.addEventListener('pointerleave', endPointer);
-
+},{passive:false});
+function endPointer(e){ pointers.delete(e.pointerId); if(pointers.size<2) pinch.active=false; if(pointers.size===0) panActive=false; }
+vp.addEventListener('pointerup',endPointer); vp.addEventListener('pointercancel',endPointer); vp.addEventListener('pointerleave',endPointer);
 vp.addEventListener('wheel',e=>{ e.preventDefault(); zoom(e.deltaY>0?0.9:1.1); }, {passive:false});
 
-// toggle apertura hacia abajo en niveles >=1
+// toggle apertura hacia abajo
 world.addEventListener('click', function(e){
   const btn = e.target.closest('.box');
   if(!btn || btn.dataset.toggle!=="1") return;
@@ -356,8 +311,6 @@ world.addEventListener('click', function(e){
   if(down){ down.style.display = open ? 'flex' : 'none'; }
   if(vline){ vline.style.display = open ? 'block' : 'none'; }
 });
-
-// por defecto, todo cerrado salvo la fila raíz
 Array.from(world.querySelectorAll('.node')).forEach(n=>{
   n.classList.remove('open');
   const d=n.querySelector(':scope > .down'); if(d) d.style.display='none';
@@ -393,7 +346,6 @@ Array.from(world.querySelectorAll('.node')).forEach(n=>{
           className="absolute left-1/2 top-1/2"
           style={{ transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${s})`, transformOrigin: "0 0", padding: 12 }}
         >
-          {/* Raíz + fila horizontal de conceptos; cada uno despliega ramas hacia abajo */}
           <NodeInteractive node={data.root} level={0} />
         </div>
       </div>
