@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
 // Diagrama "clásico": bloques simples, sin notas largas, ramas hacia la derecha,
