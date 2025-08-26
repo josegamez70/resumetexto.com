@@ -1,21 +1,21 @@
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
-// --- Utilidades ---
+// =============== Utilidades ===============
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const STOP = new Set([
   "de","del","la","el","los","las","y","o","u","en","a","al","con","por","para","un","una","uno","unos","unas",
   "que","se","su","sus","es","son","como","si","no","más","menos","lo","las","les","le","e"
 ]);
 
-/** Convierte un label largo en un concepto corto (2–4 palabras “clave”). */
+/** Reduce un label largo a un concepto corto (2–4 palabras clave). */
 function simplifyLabel(raw: string, maxWords = 4) {
   const clean = (raw || "")
     .replace(/[().,:;/-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // quita acentos para mejorar corte
+    .replace(/[\u0300-\u036f]/g, "");
   const tokens = clean.split(" ").filter(Boolean);
 
   const picked: string[] = [];
@@ -25,11 +25,11 @@ function simplifyLabel(raw: string, maxWords = 4) {
     picked.push(t);
     if (picked.length >= maxWords) break;
   }
-  // fallback si todo eran stopwords
   if (picked.length === 0) picked.push(...tokens.slice(0, Math.min(3, tokens.length)));
   return picked.join(" ");
 }
 
+// =============== UI ===============
 type BoxProps = { level: number; children: React.ReactNode };
 const Box: React.FC<BoxProps> = ({ level, children }) => (
   <div
@@ -40,10 +40,12 @@ const Box: React.FC<BoxProps> = ({ level, children }) => (
       borderRadius: 12,
       padding: level === 0 ? "14px 18px" : "12px 16px",
       fontWeight: level === 0 ? 800 : 600,
-      // 👇 más ancho para evitar que “rompa” cada letra en una línea
+      // ➜ ancho mínimo y máximo para evitar “texto en columna”
+      minWidth: level === 0 ? "18ch" : "16ch",
       maxWidth: level === 0 ? "32ch" : "26ch",
       whiteSpace: "normal",
-      wordBreak: "break-word",
+      wordBreak: "normal",
+      overflowWrap: "break-word",
       lineHeight: 1.15,
     }}
   >
@@ -100,7 +102,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   const onWheel = (e: React.WheelEvent) => { e.preventDefault(); setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 2)); };
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // Export HTML (interactivo, conserva simplificación)
+  // Export HTML interactivo (con misma simplificación)
   const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const serialize = (n: MindMapNode, level = 0): string => {
     const kids = (n.children || []).filter(c => String(c?.label ?? "").trim());
@@ -121,8 +123,8 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   .nb{display:flex;flex-direction:column;gap:6px;margin:4px 0}
   @media(min-width:640px){.nb{flex-direction:row;align-items:flex-start;gap:16px}}
   .children{margin-left:12px;border-left:1px solid rgba(148,163,184,.4);padding-left:12px}
-  .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;max-width:26ch;font-weight:600;line-height:1.15}
-  .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;max-width:32ch}
+  .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;max-width:26ch;min-width:16ch;font-weight:600;line-height:1.15}
+  .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;max-width:32ch;min-width:18ch}
   @media print {.toolbar{display:none}}
 </style>
 <div class="toolbar">

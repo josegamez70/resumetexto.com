@@ -1,7 +1,6 @@
 // components/SummaryView.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-// QUITA 'SummaryType' de aquí
 import { PresentationType, MindMapColorMode } from "../types"; 
 
 interface SummaryViewProps {
@@ -37,7 +36,10 @@ const SummaryView: React.FC<SummaryViewProps> = ({
     if (speaking) { synth.cancel(); setSpeaking(false); return; }
     const u = new SpeechSynthesisUtterance(summary);
     const voices = synth.getVoices();
-    const es = voices.find(v => v.lang?.toLowerCase().startsWith("es")) || voices.find(v => v.lang?.toLowerCase().includes("es")) || null;
+    const es =
+      voices.find(v => v.lang?.toLowerCase().startsWith("es")) ||
+      voices.find(v => v.lang?.toLowerCase().includes("es")) ||
+      null;
     if (es) u.voice = es;
     u.lang = es?.lang || "es-ES";
     u.rate = 1.0; u.pitch = 1.0;
@@ -135,15 +137,25 @@ const SummaryView: React.FC<SummaryViewProps> = ({
             <strong>¿Qué es?</strong> Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
           </p>
 
-          <label className="block text-sm text-gray-300 mb-2">Modo de color:</label>
+          <label className="block text-sm text-gray-300 mb-2">Modo:</label>
           <div className="flex flex-col sm:flex-row gap-3">
             <label className="flex items-center gap-2">
-              <input type="radio" name="colormode" checked={colorMode === MindMapColorMode.BlancoNegro} onChange={() => setColorMode(MindMapColorMode.BlancoNegro)} />
-              Blanco y negro
+              <input
+                type="radio"
+                name="colormode"
+                checked={colorMode === MindMapColorMode.BlancoNegro}
+                onChange={() => setColorMode(MindMapColorMode.BlancoNegro)}
+              />
+              Clásico
             </label>
             <label className="flex items-center gap-2">
-              <input type="radio" name="colormode" checked={colorMode === MindMapColorMode.Color} onChange={() => setColorMode(MindMapColorMode.Color)} />
-              A color
+              <input
+                type="radio"
+                name="colormode"
+                checked={colorMode === MindMapColorMode.Color}
+                onChange={() => setColorMode(MindMapColorMode.Color)}
+              />
+              Más detalle
             </label>
           </div>
 
@@ -153,11 +165,11 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         </div>
       </div>
 
-      {/* NUEVA CAJA: Flashcards */}
+      {/* Flashcards */}
       <div className="mt-4 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
         <h2 className="text-xl sm:text-2xl font-bold mb-2">📇 Flashcards</h2>
         <p className="text-gray-300 mb-4 text-sm sm:text-base">
-          <strong>¿Qué son?</strong> Tarjetas con una pregunta por delante y su respuesta por detrás. Ideal para el repaso activo y la memorización de conceptos clave.
+          <strong>¿Qué son?</strong> Tarjetas con una pregunta por delante y su respuesta por detrás. Ideal para el repaso activo.
         </p>
         <div className="mt-4">
           <button onClick={onGenerateFlashcards} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Generar flashcards</button>
