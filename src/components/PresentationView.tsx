@@ -66,8 +66,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 <title>${summaryTitle || presentation.title}</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  html,body{height:100%} body{max-width:100%;overflow-x:hidden}
-  details{width:100%} summary{list-style:none} summary::-webkit-details-marker{display:none}
+  html,body{height:100%}
+  body{max-width:100%;overflow-x:hidden}
+  details{width:100%;max-width:100%}
+  summary{list-style:none}
+  summary::-webkit-details-marker{display:none}
+  /* Evitar desbordes en móvil */
+  summary, p { word-break: break-word; overflow-wrap: anywhere; }
 </style>
 <script>
 window._bulkOpen = false;
@@ -92,7 +97,6 @@ document.addEventListener('toggle', function(ev){
 <body class="bg-gray-900 text-white p-3 sm:p-6">
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-    <!-- sin explicación -->
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
     <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
   </div>
@@ -101,8 +105,7 @@ document.addEventListener('toggle', function(ev){
     <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">📁 Colapsar todos</button>
     <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">🖨 Imprimir</button>
   </div>
-  <!-- TARJETA gris que enmarca la presentación -->
-  <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 space-y-3">
+  <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 space-y-3 overflow-x-hidden">
     ${containerRef.current.innerHTML}
   </div>
 </body></html>`;
@@ -118,28 +121,28 @@ document.addEventListener('toggle', function(ev){
 
   const renderSection = (section: any, level = 1, idx = 0) => {
     let summaryClass =
-      "bg-yellow-500 text-black px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base";
-    let contentClass = "p-3 sm:p-4 whitespace-pre-line text-sm sm:text-base";
+      "bg-yellow-500 text-black px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
+    let contentClass = "p-3 sm:p-4 whitespace-pre-line text-sm sm:text-base break-words";
     if (level === 2) {
-      summaryClass = "bg-blue-600 text-white px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base";
-      contentClass = "p-3 sm:p-4 bg-blue-100 text-black whitespace-pre-line text-sm sm:text-base";
+      summaryClass = "bg-blue-600 text-white px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
+      contentClass = "p-3 sm:p-4 bg-blue-100 text-black whitespace-pre-line text-sm sm:text-base break-words";
     }
     if (level >= 3) {
-      summaryClass = "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base";
-      contentClass = "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base";
+      summaryClass = "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
+      contentClass = "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base break-words";
     }
 
     const isTop = level === 1;
 
     return (
       <details
-        className={`border rounded-lg overflow-hidden ${
+        className={`border rounded-lg overflow-hidden w-full max-w-full ${
           isTop
             ? "lvl1 bg-gray-800 border-gray-700"
             : level === 2
-            ? "ml-2 sm:ml-4 bg-gray-700 border-gray-600"
-            : "ml-4 sm:ml-8 bg-gray-600 border-gray-500"
-        } w-full`}
+            ? "bg-gray-700 border-gray-600 pl-2 sm:pl-4"   // ← sangría interna (antes ml)
+            : "bg-gray-600 border-gray-500 pl-3 sm:pl-6"   // ← sangría interna (antes ml)
+        }`}
       >
         <summary
           className={summaryClass}
@@ -159,7 +162,6 @@ document.addEventListener('toggle', function(ev){
       <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
-          {/* explicación eliminada en la presentación */}
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
@@ -180,8 +182,8 @@ document.addEventListener('toggle', function(ev){
         <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-3 rounded-lg text-sm">💾 Descargar HTML</button>
       </div>
 
-      {/* TARJETA gris que enmarca la presentación en app */}
-      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
+      {/* Tarjeta contenedora */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 overflow-x-hidden">
         <div ref={containerRef} className="space-y-3">
           {presentation.sections.map((section, i) => renderSection(section, 1, i))}
         </div>
