@@ -35,6 +35,8 @@ function simplifyLabel(raw: string, maxWords = 4) {
 const hasKids = (n: MindMapNode) => (n.children || []).some(c => String(c?.label ?? "").trim());
 
 // ──────────────────────────────────────────────
+// UI
+// ──────────────────────────────────────────────
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
     aria-hidden="true"
@@ -81,23 +83,23 @@ const ConnectorRight: React.FC = () => (
 
 // ──────────────────────────────────────────────
 // Nodo interactivo
-//  - Nivel 0 pinta hijos en FILA (derecha)
-//  - Niveles ≥1 pintan hijos en COLUMNA (abajo) y se abren al tocar
+//  - Nivel 0 muestra hijos en FILA (horizontal, colapsados)
+//  - Niveles ≥1 abren hacia ABAJO al tocar
 // ──────────────────────────────────────────────
 const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
-  // ✅ Hook SIEMPRE llamado, nunca condicional
+  // Hook siempre al inicio (no condicional)
   const [open, setOpen] = useState(false);
 
   const kids = (node.children || []).filter(c => String(c?.label ?? "").trim());
 
-  // Nivel 0: siempre abierto, hijos a la derecha (no usa `open`)
   if (level === 0) {
+    // Fila horizontal de conceptos principales (todos colapsados)
     return (
-      <div className="flex sm:flex-row flex-col sm:items-start items-stretch sm:gap-4 gap-2">
+      <div className="flex sm:flex-row flex-col sm:items-center items-stretch gap-4">
         <Box level={0}>{simplifyLabel(node.label)}</Box>
         {kids.length > 0 && <ConnectorRight />}
         {kids.length > 0 && (
-          <div className="flex flex-row flex-wrap gap-4">
+          <div className="flex flex-row gap-4 flex-nowrap">
             {kids.map((k) => (
               <NodeInteractive key={k.id} node={k} level={1} />
             ))}
@@ -175,7 +177,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
       return `<div class="row">
   <div class="box lvl-0">${label}</div>
   ${kids.length ? `<svg class="conn" viewBox="0 0 42 30"><path d="M2 2 C 2 18, 40 2, 40 28" /></svg>` : ""}
-  ${kids.length ? `<div class="row wrap">${kids.map(k=>serialize(k,1)).join("")}</div>` : ""}
+  ${kids.length ? `<div class="row nowrap">${kids.map(k=>serialize(k,1)).join("")}</div>` : ""}
 </div>`;
     }
     const has = kids.length > 0;
@@ -196,7 +198,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   #world{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + 0px),calc(-50% + 0px)) scale(1);transform-origin:0 0}
 
   .row{display:flex;gap:16px;align-items:flex-start}
-  .row.wrap{flex-wrap:wrap}
+  .row.nowrap{flex-wrap:nowrap}
   .node{display:flex;flex-direction:column;align-items:center;gap:8px;margin:4px 0}
   .down{display:flex;flex-direction:column;gap:12px}
   .vline{width:1px;height:14px;background:rgba(148,163,184,.7);margin:4px 0}
@@ -243,7 +245,7 @@ world.addEventListener('click', function(e){
   if(vline){ vline.style.display = open ? 'block' : 'none'; }
 });
 
-// por defecto, todo cerrado salvo la fila raíz (ya renderizada)
+// por defecto, todo cerrado salvo la fila raíz
 Array.from(world.querySelectorAll('.node')).forEach(n=>{
   n.classList.remove('open');
   const d=n.querySelector(':scope > .down'); if(d) d.style.display='none';
@@ -276,7 +278,7 @@ Array.from(world.querySelectorAll('.node')).forEach(n=>{
           className="absolute left-1/2 top-1/2"
           style={{ transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${s})`, transformOrigin: "0 0", padding: 12 }}
         >
-          {/* Raíz + fila de conceptos principales; cada concepto abre ramas hacia abajo */}
+          {/* Raíz + fila horizontal de conceptos; cada uno despliega ramas hacia abajo */}
           <NodeInteractive node={data.root} level={0} />
         </div>
       </div>
