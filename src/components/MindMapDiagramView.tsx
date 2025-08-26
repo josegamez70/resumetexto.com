@@ -1,47 +1,68 @@
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
-// Diagrama "clásico": bloques simples, sin notas largas, ramas hacia la derecha,
-// pan/zoom y conectores curvos. Minimalista y responsive.
-
-type HSL = { h: number; s: number; l: number };
+// --- Utilidades ---
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-const PALETTE: HSL[] = [
-  { h: 220, s: 9,  l: 18 }, // gris oscuro
-  { h: 220, s: 9,  l: 18 },
-  { h: 220, s: 9,  l: 18 },
-];
-const hsl = (c: HSL) => `hsl(${c.h}deg ${c.s}% ${c.l}%)`;
-const lighten = (c: HSL, dl: number): HSL => ({ ...c, l: clamp(c.l + dl, 10, 92) });
+const STOP = new Set([
+  "de","del","la","el","los","las","y","o","u","en","a","al","con","por","para","un","una","uno","unos","unas",
+  "que","se","su","sus","es","son","como","si","no","más","menos","lo","las","les","le","e"
+]);
 
-const boxStyle = (level: number): React.CSSProperties => ({
-  background: hsl(level === 0 ? lighten(PALETTE[0], 8) : PALETTE[level % PALETTE.length]),
-  color: "#fff",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,.15)",
-  padding: level === 0 ? "14px 18px" : "12px 16px",
-  fontWeight: level === 0 ? 800 : 600,
-  maxWidth: level === 0 ? "28ch" : "22ch",
-  lineHeight: 1.15,
-  whiteSpace: "normal",
-  wordBreak: "break-word",
-});
+/** Convierte un label largo en un concepto corto (2–4 palabras “clave”). */
+function simplifyLabel(raw: string, maxWords = 4) {
+  const clean = (raw || "")
+    .replace(/[().,:;/-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // quita acentos para mejorar corte
+  const tokens = clean.split(" ").filter(Boolean);
 
-const Connector: React.FC<{ color?: string }> = ({ color = "rgba(148,163,184,.7)" }) => (
-  <svg width="40" height="28" viewBox="0 0 40 28" className="hidden sm:block shrink-0" aria-hidden="true">
-    <path d="M2 2 C 2 18, 38 2, 38 26" stroke={color} strokeWidth="1.5" fill="none" />
+  const picked: string[] = [];
+  for (const t of tokens) {
+    const w = t.toLowerCase();
+    if (STOP.has(w) || w.length <= 2) continue;
+    picked.push(t);
+    if (picked.length >= maxWords) break;
+  }
+  // fallback si todo eran stopwords
+  if (picked.length === 0) picked.push(...tokens.slice(0, Math.min(3, tokens.length)));
+  return picked.join(" ");
+}
+
+type BoxProps = { level: number; children: React.ReactNode };
+const Box: React.FC<BoxProps> = ({ level, children }) => (
+  <div
+    style={{
+      background: level === 0 ? "#0b1220" : "#111827",
+      color: "#fff",
+      border: `1px solid rgba(255,255,255,.15)`,
+      borderRadius: 12,
+      padding: level === 0 ? "14px 18px" : "12px 16px",
+      fontWeight: level === 0 ? 800 : 600,
+      // 👇 más ancho para evitar que “rompa” cada letra en una línea
+      maxWidth: level === 0 ? "32ch" : "26ch",
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      lineHeight: 1.15,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const Connector: React.FC = () => (
+  <svg width="42" height="30" viewBox="0 0 42 30" className="hidden sm:block shrink-0" aria-hidden="true">
+    <path d="M2 2 C 2 18, 40 2, 40 28" stroke="rgba(148,163,184,.7)" strokeWidth="1.5" fill="none" />
   </svg>
 );
 
 const NodeBox: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
-  const children = (node.children || []).filter(
-    c => String(c?.label ?? "").trim()
-  );
+  const children = (node.children || []).filter(c => String(c?.label ?? "").trim());
   const has = children.length > 0;
-
   return (
     <div className="flex sm:flex-row flex-col sm:items-start items-stretch sm:gap-4 gap-1.5">
-      <div style={boxStyle(level)}>{node.label}</div>
+      <Box level={level}>{simplifyLabel(node.label)}</Box>
       {has && <Connector />}
       {has && (
         <div className="sm:pl-0 pl-3 sm:border-0 border-l border-slate-600/50">
@@ -56,42 +77,35 @@ const NodeBox: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }
   );
 };
 
-type Props = {
-  data: MindMapData;
-  summaryTitle?: string | null;
-  onBack: () => void;
-};
+type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void };
 
 const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
-  // Pan & Zoom muy simple
+  // Pan & Zoom
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
-  const isPan = useRef(false);
+  const panRef = useRef(false);
   const last = useRef({ x: 0, y: 0 });
 
   const title = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
-  const onDown = (e: React.PointerEvent) => { isPan.current = true; last.current = { x: e.clientX, y: e.clientY }; };
+  const onDown = (e: React.PointerEvent) => { panRef.current = true; last.current = { x: e.clientX, y: e.clientY }; };
   const onMove = (e: React.PointerEvent) => {
-    if (!isPan.current) return;
+    if (!panRef.current) return;
     const dx = e.clientX - last.current.x, dy = e.clientY - last.current.y;
     last.current = { x: e.clientX, y: e.clientY };
     setTx(v => v + dx); setTy(v => v + dy);
   };
-  const onUp = () => { isPan.current = false; };
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 2.0));
-  };
+  const onUp = () => { panRef.current = false; };
+  const onWheel = (e: React.WheelEvent) => { e.preventDefault(); setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.6, 2)); };
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // Export HTML simple (misma estética)
+  // Export HTML (interactivo, conserva simplificación)
   const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const serialize = (n: MindMapNode, level = 0): string => {
     const kids = (n.children || []).filter(c => String(c?.label ?? "").trim());
     return `<div class="nb">
-  <div class="box lvl-${level}">${esc(n.label)}</div>
+  <div class="box lvl-${level}">${esc(simplifyLabel(n.label))}</div>
   ${kids.length ? `<div class="children">${kids.map(c=>serialize(c, level+1)).join("")}</div>` : ""}
 </div>`;
   };
@@ -107,8 +121,9 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   .nb{display:flex;flex-direction:column;gap:6px;margin:4px 0}
   @media(min-width:640px){.nb{flex-direction:row;align-items:flex-start;gap:16px}}
   .children{margin-left:12px;border-left:1px solid rgba(148,163,184,.4);padding-left:12px}
-  .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;max-width:22ch;font-weight:600}
-  .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;max-width:28ch}
+  .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;max-width:26ch;font-weight:600;line-height:1.15}
+  .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;max-width:32ch}
+  @media print {.toolbar{display:none}}
 </style>
 <div class="toolbar">
   <button onclick="zoom(1.1)">＋</button>
@@ -138,8 +153,8 @@ vp.addEventListener('wheel',e=>{ e.preventDefault(); zoom(e.deltaY>0?0.9:1.1); }
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3 sm:p-6">
       <div className="flex flex-wrap gap-2 mb-3">
-        <button onClick={() => setS(v => clamp(v*1.1, .6, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
-        <button onClick={() => setS(v => clamp(v*0.9, .6, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
+        <button onClick={()=>setS(v=>clamp(v*1.1,.6,2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
+        <button onClick={()=>setS(v=>clamp(v*0.9,.6,2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
         <button onClick={center} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">Centrar</button>
         <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-2 text-sm">💾 Descargar HTML</button>
         <button onClick={onBack} className="border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg px-3 py-2 text-sm ml-auto">Volver</button>
