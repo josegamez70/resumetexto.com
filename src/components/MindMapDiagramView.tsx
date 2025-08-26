@@ -151,23 +151,86 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
+
+  // Gestión de gestos (punteros)
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
   const panRef = useRef(false);
-  const last = useRef({ x: 0, y: 0 });
+  const lastPan = useRef({ x: 0, y: 0 });
+  const pinch = useRef<{ active: boolean; startDist: number; startScale: number }>({
+    active: false,
+    startDist: 0,
+    startScale: 1,
+  });
 
   const title = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
-  const onDown = (e: React.PointerEvent) => { panRef.current = true; last.current = { x: e.clientX, y: e.clientY }; };
-  const onMove = (e: React.PointerEvent) => {
-    if (!panRef.current) return;
-    const dx = e.clientX - last.current.x, dy = e.clientY - last.current.y;
-    last.current = { x: e.clientX, y: e.clientY };
-    setTx(v => v + dx); setTy(v => v + dy);
+  const getDist = () => {
+    const pts = Array.from(pointers.current.values());
+    if (pts.length < 2) return 0;
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return Math.hypot(dx, dy);
   };
-  const onUp = () => { panRef.current = false; };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.current.size === 1) {
+      // Pan
+      panRef.current = true;
+      lastPan.current = { x: e.clientX, y: e.clientY };
+    } else if (pointers.current.size === 2) {
+      // Pinch
+      panRef.current = false;
+      pinch.current.active = true;
+      pinch.current.startDist = getDist();
+      pinch.current.startScale = s;
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pinch.current.active && pointers.current.size >= 2) {
+      const dist = getDist() || 1;
+      const factor = dist / (pinch.current.startDist || 1);
+      setS(clamp(pinch.current.startScale * factor, 0.28, 2)); // min 0.28
+      return;
+    }
+
+    if (panRef.current) {
+      const dx = e.clientX - lastPan.current.x;
+      const dy = e.clientY - lastPan.current.y;
+      lastPan.current = { x: e.clientX, y: e.clientY };
+      setTx(v => v + dx);
+      setTy(v => v + dy);
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+    pointers.current.delete(e.pointerId);
+
+    if (pointers.current.size < 2) {
+      pinch.current.active = false;
+    }
+    if (pointers.current.size === 1) {
+      // volver a pan con el dedo restante
+      const only = Array.from(pointers.current.values())[0];
+      panRef.current = true;
+      lastPan.current = { x: only.x, y: only.y };
+    } else if (pointers.current.size === 0) {
+      panRef.current = false;
+    }
+  };
+
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.28, 2)); // ← min 0.28
   };
+
   const center = () => { setTx(0); setTy(0); setS(1); };
 
   // ===== Export HTML (interactivo con el mismo comportamiento) =====
@@ -224,15 +287,61 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 </div>
 <div id="vp"><div id="world">${serialize(data.root)}</div></div>
 <script>
-let s=1,tx=0,ty=0,pan=false,last={x:0,y:0};
+let s=1,tx=0,ty=0,pan=false,lastPan={x:0,y:0};
+const pointers=new Map();
+const pinch={active:false,startDist:0,startScale:1};
 const vp=document.getElementById('vp'), world=document.getElementById('world');
+
 function apply(){ world.style.transform = \`translate(calc(-50% + \${tx}px), calc(-50% + \${ty}px)) scale(\${s})\`; }
 function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); } // ← min 0.28
 function center(){ tx=0; ty=0; s=1; apply(); }
-vp.addEventListener('mousedown',e=>{ pan=true; last={x:e.clientX,y:e.clientY}; });
-vp.addEventListener('mousemove',e=>{ if(!pan) return; tx+=e.clientX-last.x; ty+=e.clientY-last.y; last={x:e.clientX,y:e.clientY}; apply(); });
-vp.addEventListener('mouseup',()=>pan=false);
-vp.addEventListener('mouseleave',()=>pan=false);
+
+function getDist(){
+  const pts=[...pointers.values()];
+  if(pts.length<2) return 0;
+  const dx=pts[0].x-pts[1].x, dy=pts[0].y-pts[1].y;
+  return Math.hypot(dx,dy);
+}
+
+vp.addEventListener('pointerdown',e=>{
+  vp.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size===1){ pan=true; lastPan={x:e.clientX,y:e.clientY}; }
+  else if(pointers.size===2){ pan=false; pinch.active=true; pinch.startDist=getDist(); pinch.startScale=s; }
+});
+
+vp.addEventListener('pointermove',e=>{
+  if(!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch.active && pointers.size>=2){
+    const dist=getDist()||1, factor=dist/(pinch.startDist||1);
+    s=Math.max(0.28, Math.min(2.0, pinch.startScale*factor));
+    apply();
+    return;
+  }
+  if(pan){
+    const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y;
+    lastPan={x:e.clientX,y:e.clientY};
+    tx+=dx; ty+=dy; apply();
+  }
+}, {passive:false});
+
+function endPointer(e){
+  try{ vp.releasePointerCapture(e.pointerId);}catch{}
+  pointers.delete(e.pointerId);
+  if(pointers.size<2){ pinch.active=false; }
+  if(pointers.size===1){
+    const only=[...pointers.values()][0];
+    pan=true; lastPan={x:only.x,y:only.y};
+  }else if(pointers.size===0){
+    pan=false;
+  }
+}
+
+vp.addEventListener('pointerup', endPointer);
+vp.addEventListener('pointercancel', endPointer);
+vp.addEventListener('pointerleave', endPointer);
+
 vp.addEventListener('wheel',e=>{ e.preventDefault(); zoom(e.deltaY>0?0.9:1.1); }, {passive:false});
 
 // toggle apertura hacia abajo en niveles >=1
@@ -274,7 +383,10 @@ Array.from(world.querySelectorAll('.node')).forEach(n=>{
       <div
         className="relative w-full h-[72vh] overflow-hidden rounded-xl border border-gray-700 bg-gray-800/40"
         style={{ touchAction: "none", cursor: "grab" }}
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onWheel={onWheel}
       >
         <div
