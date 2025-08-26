@@ -35,8 +35,6 @@ function simplifyLabel(raw: string, maxWords = 4) {
 const hasKids = (n: MindMapNode) => (n.children || []).some(c => String(c?.label ?? "").trim());
 
 // ──────────────────────────────────────────────
-// UI building blocks
-// ──────────────────────────────────────────────
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
     aria-hidden="true"
@@ -87,9 +85,12 @@ const ConnectorRight: React.FC = () => (
 //  - Niveles ≥1 pintan hijos en COLUMNA (abajo) y se abren al tocar
 // ──────────────────────────────────────────────
 const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
+  // ✅ Hook SIEMPRE llamado, nunca condicional
+  const [open, setOpen] = useState(false);
+
   const kids = (node.children || []).filter(c => String(c?.label ?? "").trim());
 
-  // Nivel 0: siempre abierto, hijos a la derecha
+  // Nivel 0: siempre abierto, hijos a la derecha (no usa `open`)
   if (level === 0) {
     return (
       <div className="flex sm:flex-row flex-col sm:items-start items-stretch sm:gap-4 gap-2">
@@ -107,7 +108,6 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
   }
 
   // Niveles ≥1: caja clicable; hijos verticales (abajo) al abrir
-  const [open, setOpen] = useState(false);
   const toggle = () => hasKids(node) && setOpen(v => !v);
 
   return (
@@ -129,8 +129,6 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
           <div className="flex flex-col gap-3">
             {kids.map((k) => (
               <div key={k.id} className="flex flex-col items-center">
-                {/* Conector “T”: pequeño segmento horizontal opcional */}
-                {/* <div className="h-px w-6 bg-slate-500/50 mb-2" /> */}
                 <NodeInteractive node={k} level={level + 1} />
               </div>
             ))}
@@ -238,7 +236,6 @@ world.addEventListener('click', function(e){
   if(!btn || btn.dataset.toggle!=="1") return;
   const node = btn.parentElement;
   node.classList.toggle('open');
-  // si no estaba abierto, abrimos; si estaba, cerramos
   const open = node.classList.contains('open');
   const down = node.querySelector(':scope > .down');
   const vline= node.querySelector(':scope > .vline');
