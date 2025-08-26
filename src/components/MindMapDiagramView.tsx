@@ -166,7 +166,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   const onUp = () => { panRef.current = false; };
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.4, 2)); // ← min 0.4
+    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.28, 2)); // ← min 0.28
   };
   const center = () => { setTx(0); setTy(0); setS(1); };
 
@@ -227,7 +227,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 let s=1,tx=0,ty=0,pan=false,last={x:0,y:0};
 const vp=document.getElementById('vp'), world=document.getElementById('world');
 function apply(){ world.style.transform = \`translate(calc(-50% + \${tx}px), calc(-50% + \${ty}px)) scale(\${s})\`; }
-function zoom(f){ s=Math.max(0.4, Math.min(2.0, s*f)); apply(); } // ← min 0.4
+function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); } // ← min 0.28
 function center(){ tx=0; ty=0; s=1; apply(); }
 vp.addEventListener('mousedown',e=>{ pan=true; last={x:e.clientX,y:e.clientY}; });
 vp.addEventListener('mousemove',e=>{ if(!pan) return; tx+=e.clientX-last.x; ty+=e.clientY-last.y; last={x:e.clientX,y:e.clientY}; apply(); });
@@ -264,8 +264,8 @@ Array.from(world.querySelectorAll('.node')).forEach(n=>{
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3 sm:p-6">
       <div className="flex flex-wrap gap-2 mb-3">
-        <button onClick={()=>setS(v=>clamp(v*1.1, .4, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
-        <button onClick={()=>setS(v=>clamp(v*0.9, .4, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
+        <button onClick={()=>setS(v=>clamp(v*1.1, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
+        <button onClick={()=>setS(v=>clamp(v*0.9, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
         <button onClick={center} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">Centrar</button>
         <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-2 text-sm">💾 Descargar HTML</button>
         <button onClick={onBack} className="border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg px-3 py-2 text-sm ml-auto">Volver</button>
