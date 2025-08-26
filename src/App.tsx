@@ -5,28 +5,29 @@ import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
 import MindMapView from "./components/MindMapView";
-import FlashcardView from "./components/FlashcardView"; // <-- NUEVO COMPONENTE
+import MindMapDiagramView from "./components/MindMapDiagramView"; // ← NUEVO (modo "Clásico")
+import FlashcardView from "./components/FlashcardView";
 
 import {
   summarizeContent,
   createPresentation,
   createMindMapFromText,
   flattenPresentationToText,
-  generateFlashcards, // <-- NUEVA FUNCIÓN
+  generateFlashcards,
 } from "./services/geminiService";
 
 import {
-  ViewState, // <-- Usa tus ViewState numéricos
+  ViewState,
   SummaryType,
   PresentationData,
   PresentationType,
   MindMapData,
   MindMapColorMode,
-  Flashcard, // <-- NUEVO TIPO
+  Flashcard,
 } from "./types";
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(ViewState.UPLOADER); // Inicia con UPLOADER (0)
+  const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
 
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
@@ -34,7 +35,7 @@ const App: React.FC = () => {
   const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
   const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
-  const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null); // <-- NUEVO ESTADO
+  const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
@@ -45,7 +46,7 @@ const App: React.FC = () => {
     setSummaryTitle(null);
     setPresentation(null);
     setMindmap(null);
-    setFlashcards(null); // <-- Resetear flashcards
+    setFlashcards(null);
     setError(null);
     setLoadingMessage(null);
     setView(ViewState.UPLOADER);
@@ -91,16 +92,25 @@ const App: React.FC = () => {
   };
 
   const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
+    // Guardamos el modo elegido (Clásico / Más detalle)
     setMindMapColorMode(colorMode);
     setIsProcessing(true);
-    setLoadingMessage("🧠 Generando mapa mental (extendido)...");
+    setLoadingMessage(
+      colorMode === MindMapColorMode.BlancoNegro
+        ? "🧠 Generando mapa mental (clásico)..."
+        : "🧠 Generando mapa mental (más detalle)..."
+    );
+
     try {
+      // Base: usa la presentación a texto si existe; si no, el resumen
       const baseText =
         (presentation && flattenPresentationToText(presentation)) ||
         summary ||
         "";
       if (!baseText) throw new Error("No hay contenido para generar el mapa mental.");
-      const data = await createMindMapFromText(baseText /* extendido por defecto */);
+
+      // La generación de datos es la misma; lo que cambia es cómo lo pintamos
+      const data = await createMindMapFromText(baseText);
       setMindmap(data);
       setView(ViewState.MINDMAP);
     } catch (err) {
@@ -112,7 +122,6 @@ const App: React.FC = () => {
     }
   };
 
-  // NUEVA FUNCIÓN: Generar Flashcards
   const handleGenerateFlashcards = async () => {
     if (!summary) return;
     setIsProcessing(true);
@@ -120,7 +129,7 @@ const App: React.FC = () => {
     try {
       const generatedFlashcards = await generateFlashcards(summary);
       setFlashcards(generatedFlashcards);
-      setView(ViewState.FLASHCARDS); // <-- Cambiar vista a flashcards
+      setView(ViewState.FLASHCARDS);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Error al generar las flashcards.");
@@ -129,7 +138,6 @@ const App: React.FC = () => {
       setIsProcessing(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
@@ -155,7 +163,7 @@ const App: React.FC = () => {
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
           onOpenMindMap={handleOpenMindMap}
-          onGenerateFlashcards={handleGenerateFlashcards} // <-- Pasar la nueva función
+          onGenerateFlashcards={handleGenerateFlashcards}
           onReset={handleResetAll}
         />
       )}
@@ -170,20 +178,27 @@ const App: React.FC = () => {
       )}
 
       {view === ViewState.MINDMAP && mindmap && (
-        <MindMapView
-          data={mindmap}
-          summaryTitle={summaryTitle}
-          colorMode={mindMapColorMode}
-          onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
-        />
+        mindMapColorMode === MindMapColorMode.BlancoNegro ? (
+          <MindMapDiagramView
+            data={mindmap}
+            summaryTitle={summaryTitle}
+            onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
+          />
+        ) : (
+          <MindMapView
+            data={mindmap}
+            summaryTitle={summaryTitle}
+            colorMode={mindMapColorMode}
+            onBack={() => setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)}
+          />
+        )
       )}
 
-      {/* NUEVA VISTA: Flashcards */}
       {view === ViewState.FLASHCARDS && flashcards && (
         <FlashcardView
           flashcards={flashcards}
           summaryTitle={summaryTitle}
-          onBack={handleBackToSummary} // Volver al resumen
+          onBack={handleBackToSummary}
         />
       )}
     </div>
