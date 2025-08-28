@@ -55,7 +55,7 @@ const NodeBox: React.FC<{
   return (
     <div className={`flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5`}>
       <button style={styleTag(level)} className="shrink-0 text-left w-full sm:w-auto" onClick={handleClick}>
-        <div className="flex items-center">
+        <div className="flex items-start sm:items-center">
           <div className="leading-tight">{node.label}</div>
           {hasChildren && <Caret open={open} />}
         </div>
@@ -85,33 +85,107 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
   const esc = (s = "") => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
-  const detailsTreeHTML = (node: MindMapNode, open: boolean, level = 0): string => {
-    const kids = (node.children || []).filter(isContentful);
-    const has = kids.length > 0;
-    return `
-<details class="mind${level===1 ? " lvl1" : ""}" ${open ? "open" : ""}>
-  <summary class="inline-flex items-start"><div class="tag lvl-${level}">${esc(node.label)}</div></summary>
-  ${has ? `<div class="children">${kids.map(c=>detailsTreeHTML(c,false,level+1)).join("")}</div>` : ""}
-</details>`;
-  };
-
+  // === Descarga HTML que se ve igual que la presentación ===
   const downloadHTML = () => {
+    const isContentfulLocal = (n?: Partial<MindMapNode>) =>
+      Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
+
+    const serialize = (node: MindMapNode, level = 0): string => {
+      const kids = (node.children || []).filter(isContentfulLocal);
+      const has = kids.length > 0;
+      const label = esc(String(node.label ?? ""));
+      const note = esc(String(node.note ?? ""));
+      return `
+<div class="node lvl-${level}">
+  <button class="tag lvl-${level}" data-has="${has ? "1" : "0"}">
+    <div class="row">
+      <span class="label">${label}</span>
+      ${has ? `<span class="caret"></span>` : ""}
+    </div>
+    ${note ? `<div class="note">${note}</div>` : ""}
+  </button>
+  ${has ? `<div class="children">${kids.map(c => serialize(c, level + 1)).join("")}</div>` : ""}
+</div>`;
+    };
+
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pageTitle)}</title>
 <style>
+  :root{color-scheme:light dark}
   body{margin:0;background:#111827;color:#fff;font-family:system-ui,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
-  .wrap{padding:16px}
-  details.mind{display:flex;flex-direction:column;gap:.5rem;margin:.2rem 0}
-  details.mind>summary{list-style:none;cursor:pointer}
-  summary::-webkit-details-marker{display:none}
-  .tag{display:inline-block;background:#1f2937;color:#fff;border:1px solid #4b5563;border-radius:10px;padding:.5rem .9rem;line-height:1.15;max-width:26ch}
-  .tag.lvl-0{background:#0b1220;border:2px solid #6b7280;font-weight:800;max-width:34ch}
+  .wrap{padding:16px;max-width:1200px;margin:0 auto}
+  .hdr{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.75rem}
+  .title{font-weight:800;font-size:20px}
+  .controls{display:flex;flex-wrap:wrap;gap:.5rem}
+  .btn{background:#2563eb;border:0;color:#fff;padding:.5rem .75rem;border-radius:.6rem;cursor:pointer}
+  .btn.secondary{background:#374151}
+  .tree{background:rgba(31,41,55,.5);border:1px solid #374151;border-radius:12px;padding:.75rem .9rem}
+
+  .node{display:flex;flex-direction:column;gap:.4rem;margin:.2rem 0}
+  .row{display:flex;align-items:flex-start;gap:.4rem}
+  .note{font-size:11px;opacity:.9;margin-top:.25rem;line-height:1.2}
   .children{border-left:1px solid #374151;padding-left:.75rem}
   @media(min-width:640px){.children{padding-left:1rem}}
+
+  /* Tarjetas como la presentación (mismos colores/medidas) */
+  .tag{display:inline-block; text-align:left; background:#1f2937; color:#fff; border:1px solid #4b5563; border-radius:10px; padding:.5rem .9rem; line-height:1.15; max-width:26ch}
+  .tag.lvl-0{background:#0b1220; border:2px solid #6b7280; font-weight:800; max-width:34ch; padding:.625rem 1rem; border-radius:12px}
+  .tag.lvl-1{max-width:28ch}
+  .tag.lvl-2{max-width:26ch}
+  .tag.lvl-3{max-width:24ch}
+
+  .caret{display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:7px solid currentColor; margin-left:6px; transition:transform .15s ease; transform:rotate(0)}
+  .node.open > .tag .caret{transform:rotate(90deg)}
+
+  /* Imprimir “tal como está” (mantiene abiertos/cerrados) */
+  @media print{ .hdr{display:none} }
 </style>
 <div class="wrap">
-  ${detailsTreeHTML(data.root, true, 0)}
-</div>`;
+  <div class="hdr">
+    <div class="title">🧠 ${esc(pageTitle)} — más detalle</div>
+    <div class="controls">
+      <button class="btn secondary" onclick="expandAll()">Expandir todos</button>
+      <button class="btn secondary" onclick="collapseAll()">Colapsar todos</button>
+      <button class="btn" onclick="window.print()">Imprimir</button>
+    </div>
+  </div>
+  <div class="tree" id="tree">
+    ${serialize(${JSON.stringify(data.root)})}
+  </div>
+</div>
+<script>
+  // Estado inicial como en la presentación: raíz abierta, resto cerrado
+  (function initOpen(){
+    const root = document.querySelector('.node.lvl-0');
+    if(root){
+      root.classList.add('open');
+    }
+  })();
+
+  // Toggle de nodos; en nivel 1 se comporta tipo acordeón (como en la app)
+  document.getElementById('tree').addEventListener('click', function(e){
+    const tag = e.target.closest('.tag'); if(!tag || tag.dataset.has!=="1") return;
+    const node = tag.parentElement;
+    const level = Array.from(node.classList).find(c=>c.startsWith('lvl-'));
+    const isLvl1 = level === 'lvl-1';
+
+    if(isLvl1){
+      // cerrar hermanos
+      const siblings = Array.from(node.parentElement.children).filter(el => el !== node && el.classList && el.classList.contains('node'));
+      siblings.forEach(s => s.classList.remove('open'));
+    }
+    node.classList.toggle('open');
+  });
+
+  function expandAll(){
+    document.querySelectorAll('.node').forEach(n => n.classList.add('open'));
+  }
+  function collapseAll(){
+    document.querySelectorAll('.node').forEach((n,i) => {
+      if(n.classList.contains('lvl-0')) n.classList.add('open'); else n.classList.remove('open');
+    });
+  }
+</script>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `${pageTitle}.html`; a.click(); URL.revokeObjectURL(url);
