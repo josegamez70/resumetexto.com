@@ -160,10 +160,10 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // ❌ no usamos setPointerCapture: así no anulamos el click de las tarjetas
+    // sin setPointerCapture para no comerse el click
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     lastPan.current = { x: e.clientX, y: e.clientY };
-    panActive.current = false; // se activará si superamos el umbral
+    panActive.current = false;
 
     if (pointers.current.size === 2) {
       pinch.current.active = true;
@@ -184,7 +184,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
       return;
     }
 
-    // Pan con umbral para no interferir con click
+    // Pan con umbral
     if (pointers.current.size === 1) {
       const dx = e.clientX - lastPan.current.x;
       const dy = e.clientY - lastPan.current.y;
@@ -211,7 +211,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // Export HTML con mismo comportamiento
+  // Export HTML con título + layout de impresión
   const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
   const serialize = (n: MindMapNode, level = 0): string => {
@@ -235,12 +235,14 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
 <style>
+  :root{color-scheme:light dark}
   body{margin:0;background:#0f172a;color:#fff;font-family:system-ui,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
   .toolbar{display:flex;gap:8px;padding:8px;background:#1f2937;position:sticky;top:0}
   button.ctrl{background:#374151;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
   #vp{position:relative;height:80vh;overflow:hidden;touch-action:none;cursor:grab}
   #world{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + 0px),calc(-50% + 0px)) scale(1);transform-origin:0 0}
 
+  .page-title{display:none;margin:16px 16px 0 16px;font-weight:800;font-size:20px}
   .row{display:flex;gap:16px;align-items:flex-start}
   .row.nowrap{flex-wrap:nowrap}
   .node{display:flex;flex-direction:column;align-items:center;gap:8px;margin:4px 0}
@@ -255,7 +257,18 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   .box[data-toggle="1"]{cursor:pointer}
   .caret{display:inline-block;margin-left:8px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;vertical-align:middle;transform:rotate(0);transition:transform .15s ease}
   .node.open > .box .caret{transform:rotate(90deg)}
-  @media print {.toolbar{display:none}}
+
+  /* ===== Modo impresión ===== */
+  @media print {
+    body{background:#fff;color:#000}
+    .toolbar{display:none}
+    .page-title{display:block}
+    #vp{height:auto;overflow:visible}
+    #world{position:static;transform:none !important;margin:0 16px}
+    .row.nowrap{flex-wrap:wrap}        /* permite saltar a varias filas */
+    .conn{display:none}                /* oculta el gancho curvo */
+    .box{background:#fff;color:#000;border-color:#bbb}
+  }
 </style>
 <div class="toolbar">
   <button class="ctrl" onclick="zoom(1.1)">＋</button>
@@ -263,6 +276,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   <button class="ctrl" onclick="center()">Centrar</button>
   <button class="ctrl" onclick="window.print()">Imprimir</button>
 </div>
+<h1 class="page-title">${esc(title)}</h1>
 <div id="vp"><div id="world">${serialize(data.root)}</div></div>
 <script>
 let s=1,tx=0,ty=0;
@@ -277,6 +291,7 @@ function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); }
 function center(){ tx=0; ty=0; s=1; apply(); }
 function getDist(){ const a=[...pointers.values()]; if(a.length<2) return 0; const dx=a[0].x-a[1].x, dy=a[0].y-a[1].y; return Math.hypot(dx,dy); }
 
+/* Gestos */
 vp.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   lastPan={x:e.clientX,y:e.clientY}; panActive=false;
@@ -299,7 +314,26 @@ function endPointer(e){ pointers.delete(e.pointerId); if(pointers.size<2) pinch.
 vp.addEventListener('pointerup',endPointer); vp.addEventListener('pointercancel',endPointer); vp.addEventListener('pointerleave',endPointer);
 vp.addEventListener('wheel',e=>{ e.preventDefault(); zoom(e.deltaY>0?0.9:1.1); }, {passive:false});
 
-// toggle apertura hacia abajo
+/* Desplegar al imprimir */
+function expandAll(){
+  document.querySelectorAll('.node').forEach(n=>{
+    n.classList.add('open');
+    const d=n.querySelector(':scope > .down'); if(d) d.style.display='flex';
+    const v=n.querySelector(':scope > .vline'); if(v) v.style.display='block';
+  });
+}
+window.addEventListener('beforeprint', ()=>{
+  try{ center(); }catch(e){}
+  expandAll();
+});
+/* Estado por defecto: todo cerrado salvo la fila raíz */
+Array.from(world.querySelectorAll('.node')).forEach(n=>{
+  n.classList.remove('open');
+  const d=n.querySelector(':scope > .down'); if(d) d.style.display='none';
+  const v=n.querySelector(':scope > .vline'); if(v) v.style.display='none';
+});
+
+/* Toggle normal */
 world.addEventListener('click', function(e){
   const btn = e.target.closest('.box');
   if(!btn || btn.dataset.toggle!=="1") return;
@@ -310,11 +344,6 @@ world.addEventListener('click', function(e){
   const vline= node.querySelector(':scope > .vline');
   if(down){ down.style.display = open ? 'flex' : 'none'; }
   if(vline){ vline.style.display = open ? 'block' : 'none'; }
-});
-Array.from(world.querySelectorAll('.node')).forEach(n=>{
-  n.classList.remove('open');
-  const d=n.querySelector(':scope > .down'); if(d) d.style.display='none';
-  const v=n.querySelector(':scope > .vline'); if(v) v.style.display='none';
 });
 </script>`;
     const blob = new Blob([html], { type: "text/html" });
