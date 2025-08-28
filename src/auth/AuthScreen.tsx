@@ -1,129 +1,174 @@
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
 
+type Mode = "signin" | "signup" | "magic";
+
 const AuthScreen: React.FC = () => {
-  const { signIn, signUp, signInWithMagicLink, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithOtp, signInWithGoogle, loading } = useAuth();
+  const [mode, setMode] = useState<Mode>("signin");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState("");
 
-  const doSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
+  const disabled = loading || !email.trim() || (mode !== "magic" && !password);
+
+  const handleSignIn = async () => {
     try {
-      await signIn(email, password);
-    } catch (err: any) {
-      alert(err.message ?? "No se pudo iniciar sesión");
-    } finally {
-      setBusy(false);
+      const { error } = await signIn(email, password);
+      if (error) alert(error.message);
+    } catch (e: any) {
+      alert(e.message ?? "Error al iniciar sesión");
     }
   };
 
-  const doSignUp = async () => {
-    setBusy(true);
+  const handleSignUp = async () => {
+    if (password !== confirm) {
+      alert("Las contraseñas no coinciden.");
+      return;
+    }
     try {
-      await signUp(email, password);
-      alert("Cuenta creada. Revisa tu email para confirmar la dirección.");
-    } catch (err: any) {
-      alert(err.message ?? "No se pudo crear la cuenta");
-    } finally {
-      setBusy(false);
+      const { error } = await signUp(email, password);
+      if (error) {
+        alert(error.message);
+      } else {
+        alert("Revisa tu correo para confirmar la cuenta.");
+        setMode("signin");
+      }
+    } catch (e: any) {
+      alert(e.message ?? "Error al crear la cuenta");
     }
   };
 
-  const doMagic = async () => {
-    setBusy(true);
+  const handleMagic = async () => {
     try {
-      await signInWithMagicLink(email);
-      alert("Te hemos enviado un enlace mágico. Revisa tu correo.");
-    } catch (err: any) {
-      alert(err.message ?? "No se pudo enviar el enlace");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const doGoogle = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (err: any) {
-      alert(err.message ?? "No se pudo iniciar con Google");
+      const { error } = await signInWithOtp(email);
+      if (error) alert(error.message);
+      else alert("Te hemos enviado un enlace mágico a tu correo.");
+    } catch (e: any) {
+      alert(e.message ?? "Error al enviar el enlace mágico");
     }
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-slate-900 text-slate-100">
-      <div className="w-[92vw] max-w-lg rounded-xl bg-slate-800/70 p-6 shadow-xl border border-slate-700">
-        <h1 className="text-2xl font-bold mb-6">Acceder</h1>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#0f172a]">
+      <div className="w-[92%] max-w-[620px] bg-[#111827] rounded-2xl p-8 shadow-xl">
+        <h1 className="text-3xl font-bold text-white mb-6">
+          {mode === "signin" && "Acceder"}
+          {mode === "signup" && "Crear cuenta"}
+          {mode === "magic" && "Acceder con Magic link"}
+        </h1>
 
-        <form onSubmit={doSignIn} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1">Email</label>
-            <input
-              type="email"
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 outline-none focus:border-indigo-400"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
+        <label className="text-sm text-gray-300">Email</label>
+        <input
+          className="w-full mt-1 mb-4 rounded-lg bg-[#0b1220] text-white px-4 py-3 outline-none border border-[#1f2937] focus:border-[#6d28d9]"
+          type="email"
+          placeholder="tu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-          <div>
-            <label className="block text-sm mb-1">Contraseña</label>
+        {mode !== "magic" && (
+          <>
+            <label className="text-sm text-gray-300">Contraseña</label>
             <input
+              className="w-full mt-1 mb-4 rounded-lg bg-[#0b1220] text-white px-4 py-3 outline-none border border-[#1f2937] focus:border-[#6d28d9]"
               type="password"
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 outline-none focus:border-indigo-400"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
             />
-          </div>
+          </>
+        )}
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={busy}
-              className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60"
-            >
-              Entrar
-            </button>
+        {mode === "signup" && (
+          <>
+            <label className="text-sm text-gray-300">Confirmar contraseña</label>
+            <input
+              className="w-full mt-1 mb-6 rounded-lg bg-[#0b1220] text-white px-4 py-3 outline-none border border-[#1f2937] focus:border-[#6d28d9]"
+              type="password"
+              placeholder="••••••••"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </>
+        )}
 
-            <button
-              type="button"
-              onClick={doSignUp}
-              disabled={busy}
-              className="px-4 py-2 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-60"
-            >
-              Crear cuenta
-            </button>
+        <div className="flex flex-wrap gap-3">
+          {mode === "signin" && (
+            <>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#5b21b6] text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                onClick={handleSignIn}
+                disabled={disabled}
+              >
+                Entrar
+              </button>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#374151] text-white hover:bg-[#4b5563]"
+                onClick={() => setMode("signup")}
+              >
+                Crear cuenta
+              </button>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#0f766e] text-white hover:bg-[#115e59]"
+                onClick={() => setMode("magic")}
+              >
+                Magic link
+              </button>
+            </>
+          )}
 
-            <button
-              type="button"
-              onClick={doMagic}
-              disabled={busy}
-              className="px-4 py-2 rounded-md bg-teal-700 hover:bg-teal-600 disabled:opacity-60"
-            >
-              Magic link
-            </button>
-          </div>
+          {mode === "signup" && (
+            <>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#5b21b6] text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                onClick={handleSignUp}
+                disabled={disabled || !confirm}
+              >
+                Registrarme
+              </button>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#374151] text-white hover:bg-[#4b5563]"
+                onClick={() => setMode("signin")}
+              >
+                Volver a login
+              </button>
+            </>
+          )}
 
-          <div className="pt-4">
-            <button
-              type="button"
-              onClick={doGoogle}
-              disabled={busy}
-              className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-60"
-            >
-              Google
-            </button>
-          </div>
+          {mode === "magic" && (
+            <>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#0f766e] text-white hover:bg-[#115e59] disabled:opacity-50"
+                onClick={handleMagic}
+                disabled={!email.trim() || loading}
+              >
+                Enviar enlace
+              </button>
+              <button
+                className="px-5 py-3 rounded-lg bg-[#374151] text-white hover:bg-[#4b5563]"
+                onClick={() => setMode("signin")}
+              >
+                Volver a login
+              </button>
+            </>
+          )}
+        </div>
 
-          <p className="text-xs text-slate-400 pt-4">
-            Anonymous sign-ins are disabled
-          </p>
-        </form>
+        <div className="mt-6">
+          <button
+            className="px-5 py-3 rounded-lg bg-[#dc2626] text-white hover:bg-[#b91c1c]"
+            onClick={signInWithGoogle}
+            disabled={loading}
+          >
+            Google
+          </button>
+        </div>
+
+        <p className="mt-6 text-sm text-gray-400">
+          Anonymous sign-ins are disabled
+        </p>
       </div>
     </div>
   );
