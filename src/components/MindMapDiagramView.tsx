@@ -180,7 +180,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
     if (pinch.current.active && pointers.current.size >= 2) {
       const dist = getDist() || 1;
       const factor = dist / (pinch.current.startDist || 1);
-      setS(clamp(pinch.current.startScale * factor, 0.28, 2));
+      setS(clamp(pinch.current.startScale * factor, 0.43, 2));
       return;
     }
 
@@ -206,7 +206,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.28, 2));
+    setS(v => clamp(v * (e.deltaY > 0 ? 0.9 : 1.1), 0.43, 2));
   };
 
   const center = () => { setTx(0); setTy(0); setS(1); };
@@ -287,7 +287,7 @@ const MOVE_THRESHOLD=3;
 
 const vp=document.getElementById('vp'), world=document.getElementById('world');
 function apply(){ world.style.transform = \`translate(calc(-50% + \${tx}px), calc(-50% + \${ty}px)) scale(\${s})\`; }
-function zoom(f){ s=Math.max(0.28, Math.min(2.0, s*f)); apply(); }
+function zoom(f){ s=Math.max(0.43, Math.min(2.0, s*f)); apply(); }
 function center(){ tx=0; ty=0; s=1; apply(); }
 function getDist(){ const a=[...pointers.values()]; if(a.length<2) return 0; const dx=a[0].x-a[1].x, dy=a[0].y-a[1].y; return Math.hypot(dx,dy); }
 
@@ -302,7 +302,7 @@ vp.addEventListener('pointermove',e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch.active && pointers.size>=2){
     const dist=getDist()||1, factor=dist/(pinch.startDist||1);
-    s=Math.max(0.28, Math.min(2.0, pinch.startScale*factor)); apply(); return;
+    s=Math.max(0.43, Math.min(2.0, pinch.startScale*factor)); apply(); return;
   }
   if(pointers.size===1){
     const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y, d=Math.hypot(dx,dy);
