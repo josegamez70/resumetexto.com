@@ -108,6 +108,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
 </div>`;
     };
 
+    // ✅ Generamos el HTML del árbol fuera del template para evitar `${${...}}`
+    const treeHtml = serialize(data.root);
+
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pageTitle)}</title>
 <style>
@@ -150,7 +153,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
     </div>
   </div>
   <div class="tree" id="tree">
-    ${serialize(${JSON.stringify(data.root)})}
+    ${treeHtml}
   </div>
 </div>
 <script>
