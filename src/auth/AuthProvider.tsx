@@ -1,103 +1,96 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+// src/auth/AuthProvider.tsx
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
-import AuthScreen from "./AuthScreen";
 
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+
+  signIn: (email: string, password: string) => Promise<{ error: any | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
-  signInWithMagicLink: (email: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<{ error: any | null }>;
+  signInWithOtp: (email: string) => Promise<{ error: any | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+const siteUrl =
+  (process.env.REACT_APP_SITE_URL as string | undefined) ??
+  (typeof window !== "undefined" ? window.location.origin : "");
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Cargar sesión inicial y suscripción a cambios
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      setLoading(true);
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
+      setSession(data.session ?? null);
+      setUser(data.session?.user ?? null);
       setLoading(false);
     };
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, ses) => {
-      setSession(ses);
-      setUser(ses?.user ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession ?? null);
+      setUser(newSession?.user ?? null);
     });
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      sub?.subscription.unsubscribe();
     };
   }, []);
 
+  // Acciones
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) throw error;
+    return { error };
   };
 
   const signUp = async (email: string, password: string) => {
-    setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: siteUrl || undefined },
     });
-    setLoading(false);
-    if (error) throw error;
+    return { error };
   };
 
   const signOut = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setLoading(false);
-    if (error) throw error;
-  };
-
-  const signInWithMagicLink = async (email: string) => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setLoading(false);
-    if (error) throw error;
+    await supabase.auth.signOut();
   };
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: siteUrl || undefined },
     });
-    if (error) throw error;
+    return { error };
   };
 
-  const value = useMemo(
+  const signInWithOtp = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: siteUrl || undefined,
+      },
+    });
+    return { error };
+  };
+
+  const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user,
@@ -105,8 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       signOut,
-      signInWithMagicLink,
       signInWithGoogle,
+      signInWithOtp,
     }),
     [session, user, loading]
   );
@@ -114,24 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth(): AuthContextValue {
+export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-}
-
-/** Pequeño guard para App.tsx */
-export function Gate({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center text-slate-200">
-        Cargando…
-      </div>
-    );
-  }
-  if (!user) return <AuthScreen />;
-
-  return <>{children}</>;
 }
