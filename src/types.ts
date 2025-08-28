@@ -10,12 +10,13 @@ export enum ViewState {
 // Tipos de resumen (con alias para compatibilidad)
 export enum SummaryType {
   Short    = "short",
-  Basic    = "short",    // alias
+  Basic    = "short",     // alias
   Medium   = "medium",
   Detailed = "detailed",
-  Long     = "detailed", // alias
+  Long     = "detailed",  // alias
   Bullet   = "bullet",
-  Bulleted = "bullet",   // alias
+  Bulleted = "bullet",    // alias
+  Bullets  = "bullet",    // alias (plural)
 }
 
 // Tipos de presentación / mapa conceptual
@@ -52,7 +53,7 @@ export interface MindMapData {
   root: MindMapNode;
 }
 
-// Modo del mapa mental (nombres que usa tu app)
+// Modo del mapa mental
 export enum MindMapColorMode {
   BlancoNegro = "classic", // “Clásico”
   Color       = "detail",  // “Más detalle”
@@ -63,7 +64,6 @@ export interface Flashcard {
   id: string;
   front: string;
   back: string;
-  // compatibilidad si en alguna parte se usa question/answer
   question?: string;
   answer?: string;
 }
