@@ -1,11 +1,13 @@
-// App.tsx
-
 import React, { useState } from "react";
+
+import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import AuthScreen from "./auth/AuthScreen";
+
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
 import MindMapView from "./components/MindMapView";
-import MindMapDiagramView from "./components/MindMapDiagramView"; // ← NUEVO (modo "Clásico")
+import MindMapDiagramView from "./components/MindMapDiagramView";
 import FlashcardView from "./components/FlashcardView";
 
 import {
@@ -26,15 +28,59 @@ import {
   Flashcard,
 } from "./types";
 
-const App: React.FC = () => {
+/* ────────────────────────────────────────────────────────────
+   Gate de autenticación: si no hay usuario => pantalla login
+   ──────────────────────────────────────────────────────────── */
+function Gate({ children }: { children: React.ReactNode }) {
+  const { user, loading, signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-6">
+        Cargando sesión…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return (
+    <>
+      {/* Botón de salir fijo (visible siempre que hay usuario) */}
+      <div className="fixed top-2 right-2 z-50">
+        <button
+          onClick={signOut}
+          className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+        >
+          Salir
+        </button>
+      </div>
+      {children}
+    </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Tu App real (no toca nada de tu lógica existente)
+   ──────────────────────────────────────────────────────────── */
+const AppInner: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
 
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
+
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
+  const [presentationType, setPresentationType] = useState<PresentationType>(
+    PresentationType.Extensive
+  );
+
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
-  const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
+  const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(
+    MindMapColorMode.Color
+  );
+
   const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -52,14 +98,13 @@ const App: React.FC = () => {
     setView(ViewState.UPLOADER);
   };
 
-  const handleBackToSummary = () => {
-    setView(ViewState.SUMMARY);
-  };
+  const handleBackToSummary = () => setView(ViewState.SUMMARY);
 
   const handleFileUpload = async (file: File, summaryType: SummaryType) => {
     setError(null);
     setIsProcessing(true);
     setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
+
     try {
       const generatedSummary = await summarizeContent(file, summaryType);
       setSummary(generatedSummary);
@@ -67,7 +112,11 @@ const App: React.FC = () => {
       setView(ViewState.SUMMARY);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Error desconocido al generar el resumen.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al generar el resumen."
+      );
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
@@ -78,13 +127,21 @@ const App: React.FC = () => {
     if (!summary) return;
     setIsProcessing(true);
     setLoadingMessage("⏳ Generando mapa conceptual, puede tardar unos minutos...");
+
     try {
-      const generatedPresentation = await createPresentation(summary, presentationType);
+      const generatedPresentation = await createPresentation(
+        summary,
+        presentationType
+      );
       setPresentation(generatedPresentation);
       setView(ViewState.PRESENTATION);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Error desconocido al generar el mapa conceptual.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al generar el mapa conceptual."
+      );
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
@@ -92,7 +149,6 @@ const App: React.FC = () => {
   };
 
   const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
-    // Guardamos el modo elegido (Clásico / Más detalle)
     setMindMapColorMode(colorMode);
     setIsProcessing(true);
     setLoadingMessage(
@@ -102,20 +158,20 @@ const App: React.FC = () => {
     );
 
     try {
-      // Base: usa la presentación a texto si existe; si no, el resumen
       const baseText =
         (presentation && flattenPresentationToText(presentation)) ||
         summary ||
         "";
       if (!baseText) throw new Error("No hay contenido para generar el mapa mental.");
 
-      // La generación de datos es la misma; lo que cambia es cómo lo pintamos
       const data = await createMindMapFromText(baseText);
       setMindmap(data);
       setView(ViewState.MINDMAP);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Error al generar el mapa mental.");
+      setError(
+        err instanceof Error ? err.message : "Error al generar el mapa mental."
+      );
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
@@ -132,7 +188,9 @@ const App: React.FC = () => {
       setView(ViewState.FLASHCARDS);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Error al generar las flashcards.");
+      setError(
+        err instanceof Error ? err.message : "Error al generar las flashcards."
+      );
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
@@ -205,4 +263,15 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+/* ────────────────────────────────────────────────────────────
+   Export final: App envuelta con AuthProvider + Gate
+   ──────────────────────────────────────────────────────────── */
+export default function App() {
+  return (
+    <AuthProvider>
+      <Gate>
+        <AppInner />
+      </Gate>
+    </AuthProvider>
+  );
+}
