@@ -1,4 +1,4 @@
-// Estados de navegación de la app
+// Estados de la app
 export enum ViewState {
   UPLOADER = "UPLOADER",
   SUMMARY = "SUMMARY",
@@ -7,11 +7,15 @@ export enum ViewState {
   FLASHCARDS = "FLASHCARDS",
 }
 
-// Tipos de resumen
+// Tipos de resumen (con alias para compatibilidad)
 export enum SummaryType {
-  Basic = "basic",
+  Short    = "short",
+  Basic    = "short",    // alias
+  Medium   = "medium",
   Detailed = "detailed",
-  Bullet = "bullet",
+  Long     = "detailed", // alias
+  Bullet   = "bullet",
+  Bulleted = "bullet",   // alias
 }
 
 // Tipos de presentación / mapa conceptual
@@ -48,11 +52,10 @@ export interface MindMapData {
   root: MindMapNode;
 }
 
-// Selector de modo del mapa mental
-// NOTA: mantenemos los nombres que tu app ya usa en el código
+// Modo del mapa mental (nombres que usa tu app)
 export enum MindMapColorMode {
-  BlancoNegro = "classic", // “Clásico” (diagrama interactivo)
-  Color       = "detail",  // “Más detalle” (tarjetas con nota)
+  BlancoNegro = "classic", // “Clásico”
+  Color       = "detail",  // “Más detalle”
 }
 
 // Flashcards
