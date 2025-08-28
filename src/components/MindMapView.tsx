@@ -29,27 +29,48 @@ function styleChildrenBorder(): React.CSSProperties {
 }
 
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
-  <span aria-hidden="true" className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
-        style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "7px solid currentColor", marginLeft: 6 }} />
+  <span
+    aria-hidden="true"
+    className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
+    style={{
+      width: 0,
+      height: 0,
+      borderTop: "5px solid transparent",
+      borderBottom: "5px solid transparent",
+      borderLeft: "7px solid currentColor",
+      marginLeft: 6,
+    }}
+  />
 );
 
 const NodeBox: React.FC<{
-  node: MindMapNode; level: number; idx: number;
-  expandAllSeq: number; collapseAllSeq: number;
-  accordionIndex: number | null; setAccordionIndex: (idx: number | null) => void;
+  node: MindMapNode;
+  level: number;
+  idx: number;
+  expandAllSeq: number;
+  collapseAllSeq: number;
+  accordionIndex: number | null;
+  setAccordionIndex: (idx: number | null) => void;
 }> = ({ node, level, idx, expandAllSeq, collapseAllSeq, accordionIndex, setAccordionIndex }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
   useEffect(() => setOpen(false), [collapseAllSeq]);
-  useEffect(() => { if (level === 1 && accordionIndex !== null) setOpen(idx === accordionIndex); }, [accordionIndex, level, idx]);
+  useEffect(() => {
+    if (level === 1 && accordionIndex !== null) setOpen(idx === accordionIndex);
+  }, [accordionIndex, level, idx]);
 
   const children = (node.children || []).filter(isContentful);
   const hasChildren = children.length > 0;
 
   const handleClick = () => {
     if (!hasChildren) return;
-    if (level === 1) { const willOpen = !open; setAccordionIndex(willOpen ? idx : null); setOpen(willOpen); return; }
-    setOpen(v => !v);
+    if (level === 1) {
+      const willOpen = !open;
+      setAccordionIndex(willOpen ? idx : null);
+      setOpen(willOpen);
+      return;
+    }
+    setOpen((v) => !v);
   };
 
   return (
@@ -62,14 +83,33 @@ const NodeBox: React.FC<{
         {node.note && <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">{node.note}</div>}
       </button>
 
-      {open && hasChildren && <span className="sm:hidden inline-block" style={{ width: 16, height: 10, borderLeft: "1px solid #4b5563", borderBottom: "1px solid #4b5563", marginLeft: "1rem", borderBottomLeftRadius: 8 }} />}
+      {open && hasChildren && (
+        <span
+          className="sm:hidden inline-block"
+          style={{
+            width: 16,
+            height: 10,
+            borderLeft: "1px solid #4b5563",
+            borderBottom: "1px solid #4b5563",
+            marginLeft: "1rem",
+            borderBottomLeftRadius: 8,
+          }}
+        />
+      )}
 
       {open && hasChildren && (
         <div className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full" style={styleChildrenBorder()}>
           {children.map((c, i) => (
-            <NodeBox key={c.id} node={c} level={level + 1} idx={i}
-                     expandAllSeq={expandAllSeq} collapseAllSeq={collapseAllSeq}
-                     accordionIndex={accordionIndex} setAccordionIndex={setAccordionIndex}/>
+            <NodeBox
+              key={c.id}
+              node={c}
+              level={level + 1}
+              idx={i}
+              expandAllSeq={expandAllSeq}
+              collapseAllSeq={collapseAllSeq}
+              accordionIndex={accordionIndex}
+              setAccordionIndex={setAccordionIndex}
+            />
           ))}
         </div>
       )}
@@ -83,7 +123,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   const [accordionIndex, setAccordionIndex] = useState<number | null>(null);
 
   const pageTitle = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
-  const esc = (s = "") => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const esc = (s = "") => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   // === Descarga HTML que se ve igual que la presentación ===
   const downloadHTML = () => {
@@ -104,11 +144,10 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
     </div>
     ${note ? `<div class="note">${note}</div>` : ""}
   </button>
-  ${has ? `<div class="children">${kids.map(c => serialize(c, level + 1)).join("")}</div>` : ""}
+  ${has ? `<div class="children">${kids.map((c) => serialize(c, level + 1)).join("")}</div>` : ""}
 </div>`;
     };
 
-    // ✅ Generamos el HTML del árbol fuera del template para evitar `${${...}}`
     const treeHtml = serialize(data.root);
 
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -127,10 +166,13 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   .node{display:flex;flex-direction:column;gap:.4rem;margin:.2rem 0}
   .row{display:flex;align-items:flex-start;gap:.4rem}
   .note{font-size:11px;opacity:.9;margin-top:.25rem;line-height:1.2}
-  .children{border-left:1px solid #374151;padding-left:.75rem}
+
+  /* Ocultar/mostrar hijos según open */
+  .children{display:none; border-left:1px solid #374151; padding-left:.75rem; flex-direction:column; gap:.4rem}
+  .node.open > .children{display:flex}
   @media(min-width:640px){.children{padding-left:1rem}}
 
-  /* Tarjetas como la presentación (mismos colores/medidas) */
+  /* Tarjetas como la presentación */
   .tag{display:inline-block; text-align:left; background:#1f2937; color:#fff; border:1px solid #4b5563; border-radius:10px; padding:.5rem .9rem; line-height:1.15; max-width:26ch}
   .tag.lvl-0{background:#0b1220; border:2px solid #6b7280; font-weight:800; max-width:34ch; padding:.625rem 1rem; border-radius:12px}
   .tag.lvl-1{max-width:28ch}
@@ -140,7 +182,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   .caret{display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:7px solid currentColor; margin-left:6px; transition:transform .15s ease; transform:rotate(0)}
   .node.open > .tag .caret{transform:rotate(90deg)}
 
-  /* Imprimir “tal como está” (mantiene abiertos/cerrados) */
+  /* Imprimir tal cual (respeta abierto/cerrado) */
   @media print{ .hdr{display:none} }
 </style>
 <div class="wrap">
@@ -157,41 +199,35 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   </div>
 </div>
 <script>
-  // Estado inicial como en la presentación: raíz abierta, resto cerrado
+  // Raíz abierta, resto cerrado
   (function initOpen(){
     const root = document.querySelector('.node.lvl-0');
-    if(root){
-      root.classList.add('open');
-    }
+    if(root){ root.classList.add('open'); }
   })();
 
-  // Toggle de nodos; en nivel 1 se comporta tipo acordeón (como en la app)
+  // Toggle; en nivel 1 es acordeón
   document.getElementById('tree').addEventListener('click', function(e){
     const tag = e.target.closest('.tag'); if(!tag || tag.dataset.has!=="1") return;
     const node = tag.parentElement;
-    const level = Array.from(node.classList).find(c=>c.startsWith('lvl-'));
-    const isLvl1 = level === 'lvl-1';
-
+    const lvl = Array.from(node.classList).find(c=>c.startsWith('lvl-'));
+    const isLvl1 = lvl === 'lvl-1';
     if(isLvl1){
-      // cerrar hermanos
-      const siblings = Array.from(node.parentElement.children).filter(el => el !== node && el.classList && el.classList.contains('node'));
-      siblings.forEach(s => s.classList.remove('open'));
+      const sibs = Array.from(node.parentElement.children).filter(el => el !== node && el.classList?.contains('node'));
+      sibs.forEach(s => s.classList.remove('open'));
     }
     node.classList.toggle('open');
   });
 
-  function expandAll(){
-    document.querySelectorAll('.node').forEach(n => n.classList.add('open'));
-  }
-  function collapseAll(){
-    document.querySelectorAll('.node').forEach((n,i) => {
-      if(n.classList.contains('lvl-0')) n.classList.add('open'); else n.classList.remove('open');
-    });
-  }
+  function expandAll(){ document.querySelectorAll('.node').forEach(n=>n.classList.add('open')); }
+  function collapseAll(){ document.querySelectorAll('.node').forEach(n=>{ if(n.classList.contains('lvl-0')) n.classList.add('open'); else n.classList.remove('open'); }); }
 </script>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${pageTitle}.html`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${pageTitle}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -210,9 +246,13 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
 
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
           <NodeBox
-            node={data.root} level={0} idx={0}
-            expandAllSeq={expandAllSeq} collapseAllSeq={collapseAllSeq}
-            accordionIndex={accordionIndex} setAccordionIndex={setAccordionIndex}
+            node={data.root}
+            level={0}
+            idx={0}
+            expandAllSeq={expandAllSeq}
+            collapseAllSeq={collapseAllSeq}
+            accordionIndex={accordionIndex}
+            setAccordionIndex={setAccordionIndex}
           />
         </div>
       </div>
