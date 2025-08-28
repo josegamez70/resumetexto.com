@@ -1,131 +1,129 @@
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
 
-const inputCls =
-  "w-full rounded-lg bg-[#161b22] border border-[#2b3140] text-slate-200 px-4 py-3 outline-none focus:border-indigo-500";
-const btn = "rounded-lg px-4 py-2 font-medium";
-const btnSolid = "bg-indigo-600 hover:bg-indigo-500 text-white";
-const btnGhost = "bg-[#1f2633] hover:bg-[#242b3a] text-slate-200 border border-[#2b3140]";
-
 const AuthScreen: React.FC = () => {
-  const { signIn, signUp, signInWithOtp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithMagicLink, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const [loading, setLoading] = useState<"in" | "up" | "otp" | "google" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const doSignIn = async () => {
-    setError(null); setMsg(null); setLoading("in");
-    const { error } = await signIn(email.trim(), password);
-    setLoading(null);
-    if (error) setError(error);
+  const doSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await signIn(email, password);
+    } catch (err: any) {
+      alert(err.message ?? "No se pudo iniciar sesión");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doSignUp = async () => {
-    setError(null); setMsg(null); setLoading("up");
-    const { error, needsEmailConfirm } = await signUp(email.trim(), password);
-    setLoading(null);
-    if (error) setError(error);
-    else if (needsEmailConfirm) {
-      setMsg("¡Te enviamos un correo para confirmar tu cuenta! Revisa tu bandeja (y Spam).");
-    } else {
-      setMsg("Cuenta creada y sesión iniciada.");
+    setBusy(true);
+    try {
+      await signUp(email, password);
+      alert("Cuenta creada. Revisa tu email para confirmar la dirección.");
+    } catch (err: any) {
+      alert(err.message ?? "No se pudo crear la cuenta");
+    } finally {
+      setBusy(false);
     }
   };
 
   const doMagic = async () => {
-    setError(null); setMsg(null); setLoading("otp");
-    const { error } = await signInWithOtp(email.trim());
-    setLoading(null);
-    if (error) setError(error);
-    else setMsg("Te enviamos un enlace mágico a tu email.");
+    setBusy(true);
+    try {
+      await signInWithMagicLink(email);
+      alert("Te hemos enviado un enlace mágico. Revisa tu correo.");
+    } catch (err: any) {
+      alert(err.message ?? "No se pudo enviar el enlace");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doGoogle = async () => {
-    setError(null); setMsg(null); setLoading("google");
-    const { error } = await signInWithGoogle();
-    setLoading(null);
-    if (error) setError(error);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      alert(err.message ?? "No se pudo iniciar con Google");
+    }
   };
 
   return (
-    <div className="w-full min-h-screen flex items-center justify-center bg-[#0d1117]">
-      <div className="w-full max-w-md bg-[#0f1420] border border-[#22283a] rounded-2xl p-6 shadow-xl">
-        <h1 className="text-2xl font-bold text-slate-100 mb-6">Acceder</h1>
+    <div className="min-h-screen grid place-items-center bg-slate-900 text-slate-100">
+      <div className="w-[92vw] max-w-lg rounded-xl bg-slate-800/70 p-6 shadow-xl border border-slate-700">
+        <h1 className="text-2xl font-bold mb-6">Acceder</h1>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 px-4 py-3">
-            {error}
+        <form onSubmit={doSignIn} className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1">Email</label>
+            <input
+              type="email"
+              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 outline-none focus:border-indigo-400"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
           </div>
-        )}
-        {msg && (
-          <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 px-4 py-3">
-            {msg}
+
+          <div>
+            <label className="block text-sm mb-1">Contraseña</label>
+            <input
+              type="password"
+              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 outline-none focus:border-indigo-400"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
           </div>
-        )}
 
-        <label className="block text-slate-300 text-sm mb-2">Email</label>
-        <input
-          className={`${inputCls} mb-4`}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="tucorreo@dominio.com"
-          type="email"
-          autoComplete="email"
-        />
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60"
+            >
+              Entrar
+            </button>
 
-        <label className="block text-slate-300 text-sm mb-2">Contraseña</label>
-        <input
-          className={`${inputCls} mb-6`}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          type="password"
-          autoComplete="current-password"
-        />
+            <button
+              type="button"
+              onClick={doSignUp}
+              disabled={busy}
+              className="px-4 py-2 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-60"
+            >
+              Crear cuenta
+            </button>
 
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={doSignIn}
-            disabled={loading !== null}
-            className={`${btn} ${btnSolid}`}
-          >
-            {loading === "in" ? "Entrando…" : "Entrar"}
-          </button>
+            <button
+              type="button"
+              onClick={doMagic}
+              disabled={busy}
+              className="px-4 py-2 rounded-md bg-teal-700 hover:bg-teal-600 disabled:opacity-60"
+            >
+              Magic link
+            </button>
+          </div>
 
-          <button
-            onClick={doSignUp}
-            disabled={loading !== null}
-            className={`${btn} ${btnGhost}`}
-            title="Crea una cuenta con email y contraseña"
-          >
-            {loading === "up" ? "Creando…" : "Crear cuenta"}
-          </button>
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={doGoogle}
+              disabled={busy}
+              className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-60"
+            >
+              Google
+            </button>
+          </div>
 
-          <button
-            onClick={doMagic}
-            disabled={loading !== null}
-            className={`${btn} ${btnGhost}`}
-          >
-            {loading === "otp" ? "Enviando…" : "Magic link"}
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <button
-            onClick={doGoogle}
-            disabled={loading !== null}
-            className={`${btn} ${btnGhost}`}
-          >
-            {loading === "google" ? "Abriendo Google…" : "Google"}
-          </button>
-        </div>
-
-        <p className="mt-6 text-xs text-slate-400">
-          Anonymous sign-ins are disabled
-        </p>
+          <p className="text-xs text-slate-400 pt-4">
+            Anonymous sign-ins are disabled
+          </p>
+        </form>
       </div>
     </div>
   );
