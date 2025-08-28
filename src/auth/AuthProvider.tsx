@@ -1,44 +1,51 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
+import AuthScreen from "./AuthScreen";
 
-type AuthContextType = {
+type AuthContextValue = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ error?: string; needsEmailConfirm?: boolean }>;
-  signInWithOtp: (email: string) => Promise<{ error?: string }>;
-  signInWithGoogle: () => Promise<{ error?: string }>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithMagicLink: (email: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Cargar sesión inicial + suscripción a cambios de auth
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (mounted) {
-        setSession(data.session ?? null);
-        setUser(data.session?.user ?? null);
-        setLoading(false);
-      }
-      if (error) console.error(error);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
     };
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, ses) => {
+      setSession(ses);
+      setUser(ses?.user ?? null);
     });
 
     return () => {
@@ -48,40 +55,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    return {};
+    setLoading(false);
+    if (error) throw error;
   };
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { error: error.message };
-
-    // Si tienes “Confirm email” activado en Supabase, no habrá sesión inmediata
-    const needsEmailConfirm = !data.session;
-    return { needsEmailConfirm };
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) throw error;
   };
 
-  const signInWithOtp = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) return { error: error.message };
-    return {};
+  const signOut = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signOut();
+    setLoading(false);
+    if (error) throw error;
+  };
+
+  const signInWithMagicLink = async (email: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) throw error;
   };
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}`,
-      },
+      options: { redirectTo: window.location.origin },
     });
-    if (error) return { error: error.message };
-    return {};
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   const value = useMemo(
-    () => ({ session, user, loading, signIn, signU
+    () => ({
+      session,
+      user,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      signInWithMagicLink,
+      signInWithGoogle,
+    }),
+    [session, user, loading]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  return ctx;
+}
+
+/** Pequeño guard para App.tsx */
+export function Gate({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center text-slate-200">
+        Cargando…
+      </div>
+    );
+  }
+  if (!user) return <AuthScreen />;
+
+  return <>{children}</>;
+}
