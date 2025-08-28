@@ -1,58 +1,66 @@
-// types.ts
+// Estados de navegación de la app
+export enum ViewState {
+  UPLOADER = "UPLOADER",
+  SUMMARY = "SUMMARY",
+  PRESENTATION = "PRESENTATION",
+  MINDMAP = "MINDMAP",
+  FLASHCARDS = "FLASHCARDS",
+}
 
+// Tipos de resumen
 export enum SummaryType {
-  Short = "Short",
-  Medium = "Medium",
-  Long = "Long",
-  Bullets = "Bullets",
+  Basic = "basic",
+  Detailed = "detailed",
+  Bullet = "bullet",
 }
 
+// Tipos de presentación / mapa conceptual
 export enum PresentationType {
-  Extensive = 'Extensive',   // Extensa (en detalle)
-  Complete  = 'Complete',    // Completa (50% más contenido y detalle que Extensa)
-  Kids      = 'Kids',        // Para Niños
+  Extensive = "extensive", // en detalle
+  Complete  = "complete",  // +50% detalle
+  Kids      = "kids",      // para niños
 }
 
-export type PresentationSection = {
-  emoji: string;
+// Estructura de la presentación
+export interface PresentationSection {
+  id: string;
   title: string;
-  content: string;
-  subsections?: PresentationSection[]; // recursivo
-};
+  emoji?: string;
+  bullets?: string[];
+  children?: PresentationSection[];
+}
 
-export type PresentationData = {
-  title: string;
+export interface PresentationData {
+  title: string;                 // requerido
+  type: PresentationType;
   sections: PresentationSection[];
-};
+}
 
-export type MindMapNode = {
+// Mapa mental
+export interface MindMapNode {
   id: string;
   label: string;
   note?: string;
   children?: MindMapNode[];
-};
+}
 
-export type MindMapData = {
+export interface MindMapData {
   root: MindMapNode;
-};
+}
 
+// Selector de modo del mapa mental
+// NOTA: mantenemos los nombres que tu app ya usa en el código
 export enum MindMapColorMode {
-  BlancoNegro = "bw",
-  Color = "color",
+  BlancoNegro = "classic", // “Clásico” (diagrama interactivo)
+  Color       = "detail",  // “Más detalle” (tarjetas con nota)
 }
 
-// (dejamos ViewState igual)
-export enum ViewState {
-  UPLOADER,
-  SUMMARY,
-  PRESENTATION,
-  MINDMAP,
-  FLASHCARDS, // <-- ¡NUEVO! Añadimos el estado para las flashcards
-}
-
-// <-- ¡NUEVO TIPO! Para las flashcards -->
+// Flashcards
 export interface Flashcard {
-  id: string; // Identificador único para cada tarjeta
-  question: string;
-  answer: string;
+  id: string;
+  front: string;
+  back: string;
+  // compatibilidad si en alguna parte se usa question/answer
+  question?: string;
+  answer?: string;
 }
