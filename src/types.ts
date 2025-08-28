@@ -31,8 +31,16 @@ export interface PresentationSection {
   id: string;
   title: string;
   emoji?: string;
+
+  // Contenido de bloque (algunos sitios lo llaman `content`)
+  content?: string;
+
+  // Puntos/ideas del bloque
   bullets?: string[];
+
+  // Subniveles (alias para compatibilidad: `children` y `subsections`)
   children?: PresentationSection[];
+  subsections?: PresentationSection[];
 }
 
 export interface PresentationData {
@@ -64,6 +72,6 @@ export interface Flashcard {
   id: string;
   front: string;
   back: string;
-  question?: string;
-  answer?: string;
+  question?: string; // alias
+  answer?: string;   // alias
 }
