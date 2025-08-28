@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
+import type { MindMapColorMode } from "../types";
 
 // Utils
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -115,7 +116,7 @@ const NodeDetailed: React.FC<NodeDetailedProps> = ({ node, level, openIds, toggl
 // ──────────────────────────────────────────────
 // Vista “Más detalle” con export que replica el estado
 // ──────────────────────────────────────────────
-type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void };
+type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void; colorMode?: MindMapColorMode };
 
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   // Pan & Zoom + gestos
@@ -179,7 +180,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
     if (pinch.current.active && pointers.current.size >= 2) {
       const dist = getDist() || 1;
       const factor = dist / (pinch.current.startDist || 1);
-      setS(clamp(pinch.current.startScale * factor, 0.43, 2)); // usa el mismo mínimo que Clásico si quieres
+      setS(clamp(pinch.current.startScale * factor, 0.43, 2));
       return;
     }
     if (pointers.current.size === 1) {

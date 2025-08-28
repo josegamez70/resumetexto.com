@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
+import type { MindMapColorMode } from "../types";
 
 // ──────────────────────────────────────────────
 // Utils
@@ -79,7 +80,7 @@ const ConnectorRight: React.FC = () => (
 );
 
 // ──────────────────────────────────────────────
-// Nodo interactivo
+// Nodo interactivo (Clásico)
 // ──────────────────────────────────────────────
 const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
   const [open, setOpen] = useState(false);
@@ -131,9 +132,9 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
 };
 
 // ──────────────────────────────────────────────
-// Vista principal con Pan/Zoom + export HTML
+// Vista principal (Clásico)
 // ──────────────────────────────────────────────
-type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void };
+type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void; colorMode?: MindMapColorMode };
 
 const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   const [tx, setTx] = useState(0);
@@ -211,7 +212,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // Export HTML con título + layout de impresión
+  // Export HTML (título + impresión expandida y ajustada al ancho)
   const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
   const serialize = (n: MindMapNode, level = 0): string => {
@@ -265,8 +266,8 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
     .page-title{display:block}
     #vp{height:auto;overflow:visible}
     #world{position:static;transform:none !important;margin:0 16px}
-    .row.nowrap{flex-wrap:wrap}        /* permite saltar a varias filas */
-    .conn{display:none}                /* oculta el gancho curvo */
+    .row.nowrap{flex-wrap:wrap}
+    .conn{display:none}
     .box{background:#fff;color:#000;border-color:#bbb}
   }
 </style>
@@ -291,7 +292,6 @@ function zoom(f){ s=Math.max(0.43, Math.min(2.0, s*f)); apply(); }
 function center(){ tx=0; ty=0; s=1; apply(); }
 function getDist(){ const a=[...pointers.values()]; if(a.length<2) return 0; const dx=a[0].x-a[1].x, dy=a[0].y-a[1].y; return Math.hypot(dx,dy); }
 
-/* Gestos */
 vp.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   lastPan={x:e.clientX,y:e.clientY}; panActive=false;
@@ -326,6 +326,7 @@ window.addEventListener('beforeprint', ()=>{
   try{ center(); }catch(e){}
   expandAll();
 });
+
 /* Estado por defecto: todo cerrado salvo la fila raíz */
 Array.from(world.querySelectorAll('.node')).forEach(n=>{
   n.classList.remove('open');
@@ -355,8 +356,8 @@ world.addEventListener('click', function(e){
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3 sm:p-6">
       <div className="flex flex-wrap gap-2 mb-3">
-        <button onClick={()=>setS(v=>clamp(v*1.1, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
-        <button onClick={()=>setS(v=>clamp(v*0.9, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
+        <button onClick={()=>setS(v=>clamp(v*1.1, .43, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
+        <button onClick={()=>setS(v=>clamp(v*0.9, .43, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
         <button onClick={center} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">Centrar</button>
         <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-2 text-sm">💾 Descargar HTML</button>
         <button onClick={onBack} className="border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg px-3 py-2 text-sm ml-auto">Volver</button>
