@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
+// 🚨 MODIFICACIÓN CLAVE: Importar los iconos de ojo de react-icons
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // O puedes usar MdVisibility, MdVisibilityOff de 'react-icons/md'
 
 export default function AuthScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
@@ -12,7 +14,7 @@ export default function AuthScreen() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // Nuevo estado para mostrar/ocultar contraseña
+  const [showPassword, setShowPassword] = useState(false); // Estado para mostrar/ocultar contraseña
 
   // 🔑 Reset de contraseña con feedback
   const handleResetPassword = async () => {
@@ -61,12 +63,12 @@ export default function AuthScreen() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
             <span className="text-xl font-bold text-yellow-400 mr-2">+</span>
-            <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <rect x="3" y="4" width="18" height="14" rx="2" ry="2" strokeWidth="2" />
               <path strokeWidth="2" d="M8 20h8" />
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold text-yellow-400 mb-2 tracking-wide">RESÚMELO!</h1> {/* Tamaño y color como QuizzMaker */}
+          <h1 className="text-3xl font-extrabold text-yellow-400 mb-2 tracking-wide">RESÚMELO!</h1>
           <p className="text-gray-300 text-center text-sm">
             Bienvenido de Nuevo. Inicia sesión para continuar
           </p>
@@ -89,7 +91,7 @@ export default function AuthScreen() {
             <input
               type={showPassword ? "text" : "password"} // Cambiar tipo según el estado
               placeholder="Contraseña"
-              className="w-full rounded-lg bg-white text-gray-800 px-4 py-3 outline-none border border-gray-300 focus:border-indigo-500 transition-colors duration-200 pr-10" // Añadir padding-right
+              className="w-full rounded-lg bg-white text-gray-800 px-4 py-3 outline-none border border-gray-300 focus:border-indigo-500 transition-colors duration-200 pr-10" // Añadir padding-right para el icono
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={mode === "register" || mode === "login"}
@@ -102,18 +104,9 @@ export default function AuthScreen() {
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             >
               {showPassword ? (
-                // Icono de ojo tachado (puedes usar un SVG o un icono de librería)
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414L5.586 7.5l-2.293 2.293a1 1 0 001.414 1.414L7 8.414l2.293 2.293a1 1 0 101.414-1.414L8.414 7l2.293-2.293a1 1 0 00-1.414-1.414L7 5.586 4.707 3.293a1 1 0 00-1.414 0z" clipRule="evenodd" />
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fillRule="evenodd" d="M.027 12c.797.648 1.413 1.252 1.834 1.815A1 1 0 002.583 14h14.834a1 1 0 00.722-.415c.421-.563 1.037-1.167 1.834-1.815.011-.009.023-.016.035-.023a.994.994 0 00.16-.255c.036-.08.069-.163.099-.251.047-.138.077-.282.09-.434.015-.178.015-.357 0-.535-.013-.152-.043-.296-.09-.434a.994.994 0 00-.099-.251.994.994 0 00-.16-.255c-.012-.007-.024-.014-.035-.023a8.885 8.085 0 00-1.834-1.815 1 1 0 00-.722-.415H2.583a1 1 0 00-.722.415A8.885 8.085 0 00.027 12c.011.009.023.016.035.023zM10 8a4 4 0 100 8 4 4 0 000-8z" clipRule="evenodd" />
-                </svg>
+                <FaEyeSlash className="h-5 w-5" /> // Icono de ojo tachado de react-icons
               ) : (
-                // Icono de ojo normal
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fillRule="evenodd" d="M.027 12c.797.648 1.413 1.252 1.834 1.815A1 1 0 002.583 14h14.834a1 1 0 00.722-.415c.421-.563 1.037-1.167 1.834-1.815.011-.009.023-.016.035-.023a.994.994 0 00.16-.255c.036-.08.069-.163.099-.251.047-.138.077-.282.09-.434.015-.178.015-.357 0-.535-.013-.152-.043-.296-.09-.434a.994.994 0 00-.099-.251.994.994 0 00-.16-.255c-.012-.007-.024-.014-.035-.023a8.885 8.085 0 00-1.834-1.815 1 1 0 00-.722-.415H2.583a1 1 0 00-.722.415A8.885 8.085 0 00.027 12c.011.009.023.016.035.023z" clipRule="evenodd" />
-                </svg>
+                <FaEye className="h-5 w-5" /> // Icono de ojo normal de react-icons
               )}
             </button>
           </div>
