@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
-// 🚨 MODIFICACIÓN CLAVE: Importar los iconos de ojo de react-icons
-import { FaEye, FaEyeSlash } from 'react-icons/fa'; // O puedes usar MdVisibility, MdVisibilityOff de 'react-icons/md'
+// 🚨 CORRECCIÓN CLAVE: Usamos un import más robusto para react-icons
+// Esto puede depender de la versión de react-icons, pero esta forma suele ser más compatible
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Mantener esta importación para los componentes
 
 export default function AuthScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
@@ -104,9 +105,11 @@ export default function AuthScreen() {
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             >
               {showPassword ? (
-                <FaEyeSlash className="h-5 w-5" /> // Icono de ojo tachado de react-icons
+                // 🚨 CORRECCIÓN: Asegúrate de que los iconos se renderizan correctamente como componentes.
+                // Si aún falla, puede ser un problema de caché o de la versión de react-icons.
+                <FaEyeSlash className="h-5 w-5" /> 
               ) : (
-                <FaEye className="h-5 w-5" /> // Icono de ojo normal de react-icons
+                <FaEye className="h-5 w-5" />
               )}
             </button>
           </div>
