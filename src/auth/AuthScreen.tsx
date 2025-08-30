@@ -2,13 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
-// 🚨 CORRECCIÓN CLAVE: Importamos el modulo Fa como un objeto
-import * as FaIcons from 'react-icons/fa'; // Importamos todo el módulo 'fa'
-
-// Ya no necesitamos los componentes auxiliares RenderFaEye/Slash
-// const RenderFaEye = (props: React.SVGProps<SVGSVGElement>) => <FaIcons.FaEye {...props} />;
-// const RenderFaEyeSlash = (props: React.SVGProps<SVGSVGElement>) => <FaIcons.FaEyeSlash {...props} />;
-
+// 🚨 ELIMINADO: Ya no se importan FaEye ni FaEyeSlash de react-icons
+// Esto vuelve a la versión que compilaba correctamente.
 
 export default function AuthScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
@@ -23,25 +18,25 @@ export default function AuthScreen() {
 
   // 🔑 Reset de contraseña con feedback
   const handleResetPassword = async () => {
-    console.log("[AuthScreen] handleResetPassword: Clicked.");
+    console.log("[AuthScreen] handleResetPassword: Clicked."); // Log al hacer clic
     if (!email) {
-      console.log("[AuthScreen] handleResetPassword: Email is empty.");
+      console.log("[AuthScreen] handleResetPassword: Email is empty."); // Log si el email está vacío
       setErr("Introduce tu email primero.");
       return;
     }
     setLoading(true);
     setErr(null);
     setMsg(null);
-    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`);
+    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`); // Log antes de llamar a sendPasswordReset
 
     const { error } = await sendPasswordReset(email);
 
     setLoading(false);
     if (error) {
-      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error);
+      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error); // Log si hay error
       setErr(error.message || "No se pudo enviar el correo de recuperación.");
     } else {
-      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully.");
+      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully."); // Log si es exitoso
       setMsg("📩 Revisa tu correo, hemos enviado un enlace de recuperación.");
     }
   };
@@ -51,17 +46,17 @@ export default function AuthScreen() {
     setErr(null);
     setMsg(null);
     setLoading(true);
-    console.log(`[AuthScreen] handleSubmit: Mode=${mode}, Attempting auth for ${email}...`);
+    console.log(`[AuthScreen] handleSubmit: Mode=${mode}, Attempting auth for ${email}...`); // Log para inicio de sesión/registro
 
     const action = mode === "login" ? signIn : signUp;
     const { error } = await action(email, password);
 
     setLoading(false);
     if (error) {
-      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error);
+      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error); // Log si hay error
       setErr(error.message || "Error de autenticación.");
     } else {
-      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`);
+      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`); // Log si es exitoso
     }
   };
 
@@ -110,7 +105,7 @@ export default function AuthScreen() {
               onChange={(e) => setPassword(e.target.value)}
               required={mode === "register" || mode === "login"}
             />
-            {/* Icono de visibilidad de contraseña (ojo) */}
+            {/* Icono de visibilidad de contraseña (ojo) - VOLVEMOS AL SVG GENÉRICO QUE SÍ COMPILABA */}
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
@@ -118,10 +113,18 @@ export default function AuthScreen() {
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             >
               {showPassword ? (
-                // 🚨 CORRECCIÓN: Usamos FaIcons.FaEyeSlash directamente
-                <FaIcons.FaEyeSlash className="h-5 w-5" /> 
+                // Icono de ojo tachado (SVG genérico)
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414L5.586 7.5l-2.293 2.293a1 1 0 001.414 1.414L7 8.414l2.293 2.293a1 1 0 101.414-1.414L8.414 7l2.293-2.293a1 1 0 00-1.414-1.414L7 5.586 4.707 3.293a1 1 0 00-1.414 0z" clipRule="evenodd" />
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.027 12c.797.648 1.413 1.252 1.834 1.815A1 1 0 002.583 14h14.834a1 1 0 00.722-.415c.421-.563 1.037-1.167 1.834-1.815.011-.009.023-.016.035-.023a.994.994 0 00.16-.255c.036-.08.069-.163.099-.251.047-.138.077-.282.09-.434.015-.178.015-.357 0-.535-.013-.152-.043-.296-.09-.434a.994.994 0 00-.099-.251.994.994 0 00-.16-.255c-.012-.007-.024-.014-.035-.023a8.885 8.085 0 00-1.834-1.815 1 1 0 00-.722-.415H2.583a1 1 0 00-.722.415A8.885 8.085 0 00.027 12c.011.009.023.016.035.023zM10 8a4 4 0 100 8 4 4 0 000-8z" clipRule="evenodd" />
+                </svg>
               ) : (
-                <FaIcons.FaEye className="h-5 w-5" />
+                // Icono de ojo normal (SVG genérico)
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.027 12c.797.648 1.413 1.252 1.834 1.815A1 1 0 002.583 14h14.834a1 1 0 00.722-.415c.421-.563 1.037-1.167 1.834-1.815.011-.009.023-.016.035-.023a.994.994 0 00.16-.255c.036-.08.069-.163.099-.251.047-.138.077-.282.09-.434.015-.178.015-.357 0-.535-.013-.152-.043-.296-.09-.434a.994.994 0 00-.099-.251.994.994 0 00-.16-.255c-.012-.007-.024-.014-.035-.023a8.885 8.085 0 00-1.834-1.815 1 1 0 00-.722-.415H2.583a1 1 0 00-.722.415A8.885 8.085 0 00.027 12c.011.009.023.016.035.023z" clipRule="evenodd" />
+                </svg>
               )}
             </button>
           </div>
@@ -141,7 +144,7 @@ export default function AuthScreen() {
         {mode === "login" && (
           <button
             onClick={handleResetPassword}
-            disabled={loading}
+            disabled={loading} // Asegúrate de que 'loading' no lo esté deshabilitando inesperadamente
             className="mt-4 w-full text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-200 text-center"
           >
             {loading ? "Enviando correo..." : "¿Olvidaste tu contraseña?"}
