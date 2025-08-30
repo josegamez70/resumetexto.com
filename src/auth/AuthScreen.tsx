@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
-// 🚨 ELIMINADO: Ya no se importan FaEye ni FaEyeSlash de react-icons
-// Esto vuelve a la versión que compilaba correctamente.
+// No se importan iconos de react-icons aquí para evitar el problema de compilación
 
 export default function AuthScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
@@ -18,25 +17,25 @@ export default function AuthScreen() {
 
   // 🔑 Reset de contraseña con feedback
   const handleResetPassword = async () => {
-    console.log("[AuthScreen] handleResetPassword: Clicked."); // Log al hacer clic
+    console.log("[AuthScreen] handleResetPassword: Clicked.");
     if (!email) {
-      console.log("[AuthScreen] handleResetPassword: Email is empty."); // Log si el email está vacío
+      console.log("[AuthScreen] handleResetPassword: Email is empty.");
       setErr("Introduce tu email primero.");
       return;
     }
     setLoading(true);
     setErr(null);
     setMsg(null);
-    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`); // Log antes de llamar a sendPasswordReset
+    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`);
 
     const { error } = await sendPasswordReset(email);
 
     setLoading(false);
     if (error) {
-      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error); // Log si hay error
+      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error);
       setErr(error.message || "No se pudo enviar el correo de recuperación.");
     } else {
-      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully."); // Log si es exitoso
+      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully.");
       setMsg("📩 Revisa tu correo, hemos enviado un enlace de recuperación.");
     }
   };
@@ -53,16 +52,23 @@ export default function AuthScreen() {
 
     setLoading(false);
     if (error) {
-      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error); // Log si hay error
+      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error);
       setErr(error.message || "Error de autenticación.");
     } else {
-      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`); // Log si es exitoso
+      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`);
+      // En un caso real, aquí no se establecería un mensaje, sino que el AuthProvider
+      // redirigiría o actualizaría el estado global de autenticación.
+      // Aquí puedes añadir un msg si el AuthProvider no redirige automáticamente.
+      if (mode === "register") {
+        setMsg("✅ Registro exitoso. Revisa tu email para confirmar tu cuenta y luego inicia sesión.");
+        // Opcional: setMode("login") para que intenten iniciar sesión inmediatamente
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 animate-fadeIn">
+    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4"> {/* Fondo oscuro */}
+      <div className="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 animate-fadeIn"> {/* Tarjeta central */}
         
         {/* Logo al estilo QuizzMaker / Resumelo */}
         <div className="flex flex-col items-center justify-center mb-6">
@@ -73,8 +79,8 @@ export default function AuthScreen() {
             </svg>
             <span className="text-xl font-bold text-yellow-400 mr-2">+</span>
             <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <rect x="3" y="4" width="18" height="14" rx="2" ry="2" strokeWidth="2" />
-              <path strokeWidth="2" d="M8 20h8" />
+              <rect x="3" y="4" width="18" height="14" rx="2" ry="2" strokeWidth={2} />
+              <path strokeWidth={2} d="M8 20h8" />
             </svg>
           </div>
           <h1 className="text-3xl font-extrabold text-yellow-400 mb-2 tracking-wide">RESÚMELO!</h1>
@@ -136,7 +142,7 @@ export default function AuthScreen() {
               loading ? "bg-indigo-500/60 cursor-wait" : "bg-indigo-600 hover:bg-indigo-700" // Botón principal indigo
             }`}
           >
-            {loading ? "Cargando..." : mode === "login" ? "Iniciar Sesión" : "Registrarse"}
+            {loading ? "Cargando..." : mode === "login" ? "Iniciar Sesión" : "Registrarse"} {/* 🚨 CORREGIDO EL TEXTO DEL BOTÓN */}
           </button>
         </form>
 
@@ -144,7 +150,7 @@ export default function AuthScreen() {
         {mode === "login" && (
           <button
             onClick={handleResetPassword}
-            disabled={loading} // Asegúrate de que 'loading' no lo esté deshabilitando inesperadamente
+            disabled={loading} 
             className="mt-4 w-full text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-200 text-center"
           >
             {loading ? "Enviando correo..." : "¿Olvidaste tu contraseña?"}
