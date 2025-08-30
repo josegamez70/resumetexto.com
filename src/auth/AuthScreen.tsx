@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthProvider";
-import { FaEye, FaEyeSlash } from 'react-icons/fa'; 
+// 🚨 CORRECCIÓN CLAVE: Importamos el modulo Fa como un objeto
+import * as FaIcons from 'react-icons/fa'; // Importamos todo el módulo 'fa'
 
-// Componentes auxiliares para react-icons, por si el error TS2786 persiste
-const RenderFaEye = (props: React.SVGProps<SVGSVGElement>) => <FaEye {...props} />;
-const RenderFaEyeSlash = (props: React.SVGProps<SVGSVGElement>) => <FaEyeSlash {...props} />;
+// Ya no necesitamos los componentes auxiliares RenderFaEye/Slash
+// const RenderFaEye = (props: React.SVGProps<SVGSVGElement>) => <FaIcons.FaEye {...props} />;
+// const RenderFaEyeSlash = (props: React.SVGProps<SVGSVGElement>) => <FaIcons.FaEyeSlash {...props} />;
+
 
 export default function AuthScreen() {
   const { signIn, signUp, sendPasswordReset } = useAuth();
@@ -21,25 +23,25 @@ export default function AuthScreen() {
 
   // 🔑 Reset de contraseña con feedback
   const handleResetPassword = async () => {
-    console.log("[AuthScreen] handleResetPassword: Clicked."); // Log al hacer clic
+    console.log("[AuthScreen] handleResetPassword: Clicked.");
     if (!email) {
-      console.log("[AuthScreen] handleResetPassword: Email is empty."); // Log si el email está vacío
+      console.log("[AuthScreen] handleResetPassword: Email is empty.");
       setErr("Introduce tu email primero.");
       return;
     }
     setLoading(true);
     setErr(null);
     setMsg(null);
-    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`); // Log antes de llamar a sendPasswordReset
+    console.log(`[AuthScreen] handleResetPassword: Sending password reset for ${email}...`);
 
     const { error } = await sendPasswordReset(email);
 
     setLoading(false);
     if (error) {
-      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error); // Log si hay error
+      console.error("[AuthScreen] handleResetPassword: Error sending reset email:", error);
       setErr(error.message || "No se pudo enviar el correo de recuperación.");
     } else {
-      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully."); // Log si es exitoso
+      console.log("[AuthScreen] handleResetPassword: Reset email sent successfully.");
       setMsg("📩 Revisa tu correo, hemos enviado un enlace de recuperación.");
     }
   };
@@ -49,17 +51,17 @@ export default function AuthScreen() {
     setErr(null);
     setMsg(null);
     setLoading(true);
-    console.log(`[AuthScreen] handleSubmit: Mode=${mode}, Attempting auth for ${email}...`); // Log para inicio de sesión/registro
+    console.log(`[AuthScreen] handleSubmit: Mode=${mode}, Attempting auth for ${email}...`);
 
     const action = mode === "login" ? signIn : signUp;
     const { error } = await action(email, password);
 
     setLoading(false);
     if (error) {
-      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error); // Log si hay error
+      console.error(`[AuthScreen] handleSubmit: Auth error in ${mode} mode:`, error);
       setErr(error.message || "Error de autenticación.");
     } else {
-      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`); // Log si es exitoso
+      console.log(`[AuthScreen] handleSubmit: Auth successful in ${mode} mode.`);
     }
   };
 
@@ -116,9 +118,10 @@ export default function AuthScreen() {
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             >
               {showPassword ? (
-                <RenderFaEyeSlash className="h-5 w-5" /> 
+                // 🚨 CORRECCIÓN: Usamos FaIcons.FaEyeSlash directamente
+                <FaIcons.FaEyeSlash className="h-5 w-5" /> 
               ) : (
-                <RenderFaEye className="h-5 w-5" />
+                <FaIcons.FaEye className="h-5 w-5" />
               )}
             </button>
           </div>
@@ -138,7 +141,7 @@ export default function AuthScreen() {
         {mode === "login" && (
           <button
             onClick={handleResetPassword}
-            disabled={loading} // Asegúrate de que 'loading' no lo esté deshabilitando inesperadamente
+            disabled={loading}
             className="mt-4 w-full text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-200 text-center"
           >
             {loading ? "Enviando correo..." : "¿Olvidaste tu contraseña?"}
