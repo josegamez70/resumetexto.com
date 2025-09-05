@@ -6,72 +6,78 @@ import MindMapView from "./components/MindMapView";
 import MindMapDiagramView from "./components/MindMapDiagramView";
 import FlashcardView from "./components/FlashcardView";
 import UpgradeModal from "./components/UpgradeModal";
-import AuthScreen from "./components/AuthScreen";              // si usas login por e-mail
-import UpdatePasswordView from "./components/UpdatePasswordView"; // si usas set password
-import { PresentationData, PresentationType, MindMapData, Flashcard, MindMapColorMode } from "./types";
+import {
+  PresentationData,
+  PresentationType,
+  MindMapData,
+  Flashcard,
+  MindMapColorMode,
+} from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Config básica
+// Config
 // ─────────────────────────────────────────────────────────────────────────────
 const FREE_LIMIT = 4;
 
-// Netlify Functions (redirigidas por netlify.toml a /.netlify/functions/*)
+// Netlify Functions (redirigidas a /.netlify/functions/* via netlify.toml)
 const FN_CHECK_SESSION = "/api/check-session";
 const FN_CREATE_CHECKOUT = "/api/create-checkout";
-// opcionales si los tienes
 const FN_PORTAL = "/api/create-portal";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tipos de vista
-// ─────────────────────────────────────────────────────────────────────────────
 type View =
   | "home"
   | "summary"
   | "presentation"
   | "mindmap"
   | "mindmapDiagram"
-  | "flashcards"
-  | "auth"
-  | "updatePassword";
+  | "flashcards";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// App
-// ─────────────────────────────────────────────────────────────────────────────
 const App: React.FC = () => {
   // Navegación
   const [view, setView] = useState<View>("home");
 
-  // Datos de trabajo
+  // Datos
   const [summary, setSummary] = useState<string>("");
   const [summaryTitle, setSummaryTitle] = useState<string>("");
-  const [presentationType, setPresentationType] = useState<PresentationType>(PresentationType.Extensive);
 
-  const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [mindmap, setMindmap] = useState<MindMapData | null>(null);          // mapa mental “más detalle”
-  const [mindmapClassic, setMindmapClassic] = useState<MindMapData | null>(null); // mapa mental clásico (diagrama)
+  const [presentationType, setPresentationType] = useState<PresentationType>(
+    PresentationType.Extensive
+  );
+
+  const [presentation, setPresentation] = useState<PresentationData | null>(
+    null
+  );
+  const [mindmap, setMindmap] = useState<MindMapData | null>(null); // más detalle
+  const [mindmapClassic, setMindmapClassic] = useState<MindMapData | null>(
+    null
+  ); // clásico/diagrama
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
 
   // Suscripción
   const [isPro, setIsPro] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState<boolean>(false);
 
-  // Modal de upgrade
+  // Upgrade
   const [showUpgrade, setShowUpgrade] = useState<boolean>(false);
 
   // Intentos gratis
-  const freeUsed = Number(localStorage.getItem("free_used") || "0");
-  const [freeCount, setFreeCount] = useState<number>(Number.isFinite(freeUsed) ? freeUsed : 0);
+  const initialFree = Number(localStorage.getItem("free_used") || "0");
+  const [freeCount, setFreeCount] = useState<number>(
+    Number.isFinite(initialFree) ? initialFree : 0
+  );
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Utilidades de sesión / PRO
+  // Sesión (comprueba si es PRO)
   // ───────────────────────────────────────────────────────────────────────────
   const refreshSession = useCallback(async () => {
     try {
       setCheckingSession(true);
-      const r = await fetch(FN_CHECK_SESSION, { method: "GET", credentials: "include" });
+      const r = await fetch(FN_CHECK_SESSION, {
+        method: "GET",
+        credentials: "include",
+      });
       if (!r.ok) throw new Error("check-session failed");
       const data = await r.json();
-      // espera { isPro: boolean, user?: {...} }
       setIsPro(Boolean(data?.isPro));
     } catch (e) {
       console.error("check-session error:", e);
@@ -86,7 +92,7 @@ const App: React.FC = () => {
   }, [refreshSession]);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Gating de intentos
+  // Gating de usos
   // ───────────────────────────────────────────────────────────────────────────
   const canUse = useMemo(() => isPro || freeCount < FREE_LIMIT, [isPro, freeCount]);
 
@@ -100,7 +106,7 @@ const App: React.FC = () => {
   const requirePro = () => setShowUpgrade(true);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Callbacks de navegación
+  // Navegación básica
   // ───────────────────────────────────────────────────────────────────────────
   const goHome = () => setView("home");
 
@@ -108,23 +114,17 @@ const App: React.FC = () => {
     setView("summary");
   }, []);
 
-  // Mostrar botón “Volver” en topbar solamente fuera de home/summary
+  // Mostrar "Volver" en topbar solo fuera de home/summary
   const showBack = view !== "home" && view !== "summary";
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Lógica de generación (usa tus funciones/servicios internos si los tienes)
-  // Estas funciones solo cambian la vista y guardan el resultado.
-  // Integra aquí tus llamadas a IA/funciones serverless existentes.
+  // Generadores (integra aquí tus llamadas reales a IA/funciones)
   // ───────────────────────────────────────────────────────────────────────────
-
   const onGeneratePresentation = async () => {
     if (!canUse) return requirePro();
     consumeFree();
 
-    // TODO: Sustituye por TU llamada que genera la presentación
-    // const data = await generatePresentation(summary, presentationType);
-    // setPresentation(data);
-    // DEMO: respeta la estructura si no hay datos aún
+    // TODO: reemplaza por tu llamada real
     const demo: PresentationData = {
       title: summaryTitle || "Mapa conceptual",
       sections: [
@@ -140,8 +140,7 @@ const App: React.FC = () => {
     if (!canUse) return requirePro();
     consumeFree();
 
-    // TODO: Sustituye por TU llamada que genera el mindmap
-    // const data = await generateMindMap(summary, colorMode);
+    // TODO: reemplaza por tu llamada real
     const data: MindMapData = {
       root: {
         id: "root",
@@ -167,7 +166,7 @@ const App: React.FC = () => {
     if (!canUse) return requirePro();
     consumeFree();
 
-    // TODO: Sustituye por TU llamada que genera flashcards
+    // TODO: reemplaza por tu llamada real
     const cards: Flashcard[] = [
       { question: "¿Qué es X?", answer: "X es ..." },
       { question: "¿Cómo funciona Y?", answer: "Y funciona así ..." },
@@ -176,7 +175,6 @@ const App: React.FC = () => {
     setView("flashcards");
   };
 
-  // Reset general (p.ej. botón “Volver a inicio”)
   const handleResetAll = () => {
     setPresentation(null);
     setMindmap(null);
@@ -188,18 +186,18 @@ const App: React.FC = () => {
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Checkout / Portal
+  // Stripe Checkout / Portal
   // ───────────────────────────────────────────────────────────────────────────
   const startCheckout = async () => {
     try {
-      const r = await fetch(FN_CREATE_CHECKOUT, { method: "POST", credentials: "include" });
+      const r = await fetch(FN_CREATE_CHECKOUT, {
+        method: "POST",
+        credentials: "include",
+      });
       if (!r.ok) throw new Error("checkout init failed");
       const data = await r.json();
-      if (data?.url) {
-        window.location.href = data.url; // Stripe Hosted Checkout
-      } else {
-        throw new Error("No checkout URL");
-      }
+      if (data?.url) window.location.href = data.url;
+      else throw new Error("No checkout URL");
     } catch (e) {
       console.error(e);
       alert("No se pudo iniciar el pago. Intenta de nuevo.");
@@ -218,11 +216,11 @@ const App: React.FC = () => {
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Salir (ajusta a tu sistema de auth: Supabase / tu backend)
+  // Logout (ajusta si usas Supabase/otro)
   // ───────────────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
-      // Si usas Supabase: await supabase.auth.signOut();
+      // Ejemplo Supabase: await supabase.auth.signOut();
       // o tu endpoint: await fetch('/api/logout', { method: 'POST', credentials: 'include' });
       localStorage.removeItem("free_used");
     } catch (e) {
@@ -233,7 +231,7 @@ const App: React.FC = () => {
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Topbar (logo→home, PRO, Volver, Salir)
+  // TopBar
   // ───────────────────────────────────────────────────────────────────────────
   const TopBar = () => (
     <header className="sticky top-0 z-50 w-full bg-gray-900/80 backdrop-blur border-b border-gray-800">
@@ -244,14 +242,13 @@ const App: React.FC = () => {
           className="inline-flex items-center gap-2 hover:opacity-90 transition"
           aria-label="Inicio"
         >
-          {/* Ajusta el src de tu logo */}
           <img src="/logo.svg" alt="Logo" className="h-7 w-7 rounded" />
           <span className="font-extrabold tracking-tight">resumetexto</span>
         </button>
 
-        {/* Acciones a la derecha */}
+        {/* Acciones */}
         <div className="ml-auto flex items-center gap-2">
-          {/* PRO Badge */}
+          {/* Badge PRO */}
           {isPro && (
             <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-yellow-400 text-black select-none">
               PRO
@@ -266,9 +263,13 @@ const App: React.FC = () => {
               aria-label="Volver al resumen"
               title="Volver"
             >
-              {/* icono casa */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3l9 8h-3v7h-5v-5h-2v5H6v-7H3l9-8z"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M12 3l9 8h-3v7h-5v-5h-2v5H6v-7H3l9-8z" />
               </svg>
               <span className="hidden sm:inline">Volver</span>
             </button>
@@ -287,19 +288,18 @@ const App: React.FC = () => {
   );
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Home muy simple (pon aquí tu pantalla de carga/entrada)
+  // Home simple (puedes sustituirlo por tu landing)
   // ───────────────────────────────────────────────────────────────────────────
   const Home: React.FC = () => (
     <div className="max-w-3xl mx-auto p-4 sm:p-6">
       <h1 className="text-2xl sm:text-3xl font-bold mb-2">Bienvenido 👋</h1>
       <p className="text-gray-300 mb-4">
-        Sube tu contenido o pega texto para generar el resumen y tus materiales de estudio.
+        Pega texto o carga un archivo para generar el resumen y materiales.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onClick={() => {
-            // Simula que ya tenemos summary/summaryTitle (ajusta esto a tu flujo real)
             if (!summary) setSummary("Texto de ejemplo para el resumen…");
             if (!summaryTitle) setSummaryTitle("Mi documento");
             setView("summary");
@@ -322,13 +322,12 @@ const App: React.FC = () => {
   );
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Render principal por vistas
+  // Render
   // ───────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <TopBar />
 
-      {/* Contenido */}
       <main className="pb-10">
         {view === "home" && <Home />}
 
@@ -378,14 +377,8 @@ const App: React.FC = () => {
             onBack={handleBackToSummary}
           />
         )}
-
-        {view === "auth" && <AuthScreen onDone={() => setView("home")} />}
-        {view === "updatePassword" && (
-          <UpdatePasswordView onDone={() => setView("home")} />
-        )}
       </main>
 
-      {/* Upgrade */}
       {showUpgrade && (
         <UpgradeModal
           isOpen={showUpgrade}
@@ -397,7 +390,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Debug mínimo opcional */}
       {process.env.NODE_ENV === "development" && (
         <div className="fixed bottom-2 right-2 text-[11px] text-gray-400">
           {checkingSession ? "Comprobando sesión…" : isPro ? "PRO" : `Gratis (${freeCount}/${FREE_LIMIT})`}
