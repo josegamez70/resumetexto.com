@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 type Props = {
@@ -7,10 +7,13 @@ type Props = {
 };
 
 export default function UpgradeModal({ open, onClose }: Props) {
+  const [loading, setLoading] = useState(false);
+
   if (!open) return null;
 
   const goPro = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id || null;
       const email  = user?.email || null;
@@ -20,12 +23,16 @@ export default function UpgradeModal({ open, onClose }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, email }),
       });
+
+      if (!res.ok) throw new Error("No se pudo crear la sesión de pago");
       const data = await res.json();
       if (data?.url) window.location.href = data.url;
-      else alert("No se pudo abrir el checkout. Inténtalo de nuevo.");
-    } catch (e) {
+      else throw new Error("Respuesta inválida de Checkout");
+    } catch (e: any) {
       console.error(e);
-      alert("Error iniciando el pago.");
+      alert(e?.message || "Error iniciando el pago.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,9 +50,10 @@ export default function UpgradeModal({ open, onClose }: Props) {
           </button>
           <button
             onClick={goPro}
-            className="flex-1 text-center bg-indigo-600 hover:bg-indigo-700 rounded-lg py-2"
+            disabled={loading}
+            className={`flex-1 text-center rounded-lg py-2 ${loading ? "bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-700"}`}
           >
-            Mejorar a PRO
+            {loading ? "Abriendo pago..." : "Mejorar a PRO"}
           </button>
         </div>
       </div>

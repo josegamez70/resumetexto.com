@@ -41,8 +41,7 @@ import { getAttempts, incAttempt } from "./lib/attempts";
 import { supabase } from "./lib/supabaseClient";
 
 /* ────────────────────────────────────────────────────────────────────────
-   Gate: si no hay usuario => AuthScreen; si viene de reset => UpdatePassword
-   + Cabecera fija con Logo→Home, Badge PRO y botón Salir
+   Gate: cabecera con Logo→Home, Badge PRO y botón Salir
 ────────────────────────────────────────────────────────────────────────── */
 function Gate({ children }: { children: React.ReactNode }) {
   const auth = useAuth() as any;
@@ -287,8 +286,8 @@ const AppInner: React.FC = () => {
     setIsProcessing(true);
     setLoadingMessage(
       colorMode === MindMapColorMode.BlancoNegro
-        ? "🧠 Generando mapa mental (clásico)..."
-        : "🧠 Generando mapa mental (más detalle)..."
+        ? "🧠 Generando mapa mental (clásico)…"
+        : "🧠 Generando mapa mental (más detalle)…"
     );
 
     try {
@@ -317,7 +316,7 @@ const AppInner: React.FC = () => {
   const handleGenerateFlashcards = async () => {
     if (!summary) return;
     setIsProcessing(true);
-    setLoadingMessage("📇 Generando flashcards, un momento por favor...");
+    setLoadingMessage("📇 Generando flashcards, un momento por favor…");
     try {
       const cards = await generateFlashcards(summary);
       setFlashcards(cards);
