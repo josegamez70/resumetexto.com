@@ -5,8 +5,8 @@ type Props = {
   data: MindMapData;
   summaryTitle?: string | null;
   colorMode: MindMapColorMode;
-  onBack: () => void;   // ← ya existe
-  onHome?: () => void;  // no lo usamos aquí
+  onBack: () => void;
+  onHome?: () => void;
 };
 
 const BackToSummaryFab: React.FC<{ onClick: () => void }> = ({ onClick }) => (
@@ -19,7 +19,7 @@ const BackToSummaryFab: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   </button>
 );
 
-// Helpers (sin cambios de layout)
+// Helpers
 const maxWidthCh = (level: number) => (level === 0 ? 34 : level === 1 ? 28 : level === 2 ? 26 : 24);
 const isContentful = (n?: Partial<MindMapNode>) => Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
@@ -164,10 +164,52 @@ const NodeBox: React.FC<{
   );
 };
 
-const MindMapView: React.FC<Props> = ({ data, onBack }) => {
+const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
   const [accordionIndex, setAccordionIndex] = useState<number | null>(null);
+
+  const esc = (s: string = "") =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const sanitizeFilename = (s: string) =>
+    (s || "mapa_mental")
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .slice(0, 60);
+
+  // 💾 Descargar HTML del mapa mental (estructura UL/LI)
+  const downloadHTML = () => {
+    const nodeToList = (n: MindMapNode): string => {
+      const children = (n.children || []).filter(isContentful);
+      const note = n.note ? `<div style="font-size:12px;opacity:.85;margin-top:2px">${esc(n.note)}</div>` : "";
+      const kids = children.length ? `<ul>${children.map(nodeToList).join("")}</ul>` : "";
+      return `<li><div style="font-weight:600">${esc(n.label)}</div>${note}${kids}</li>`;
+    };
+
+    const html = `<!doctype html><html lang="es">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${esc(summaryTitle || "Mapa mental")}</title>
+</head>
+<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#0b1220;color:#fff;padding:16px;">
+  <header style="margin-bottom:12px">
+    <h1 style="margin:0 0 4px;font-size:24px;">🧠 Mapa mental — más detalle</h1>
+    <div style="color:#facc15;font-style:italic">${esc(summaryTitle || "")}</div>
+  </header>
+  <main style="background:#111827;border:1px solid #374151;border-radius:10px;padding:16px;">
+    <ul style="list-style:disc;margin-left:20px">${nodeToList(data.root)}</ul>
+  </main>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${sanitizeFilename(summaryTitle || "mapa_mental")}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
@@ -194,6 +236,13 @@ const MindMapView: React.FC<Props> = ({ data, onBack }) => {
             className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
           >
             Colapsar todos
+          </button>
+          {/* 💾 Descargar HTML (restaurado) */}
+          <button
+            onClick={downloadHTML}
+            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm"
+          >
+            💾 Descargar HTML
           </button>
         </div>
 

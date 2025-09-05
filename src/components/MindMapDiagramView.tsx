@@ -123,7 +123,7 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
   );
 };
 
-const MindMapDiagramView: React.FC<Props> = ({ data, onBack }) => {
+const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
@@ -199,12 +199,57 @@ const MindMapDiagramView: React.FC<Props> = ({ data, onBack }) => {
     setS(1);
   };
 
+  const esc = (s: string = "") =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const sanitizeFilename = (s: string) =>
+    (s || "mapa_mental_clasico")
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .slice(0, 60);
+
+  // 💾 Descargar HTML (estructura simple jerárquica)
+  const downloadHTML = () => {
+    const nodeToList = (n: MindMapNode): string => {
+      const children = (n.children || []).filter((c) => String(c?.label ?? "").trim());
+      const kids = children.length ? `<ul>${children.map(nodeToList).join("")}</ul>` : "";
+      return `<li><div style="font-weight:600">${esc(n.label)}</div>${kids}</li>`;
+    };
+
+    const html = `<!doctype html><html lang="es">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${esc(summaryTitle || "Mapa mental (clásico)")}</title>
+</head>
+<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#0b1220;color:#fff;padding:16px;">
+  <header style="margin-bottom:12px">
+    <h1 style="margin:0 0 4px;font-size:24px;">🗺️ Mapa mental — clásico</h1>
+    <div style="color:#facc15;font-style:italic">${esc(summaryTitle || "")}</div>
+  </header>
+  <main style="background:#111827;border:1px solid #374151;border-radius:10px;padding:16px;">
+    <ul style="list-style:disc;margin-left:20px">${nodeToList(data.root)}</ul>
+  </main>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${sanitizeFilename(summaryTitle || "mapa_mental_clasico")}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3 sm:p-6">
       <div className="flex flex-wrap gap-2 mb-3 justify-start">
         <button onClick={() => setS((v) => Math.max(0.28, Math.min(2, v * 1.1)))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
         <button onClick={() => setS((v) => Math.max(0.28, Math.min(2, v * 0.9)))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
         <button onClick={center} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">Centrar</button>
+        {/* 💾 Descargar HTML (restaurado) */}
+        <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-2 text-sm">
+          💾 Descargar HTML
+        </button>
       </div>
 
       <div
