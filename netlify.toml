@@ -1,6 +1,6 @@
 [build]
   command   = "npm run build"
-  publish   = "dist"          # usa "build" si CRA
+  publish   = "build"                 # <- aquí el cambio
   functions = "netlify/functions"
 
 [functions]
@@ -9,3 +9,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# (opcional) redirige /api/* a funciones
+[[redirects]]
+  from = "/api/*"
+  to   = "/.netlify/functions/:splat"
+  status = 200
