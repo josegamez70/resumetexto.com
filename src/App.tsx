@@ -128,8 +128,20 @@ const App: React.FC = () => {
     const demo: PresentationData = {
       title: summaryTitle || "Mapa conceptual",
       sections: [
-        { emoji: "📌", title: "Sección 1", content: "Contenido 1", subsections: [] },
-        { emoji: "📌", title: "Sección 2", content: "Contenido 2", subsections: [] },
+        {
+          id: "sec-1",
+          emoji: "📌",
+          title: "Sección 1",
+          content: "Contenido 1",
+          subsections: [],
+        },
+        {
+          id: "sec-2",
+          emoji: "📌",
+          title: "Sección 2",
+          content: "Contenido 2",
+          subsections: [],
+        },
       ],
     };
     setPresentation(demo);
@@ -243,7 +255,6 @@ const App: React.FC = () => {
           aria-label="Inicio"
         >
           <img src="/logo.svg" alt="Logo" className="h-7 w-7 rounded" />
-          <span className="font-extrabold tracking-tight">resumetexto</span>
         </button>
 
         {/* Acciones */}
