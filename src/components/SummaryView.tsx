@@ -28,6 +28,10 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   const [speaking, setSpeaking] = useState(false);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
+  // NUEVO: acción seleccionada para la barra central
+  type Action = "conceptual" | "mindmap-bw" | "mindmap-color" | "flashcards";
+  const [selectedAction, setSelectedAction] = useState<Action>("conceptual");
+
   useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
 
   const handleSpeak = () => {
@@ -90,6 +94,32 @@ const SummaryView: React.FC<SummaryViewProps> = ({
     }
   };
 
+  // NUEVO: ejecuta la acción seleccionada en la barra central
+  const handleCentralGenerate = () => {
+    switch (selectedAction) {
+      case "conceptual":
+        onGeneratePresentation();
+        break;
+      case "mindmap-bw":
+        onOpenMindMap(MindMapColorMode.BlancoNegro);
+        break;
+      case "mindmap-color":
+        onOpenMindMap(MindMapColorMode.Color);
+        break;
+      case "flashcards":
+        onGenerateFlashcards();
+        break;
+    }
+  };
+
+  // estilos de chips del selector
+  const chip = (active: boolean) =>
+    `px-3 py-2 rounded-lg border text-sm sm:text-base ${
+      active
+        ? "border-yellow-400 bg-yellow-400/15 text-yellow-300"
+        : "border-gray-600 bg-gray-800/40 text-gray-200 hover:bg-gray-800/70"
+    }`;
+
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 animate-fadeIn">
       <div className="mb-4 sm:mb-6">
@@ -126,7 +156,12 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           </select>
 
           <div className="mt-4">
-            <button onClick={onGeneratePresentation} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">Generar mapa conceptual</button>
+            <button
+              onClick={() => { setSelectedAction("conceptual"); onGeneratePresentation(); }}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+            >
+              Generar mapa conceptual
+            </button>
           </div>
         </div>
 
@@ -144,7 +179,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
                 type="radio"
                 name="colormode"
                 checked={colorMode === MindMapColorMode.BlancoNegro}
-                onChange={() => setColorMode(MindMapColorMode.BlancoNegro)}
+                onChange={() => { setColorMode(MindMapColorMode.BlancoNegro); setSelectedAction("mindmap-bw"); }}
               />
               Clásico
             </label>
@@ -153,32 +188,102 @@ const SummaryView: React.FC<SummaryViewProps> = ({
                 type="radio"
                 name="colormode"
                 checked={colorMode === MindMapColorMode.Color}
-                onChange={() => setColorMode(MindMapColorMode.Color)}
+                onChange={() => { setColorMode(MindMapColorMode.Color); setSelectedAction("mindmap-color"); }}
               />
               Más detalle
             </label>
           </div>
 
           <div className="mt-4">
-            <button onClick={() => onOpenMindMap(colorMode)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
+            <button
+              onClick={() => {
+                const action = colorMode === MindMapColorMode.BlancoNegro ? "mindmap-bw" : "mindmap-color";
+                setSelectedAction(action);
+                onOpenMindMap(colorMode);
+              }}
+              className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded"
+            >
+              Generar mapa mental
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Flashcards */}
-      <div className="mt-4 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
+      {/* ───────────────── Selector + BARRA CENTRAL (amarilla parpadeante) ───────────────── */}
+      <div className="mt-6 sm:mt-8">
+        <div className="flex flex-wrap gap-2 justify-center mb-3">
+          <button
+            onClick={() => setSelectedAction("conceptual")}
+            className={chip(selectedAction === "conceptual")}
+          >
+            🧩 Conceptual
+          </button>
+          <button
+            onClick={() => setSelectedAction("mindmap-bw")}
+            className={chip(selectedAction === "mindmap-bw")}
+          >
+            🗺️ Mental clásico
+          </button>
+          <button
+            onClick={() => setSelectedAction("mindmap-color")}
+            className={chip(selectedAction === "mindmap-color")}
+          >
+            🧠 Mental detalle
+          </button>
+          <button
+            onClick={() => setSelectedAction("flashcards")}
+            className={chip(selectedAction === "flashcards")}
+          >
+            📇 Flashcards
+          </button>
+        </div>
+
+        <div className="flex justify-center">
+          <button
+            onClick={handleCentralGenerate}
+            className="w-full sm:w-2/3 lg:w-1/2 py-3 sm:py-4 rounded-xl bg-yellow-400 text-black font-extrabold text-base sm:text-lg
+                       shadow-lg animate-pulse hover:animate-none hover:bg-yellow-300"
+            aria-label="Generar"
+          >
+            GENERAR
+          </button>
+        </div>
+
+        {/* Botón Atrás / Inicio centrado */}
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={onReset}
+            className="px-4 py-2 rounded-lg border border-gray-600 text-white hover:bg-gray-700/40 inline-flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3l9 8h-3v7h-5v-5H11v5H6v-7H3l9-8z"/>
+            </svg>
+            Atrás / Inicio
+          </button>
+        </div>
+      </div>
+
+      {/* Flashcards (se mantiene como antes) */}
+      <div className="mt-6 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
         <h2 className="text-xl sm:text-2xl font-bold mb-2">📇 Flashcards</h2>
         <p className="text-gray-300 mb-4 text-sm sm:text-base">
           <strong>¿Qué son?</strong> Tarjetas con una pregunta por delante y su respuesta por detrás. Ideal para el repaso activo.
         </p>
         <div className="mt-4">
-          <button onClick={onGenerateFlashcards} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Generar flashcards</button>
+          <button
+            onClick={() => { setSelectedAction("flashcards"); onGenerateFlashcards(); }}
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded"
+          >
+            Generar flashcards
+          </button>
         </div>
       </div>
 
+      {/* Puedes dejar o quitar este botón si no quieres duplicarlo.
+          Lo dejo comentado para no duplicar con el de arriba.
       <div className="mt-6">
         <button onClick={onReset} className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">Volver a inicio</button>
-      </div>
+      </div> */}
     </div>
   );
 };
