@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 /* ─── Auth ─────────────────────────────────────────────────────────────── */
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
@@ -14,7 +14,7 @@ import MindMapDiagramView from "./components/MindMapDiagramView";
 import FlashcardView from "./components/FlashcardView";
 import UpgradeModal from "./components/UpgradeModal";
 
-/* ─── Services ─────────────────────────────────────────────────────────── */
+/* ─── Servicios IA ────────────────────────────────────────────────────── */
 import {
   summarizeContent,
   createPresentation,
@@ -37,14 +37,14 @@ import {
 /* ─── Paywall helpers ─────────────────────────────────────────────────── */
 import { getAttempts, incAttempt } from "./lib/attempts";
 
-/* ─── Supabase client (para reflejar intentos en BD) ──────────────────── */
+/* ─── Supabase client ─────────────────────────────────────────────────── */
 import { supabase } from "./lib/supabaseClient";
 
 /* ────────────────────────────────────────────────────────────────────────
    Gate: si no hay usuario => AuthScreen; si viene de reset => UpdatePassword
+   + Cabecera fija con Logo→Home, Badge PRO y botón Salir
 ────────────────────────────────────────────────────────────────────────── */
 function Gate({ children }: { children: React.ReactNode }) {
-  // 🔧 Tomamos el contexto como 'any' para no depender de que exponga 'recovering'
   const auth = useAuth() as any;
   const { user, loading, signOut } = auth;
   const recovering = !!auth?.recovering;
@@ -57,33 +57,50 @@ function Gate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Si el usuario llega desde el email de recuperación de contraseña,
-  // primero forzamos el cambio de contraseña (si el provider lo soporta).
-  if (recovering) {
-    return <UpdatePasswordView />;
-  }
-
-  if (!user) {
-    return <AuthScreen />;
-  }
+  if (recovering) return <UpdatePasswordView />;
+  if (!user) return <AuthScreen />;
 
   return (
     <>
-      <div className="fixed top-2 right-2 z-50">
-        <button
-          onClick={signOut}
-          className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
-        >
-          Salir
-        </button>
-      </div>
-      {children}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-gray-900/80 backdrop-blur border-b border-gray-800">
+        <div className="max-w-5xl mx-auto flex items-center justify-between px-3 py-2">
+          {/* Logo → Home */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("go-home"))}
+            className="flex items-center gap-2 group"
+          >
+            <div className="h-8 w-8 rounded-xl bg-yellow-400 text-black font-extrabold grid place-items-center group-active:scale-95">
+              R
+            </div>
+            <span className="text-white/90 font-semibold">Resumetexto</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Badge PRO: lo actualiza AppInner vía localStorage */}
+            {typeof window !== "undefined" &&
+              localStorage.getItem("rtx_is_pro") === "1" && (
+                <span className="text-xs px-2 py-1 rounded-full border border-emerald-500 text-emerald-300 bg-emerald-500/10">
+                  PRO
+                </span>
+              )}
+            <button
+              onClick={signOut}
+              className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Empuje para que el contenido no quede bajo la barra */}
+      <div className="pt-14">{children}</div>
     </>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   App real: límite 4 intentos + modal Upgrade + lógica IA
+   App real: límite 4 intentos (free) + modal Upgrade + lógica IA
 ────────────────────────────────────────────────────────────────────────── */
 const AppInner: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
@@ -110,58 +127,89 @@ const AppInner: React.FC = () => {
   // Paywall modal
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  // Límite gratis (localStorage) y clave de usuario
+  // Límite gratis y clave de usuario
   const auth = useAuth() as any;
   const user = auth?.user || null;
-  const FREE_LIMIT = 4;
+
+  // PRO dinámico: si es PRO, sin límite
+  const [isPro, setIsPro] = useState(false);
+  const FREE_LIMIT = isPro ? Infinity : 4;
   const userKey = user?.id ?? "anon";
 
+  // Cargar plan desde Supabase y sincronizar badge
+  const loadPlan = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        setIsPro(false);
+        localStorage.setItem("rtx_is_pro", "0");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .maybeSingle();
+      const pro = !error && data?.plan === "pro";
+      setIsPro(!!pro);
+      localStorage.setItem("rtx_is_pro", pro ? "1" : "0");
+    } catch {
+      setIsPro(false);
+      localStorage.setItem("rtx_is_pro", "0");
+    }
+  };
+
+  useEffect(() => {
+    loadPlan();
+    // si volvemos de Checkout con ?paid=1, recarga plan
+    if (typeof window !== "undefined" && window.location.search.includes("paid=1")) {
+      loadPlan();
+    }
+  }, []);
+
+  // Listener para ir a Home cuando se toca el logo
+  useEffect(() => {
+    const goHome = () => handleResetAll();
+    window.addEventListener("go-home" as any, goHome as any);
+    return () => window.removeEventListener("go-home" as any, goHome as any);
+  }, []);
+
   const handleResetAll = () => {
+    setError(null);
+    setLoadingMessage(null);
+    setIsProcessing(false);
     setSummary(null);
     setSummaryTitle(null);
     setPresentation(null);
     setMindmap(null);
     setFlashcards(null);
-    setError(null);
-    setLoadingMessage(null);
     setView(ViewState.UPLOADER);
   };
 
-  const handleBackToSummary = () => setView(ViewState.SUMMARY);
-
-  /** Refleja +1 intento en Supabase si hay usuario */
   async function recordAttemptInSupabase() {
-    if (!user?.id) return;
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
       const { data, error } = await supabase
         .from("profiles")
         .select("attempts")
         .eq("id", user.id)
         .maybeSingle();
-
-      if (error) {
-        console.warn("profiles select attempts error:", error);
-        return;
-      }
+      if (error) return;
 
       const current = (data?.attempts as number | null) ?? 0;
-
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({ attempts: current + 1 })
-        .eq("id", user.id);
-
-      if (updErr) console.warn("profiles update attempts error:", updErr);
-    } catch (e) {
-      console.warn("recordAttemptInSupabase exception:", e);
+      await supabase.from("profiles").update({ attempts: current + 1 }).eq("id", user.id);
+    } catch {
+      /* no-op */
     }
   }
 
   /** Subir y resumir (consume intento tras éxito) */
-  const handleFileUpload = async (file: File, summaryType: SummaryType) => {
+  const handleFileUpload = async (file: File, selectedSummaryType: SummaryType) => {
     setError(null);
 
-    // Pre-check de intentos en local
+    // Pre-check de intentos local
     const attempts = getAttempts(userKey);
     if (attempts >= FREE_LIMIT) {
       setShowUpgrade(true);
@@ -172,20 +220,18 @@ const AppInner: React.FC = () => {
     setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
 
     try {
-      const generatedSummary = await summarizeContent(file, summaryType);
+      const generatedSummary = await summarizeContent(file, selectedSummaryType);
       setSummary(generatedSummary);
       setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
       setView(ViewState.SUMMARY);
 
-      // Consumir intento local y reflejar en Supabase si hay usuario
+      // +1 intento (local + BD)
       incAttempt(userKey);
       await recordAttemptInSupabase();
     } catch (err) {
       console.error(err);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar el resumen."
+        err instanceof Error ? err.message : "Error desconocido al generar el resumen."
       );
     } finally {
       setLoadingMessage(null);
@@ -197,21 +243,13 @@ const AppInner: React.FC = () => {
     if (!summary) return;
     setIsProcessing(true);
     setLoadingMessage("⏳ Generando mapa conceptual, puede tardar unos minutos...");
-
     try {
-      const generatedPresentation = await createPresentation(
-        summary,
-        presentationType
-      );
+      const generatedPresentation = await createPresentation(summary, presentationType);
       setPresentation(generatedPresentation);
       setView(ViewState.PRESENTATION);
     } catch (err) {
       console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar el mapa conceptual."
-      );
+      setError("No se pudo generar la presentación.");
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
@@ -232,7 +270,9 @@ const AppInner: React.FC = () => {
         (presentation && flattenPresentationToText(presentation)) ||
         summary ||
         "";
-      if (!baseText) throw new Error("No hay contenido para generar el mapa mental.");
+      if (!baseText) {
+        throw new Error("No hay contenido para generar el mapa mental.");
+      }
 
       const data = await createMindMapFromText(baseText);
       setMindmap(data);
@@ -253,8 +293,8 @@ const AppInner: React.FC = () => {
     setIsProcessing(true);
     setLoadingMessage("📇 Generando flashcards, un momento por favor...");
     try {
-      const generatedFlashcards = await generateFlashcards(summary);
-      setFlashcards(generatedFlashcards);
+      const cards = await generateFlashcards(summary);
+      setFlashcards(cards);
       setView(ViewState.FLASHCARDS);
     } catch (err) {
       console.error(err);
@@ -267,20 +307,26 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleBackToSummary = () => setView(ViewState.SUMMARY);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
-      {error && <div className="bg-red-500 text-white p-2 rounded mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-600/20 border border-red-500 text-red-200 px-4 py-2 rounded mb-3">
+          {error}
+        </div>
+      )}
 
       {loadingMessage && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-          <div className="bg-yellow-500 text-black p-4 rounded-lg text-center font-semibold animate-pulse max-w-xs">
-            {loadingMessage}
-          </div>
+        <div className="bg-indigo-600/20 border border-indigo-500 text-indigo-200 px-4 py-2 rounded mb-3">
+          {loadingMessage}
         </div>
       )}
 
       {view === ViewState.UPLOADER && (
-        <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+        <div className="max-w-3xl mx-auto">
+          <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+        </div>
       )}
 
       {view === ViewState.SUMMARY && summary && (
@@ -302,28 +348,33 @@ const AppInner: React.FC = () => {
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
           onBackToSummary={handleBackToSummary}
+          onHome={handleResetAll}            // ← botón Inicio
         />
       )}
 
       {view === ViewState.MINDMAP && mindmap && (
-        mindMapColorMode === MindMapColorMode.BlancoNegro ? (
-          <MindMapDiagramView
-            data={mindmap}
-            summaryTitle={summaryTitle}
-            onBack={() =>
-              setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
-            }
-          />
-        ) : (
-          <MindMapView
-            data={mindmap}
-            summaryTitle={summaryTitle}
-            colorMode={mindMapColorMode}
-            onBack={() =>
-              setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
-            }
-          />
-        )
+        <>
+          {mindMapColorMode === MindMapColorMode.BlancoNegro ? (
+            <MindMapDiagramView
+              data={mindmap}
+              summaryTitle={summaryTitle}
+              onBack={() =>
+                setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
+              }
+              onHome={handleResetAll}        // ← botón Inicio
+            />
+          ) : (
+            <MindMapView
+              data={mindmap}
+              summaryTitle={summaryTitle}
+              colorMode={mindMapColorMode}
+              onBack={() =>
+                setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
+              }
+              onHome={handleResetAll}        // ← botón Inicio
+            />
+          )}
+        </>
       )}
 
       {view === ViewState.FLASHCARDS && flashcards && (
@@ -334,7 +385,6 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      {/* Modal Upgrade cuando se acaban los 4 intentos */}
       <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );

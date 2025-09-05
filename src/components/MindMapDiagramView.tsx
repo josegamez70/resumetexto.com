@@ -1,17 +1,13 @@
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
-// ──────────────────────────────────────────────
 // Utils
-// ──────────────────────────────────────────────
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-
 const STOP = new Set([
   "de","del","la","el","los","las","y","o","u","en","a","al","con","por","para","un","una","uno","unos","unas",
   "que","se","su","sus","es","son","como","si","no","más","menos","lo","las","les","le","e"
 ]);
-
-function simplifyLabel(raw: string, maxWords = 4) {
+const simplifyLabel = (raw: string, maxWords = 4) => {
   const clean = (raw || "")
     .replace(/[().,:;/-]+/g, " ")
     .replace(/\s+/g, " ")
@@ -19,7 +15,6 @@ function simplifyLabel(raw: string, maxWords = 4) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
   const tokens = clean.split(" ").filter(Boolean);
-
   const picked: string[] = [];
   for (const t of tokens) {
     const w = t.toLowerCase();
@@ -29,23 +24,15 @@ function simplifyLabel(raw: string, maxWords = 4) {
   }
   if (picked.length === 0) picked.push(...tokens.slice(0, Math.min(3, tokens.length)));
   return picked.join(" ");
-}
-
+};
 const hasKids = (n: MindMapNode) => (n.children || []).some(c => String(c?.label ?? "").trim());
 
-// ──────────────────────────────────────────────
 // UI
-// ──────────────────────────────────────────────
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
     aria-hidden="true"
     className={`inline-block ml-2 transition-transform ${open ? "rotate-90" : "rotate-0"}`}
-    style={{
-      width: 0, height: 0,
-      borderTop: "5px solid transparent",
-      borderBottom: "5px solid transparent",
-      borderLeft: "7px solid currentColor",
-    }}
+    style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "7px solid currentColor" }}
   />
 );
 
@@ -78,9 +65,7 @@ const ConnectorRight: React.FC = () => (
   </svg>
 );
 
-// ──────────────────────────────────────────────
 // Nodo interactivo
-// ──────────────────────────────────────────────
 const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node, level }) => {
   const [open, setOpen] = useState(false);
   const kids = (node.children || []).filter(c => String(c?.label ?? "").trim());
@@ -130,12 +115,10 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
   );
 };
 
-// ──────────────────────────────────────────────
 // Vista principal con Pan/Zoom + export HTML
-// ──────────────────────────────────────────────
-type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void };
+type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void; onHome?: () => void; };
 
-const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
+const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) => {
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
@@ -147,7 +130,7 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   const pinch = useRef<{ active: boolean; startDist: number; startScale: number }>({
     active: false, startDist: 0, startScale: 1,
   });
-  const MOVE_THRESHOLD = 3; // px: evita robar el click en desktop
+  const MOVE_THRESHOLD = 3; // evita robar el click en desktop
 
   const title = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
@@ -160,7 +143,6 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // sin setPointerCapture para no comerse el click
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     lastPan.current = { x: e.clientX, y: e.clientY };
     panActive.current = false;
@@ -211,8 +193,8 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 
   const center = () => { setTx(0); setTy(0); setS(1); };
 
-  // Export HTML con título + layout de impresión
-  const esc = (x = "") => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const esc = (x = "") =>
+    x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
   const serialize = (n: MindMapNode, level = 0): string => {
     const kids = (n.children || []).filter(c => String(c?.label ?? "").trim());
@@ -237,11 +219,10 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
 <style>
   :root{color-scheme:light dark}
   body{margin:0;background:#0f172a;color:#fff;font-family:system-ui,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
-  .toolbar{display:flex;gap:8px;padding:8px;background:#1f2937;position:sticky;top:0}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:8px;background:#1f2937;position:sticky;top:0}
   button.ctrl{background:#374151;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
   #vp{position:relative;height:80vh;overflow:hidden;touch-action:none;cursor:grab}
   #world{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + 0px),calc(-50% + 0px)) scale(1);transform-origin:0 0}
-
   .page-title{display:none;margin:16px 16px 0 16px;font-weight:800;font-size:20px}
   .row{display:flex;gap:16px;align-items:flex-start}
   .row.nowrap{flex-wrap:nowrap}
@@ -251,26 +232,15 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
   .conn{width:42px;height:30px;display:none}
   @media(min-width:640px){ .conn{display:block} }
   .conn path{stroke:rgba(148,163,184,.6);stroke-width:1.5;fill:none}
-
   .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;min-width:16ch;max-width:26ch;font-weight:600;line-height:1.15;color:#fff}
   .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;min-width:18ch;max-width:32ch}
   .box[data-toggle="1"]{cursor:pointer}
   .caret{display:inline-block;margin-left:8px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;vertical-align:middle;transform:rotate(0);transition:transform .15s ease}
   .node.open > .box .caret{transform:rotate(90deg)}
-
-  /* ===== Modo impresión ===== */
-  @media print {
-    body{background:#fff;color:#000}
-    .toolbar{display:none}
-    .page-title{display:block}
-    #vp{height:auto;overflow:visible}
-    #world{position:static;transform:none !important;margin:0 16px}
-    .row.nowrap{flex-wrap:wrap}        /* permite saltar a varias filas */
-    .conn{display:none}                /* oculta el gancho curvo */
-    .box{background:#fff;color:#000;border-color:#bbb}
-  }
+  @media print { .toolbar{display:none} .page-title{display:block} #vp{height:auto;overflow:visible} #world{position:static;transform:none !important;margin:0 16px} .row.nowrap{flex-wrap:wrap} .conn{display:none} .box{background:#fff;color:#000;border-color:#bbb} }
 </style>
 <div class="toolbar">
+  <button class="ctrl" onclick="location.hash='#home'">🏠 Inicio</button>
   <button class="ctrl" onclick="zoom(1.1)">＋</button>
   <button class="ctrl" onclick="zoom(0.9)">−</button>
   <button class="ctrl" onclick="center()">Centrar</button>
@@ -284,67 +254,22 @@ const pointers=new Map();
 let panActive=false; let lastPan={x:0,y:0};
 const pinch={active:false,startDist:0,startScale:1};
 const MOVE_THRESHOLD=3;
-
 const vp=document.getElementById('vp'), world=document.getElementById('world');
 function apply(){ world.style.transform = \`translate(calc(-50% + \${tx}px), calc(-50% + \${ty}px)) scale(\${s})\`; }
 function zoom(f){ s=Math.max(0.43, Math.min(2.0, s*f)); apply(); }
 function center(){ tx=0; ty=0; s=1; apply(); }
 function getDist(){ const a=[...pointers.values()]; if(a.length<2) return 0; const dx=a[0].x-a[1].x, dy=a[0].y-a[1].y; return Math.hypot(dx,dy); }
-
-/* Gestos */
-vp.addEventListener('pointerdown',e=>{
-  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  lastPan={x:e.clientX,y:e.clientY}; panActive=false;
-  if(pointers.size===2){ pinch.active=true; pinch.startDist=getDist(); pinch.startScale=s; }
-});
-vp.addEventListener('pointermove',e=>{
-  if(!pointers.has(e.pointerId)) return;
-  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pinch.active && pointers.size>=2){
-    const dist=getDist()||1, factor=dist/(pinch.startDist||1);
-    s=Math.max(0.43, Math.min(2.0, pinch.startScale*factor)); apply(); return;
-  }
-  if(pointers.size===1){
-    const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y, d=Math.hypot(dx,dy);
-    if(!panActive && d>MOVE_THRESHOLD) panActive=true;
-    if(panActive){ lastPan={x:e.clientX,y:e.clientY}; tx+=dx; ty+=dy; apply(); }
-  }
-},{passive:false});
+vp.addEventListener('pointerdown',e=>{ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastPan={x:e.clientX,y:e.clientY}; panActive=false; if(pointers.size===2){ pinch.active=true; pinch.startDist=getDist(); pinch.startScale=s; }});
+vp.addEventListener('pointermove',e=>{ if(!pointers.has(e.pointerId)) return; pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch.active && pointers.size>=2){ const dist=getDist()||1, factor=dist/(pinch.startDist||1); s=Math.max(0.43, Math.min(2.0, pinch.startScale*factor)); apply(); return; }
+  if(pointers.size===1){ const dx=e.clientX-lastPan.x, dy=e.clientY-lastPan.y, d=Math.hypot(dx,dy); if(!panActive && d>MOVE_THRESHOLD) panActive=true;
+    if(panActive){ lastPan={x:e.clientX,y:e.clientY}; tx+=dx; ty+=dy; apply(); } } },{passive:false});
 function endPointer(e){ pointers.delete(e.pointerId); if(pointers.size<2) pinch.active=false; if(pointers.size===0) panActive=false; }
 vp.addEventListener('pointerup',endPointer); vp.addEventListener('pointercancel',endPointer); vp.addEventListener('pointerleave',endPointer);
 vp.addEventListener('wheel',e=>{ e.preventDefault(); zoom(e.deltaY>0?0.9:1.1); }, {passive:false});
-
-/* Desplegar al imprimir */
-function expandAll(){
-  document.querySelectorAll('.node').forEach(n=>{
-    n.classList.add('open');
-    const d=n.querySelector(':scope > .down'); if(d) d.style.display='flex';
-    const v=n.querySelector(':scope > .vline'); if(v) v.style.display='block';
-  });
-}
-window.addEventListener('beforeprint', ()=>{
-  try{ center(); }catch(e){}
-  expandAll();
-});
-/* Estado por defecto: todo cerrado salvo la fila raíz */
-Array.from(world.querySelectorAll('.node')).forEach(n=>{
-  n.classList.remove('open');
-  const d=n.querySelector(':scope > .down'); if(d) d.style.display='none';
-  const v=n.querySelector(':scope > .vline'); if(v) v.style.display='none';
-});
-
-/* Toggle normal */
-world.addEventListener('click', function(e){
-  const btn = e.target.closest('.box');
-  if(!btn || btn.dataset.toggle!=="1") return;
-  const node = btn.parentElement;
-  node.classList.toggle('open');
-  const open = node.classList.contains('open');
-  const down = node.querySelector(':scope > .down');
-  const vline= node.querySelector(':scope > .vline');
-  if(down){ down.style.display = open ? 'flex' : 'none'; }
-  if(vline){ vline.style.display = open ? 'block' : 'none'; }
-});
+window.addEventListener('beforeprint', ()=>{ try{ center(); }catch(e){} document.querySelectorAll('.node').forEach(n=>{ n.classList.add('open'); const d=n.querySelector(':scope > .down'); if(d) d.style.display='flex'; const v=n.querySelector(':scope > .vline'); if(v) v.style.display='block'; }); });
+Array.from(world.querySelectorAll('.node')).forEach(n=>{ n.classList.remove('open'); const d=n.querySelector(':scope > .down'); if(d) d.style.display='none'; const v=n.querySelector(':scope > .vline'); if(v) v.style.display='none'; });
+world.addEventListener('click', function(e){ const btn = e.target.closest('.box'); if(!btn || btn.dataset.toggle!=="1") return; const node = btn.parentElement; node.classList.toggle('open'); const open = node.classList.contains('open'); const down = node.querySelector(':scope > .down'); const vline= node.querySelector(':scope > .vline'); if(down){ down.style.display = open ? 'flex' : 'none'; } if(vline){ vline.style.display = open ? 'block' : 'none'; }});
 </script>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -354,12 +279,22 @@ world.addEventListener('click', function(e){
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3 sm:p-6">
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-3 justify-start">
+        <button
+          onClick={onHome || onBack}
+          className="inline-flex items-center justify-center gap-2 border border-gray-600 text-gray-100 hover:bg-gray-700/40 rounded-lg px-3 py-2 text-sm"
+          aria-label="Inicio"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3l9 8h-3v7h-5v-5H11v5H6v-7H3l9-8z"/>
+          </svg>
+          <span>Inicio</span>
+        </button>
+
         <button onClick={()=>setS(v=>clamp(v*1.1, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">＋</button>
         <button onClick={()=>setS(v=>clamp(v*0.9, .28, 2))} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">−</button>
         <button onClick={center} className="bg-gray-700 rounded-lg px-3 py-2 text-sm">Centrar</button>
         <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-2 text-sm">💾 Descargar HTML</button>
-        <button onClick={onBack} className="border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg px-3 py-2 text-sm ml-auto">Volver</button>
       </div>
 
       <div

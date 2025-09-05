@@ -1,4 +1,5 @@
 import React from "react";
+import { supabase } from "../lib/supabaseClient";
 
 type Props = {
   open: boolean;
@@ -7,6 +8,26 @@ type Props = {
 
 export default function UpgradeModal({ open, onClose }: Props) {
   if (!open) return null;
+
+  const goPro = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || null;
+      const email  = user?.email || null;
+
+      const res = await fetch("/.netlify/functions/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, email }),
+      });
+      const data = await res.json();
+      if (data?.url) window.location.href = data.url;
+      else alert("No se pudo abrir el checkout. Inténtalo de nuevo.");
+    } catch (e) {
+      console.error(e);
+      alert("Error iniciando el pago.");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
@@ -20,12 +41,12 @@ export default function UpgradeModal({ open, onClose }: Props) {
           <button onClick={onClose} className="flex-1 border border-gray-600 rounded-lg py-2">
             Cerrar
           </button>
-          <a
-            href="/pro" // cámbialo a tu checkout cuando lo tengas
+          <button
+            onClick={goPro}
             className="flex-1 text-center bg-indigo-600 hover:bg-indigo-700 rounded-lg py-2"
           >
             Mejorar a PRO
-          </a>
+          </button>
         </div>
       </div>
     </div>
