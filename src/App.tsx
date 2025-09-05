@@ -9,6 +9,7 @@ import UpgradeModal from "./components/UpgradeModal";
 import {
   PresentationData,
   PresentationType,
+  PresentationSection,
   MindMapData,
   Flashcard,
   MindMapColorMode,
@@ -127,20 +128,21 @@ const App: React.FC = () => {
     // TODO: reemplaza por tu llamada real
     const demo: PresentationData = {
       title: summaryTitle || "Mapa conceptual",
+      type: presentationType, // ← requerido por PresentationData
       sections: [
         {
           id: "sec-1",
           emoji: "📌",
           title: "Sección 1",
           content: "Contenido 1",
-          subsections: [],
+          subsections: [] as PresentationSection[],
         },
         {
           id: "sec-2",
           emoji: "📌",
           title: "Sección 2",
           content: "Contenido 2",
-          subsections: [],
+          subsections: [] as PresentationSection[],
         },
       ],
     };
@@ -232,8 +234,7 @@ const App: React.FC = () => {
   // ───────────────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
-      // Ejemplo Supabase: await supabase.auth.signOut();
-      // o tu endpoint: await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+      // await supabase.auth.signOut(); // si usas Supabase
       localStorage.removeItem("free_used");
     } catch (e) {
       console.error(e);
@@ -255,6 +256,7 @@ const App: React.FC = () => {
           aria-label="Inicio"
         >
           <img src="/logo.svg" alt="Logo" className="h-7 w-7 rounded" />
+          <span className="font-extrabold tracking-tight">resumetexto</span>
         </button>
 
         {/* Acciones */}
