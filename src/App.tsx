@@ -100,7 +100,7 @@ function Gate({ children }: { children: React.ReactNode }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   App real: límite 4 intentos (free) + modal Upgrade + lógica IA
+   App real: límite 4 intentos (free) / ilimitado (pro) + lógica IA
 ────────────────────────────────────────────────────────────────────────── */
 const AppInner: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.UPLOADER);
@@ -161,10 +161,36 @@ const AppInner: React.FC = () => {
 
   useEffect(() => {
     loadPlan();
-    // si volvemos de Checkout con ?paid=1, recarga plan
-    if (typeof window !== "undefined" && window.location.search.includes("paid=1")) {
-      loadPlan();
-    }
+  }, []);
+
+  // Verificar Checkout al volver con session_id (fallback al webhook)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const sessionId = url.searchParams.get("session_id");
+    if (!sessionId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          "/.netlify/functions/check-session?session_id=" +
+            encodeURIComponent(sessionId)
+        );
+        const data = await res.json();
+        if (data?.paid) {
+          await loadPlan();
+        } else {
+          console.warn("Checkout no pagado todavía:", data);
+        }
+      } catch (e) {
+        console.error("verify checkout error", e);
+      } finally {
+        // limpiar la URL
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("checkout_success");
+        history.replaceState({}, "", url.toString());
+      }
+    })();
   }, []);
 
   // Listener para ir a Home cuando se toca el logo

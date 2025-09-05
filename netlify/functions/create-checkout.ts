@@ -13,11 +13,11 @@ export const handler = async (event: any) => {
     const { userId, email } = JSON.parse(event.body || "{}");
     if (!userId) return { statusCode: 400, body: "Missing userId" };
 
-    const success_url = `${process.env.SITE_URL}/?paid=1`;
-    const cancel_url  = `${process.env.SITE_URL}/?canceled=1`;
+    const success_url = `${process.env.SITE_URL}/?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancel_url  = `${process.env.SITE_URL}/?checkout_canceled=1`;
 
     const session = await stripe.checkout.sessions.create({
-      mode: "payment", // si quieres suscripción: "subscription"
+      mode: "payment",                       // si es suscripción: "subscription"
       customer_email: email || undefined,
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       success_url,
