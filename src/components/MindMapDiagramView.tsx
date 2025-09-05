@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
 type Props = { data: MindMapData; summaryTitle?: string | null; onBack: () => void; onHome?: () => void; };
@@ -13,7 +13,6 @@ const BackToSummaryFab: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   </button>
 );
 
-const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const hasKids = (n: MindMapNode) => (n.children || []).some((c) => String(c?.label ?? "").trim());
 
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
@@ -124,7 +123,7 @@ const NodeInteractive: React.FC<{ node: MindMapNode; level: number }> = ({ node,
   );
 };
 
-const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
+const MindMapDiagramView: React.FC<Props> = ({ data, onBack }) => {
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [s, setS] = useState(1);
@@ -138,8 +137,6 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack }) => 
     startScale: 1,
   });
   const MOVE_THRESHOLD = 3;
-
-  const title = useMemo(() => summaryTitle || data.root.label || "Mapa mental", [summaryTitle, data.root.label]);
 
   const getDist = () => {
     const pts = Array.from(pointers.current.values());

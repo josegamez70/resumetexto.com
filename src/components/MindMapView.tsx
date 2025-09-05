@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MindMapData, MindMapNode, MindMapColorMode } from "../types";
 
 type Props = {
@@ -164,15 +164,10 @@ const NodeBox: React.FC<{
   );
 };
 
-const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack }) => {
+const MindMapView: React.FC<Props> = ({ data, onBack }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
   const [collapseAllSeq, setCollapseAllSeq] = useState(0);
   const [accordionIndex, setAccordionIndex] = useState<number | null>(null);
-
-  const pageTitle = useMemo(
-    () => summaryTitle || data.root.label || "Mapa mental",
-    [summaryTitle, data.root.label]
-  );
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
