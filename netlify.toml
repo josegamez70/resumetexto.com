@@ -1,6 +1,6 @@
 [build]
-  command  = "npm run build"
-  publish  = "build"
+  command   = "npm run build"
+  publish   = "dist"          # usa "build" si CRA
   functions = "netlify/functions"
 
 [functions]
@@ -8,9 +8,4 @@
   external_node_modules = ["stripe"]
 
 [build.environment]
-  NODE_VERSION = "18"
-
-[[redirects]]
-  from = "/api/*"
-  to   = "/.netlify/functions/:splat"
-  status = 200
+  NODE_VERSION = "20"
