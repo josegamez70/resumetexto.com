@@ -5,19 +5,8 @@ interface PresentationViewProps {
   presentation: PresentationData;
   presentationType: PresentationType;
   summaryTitle: string;
-  onBackToSummary: () => void; // ← ya lo tenías
-  onHome?: () => void;         // no se usa aquí
+  onBackToSummary: () => void;
 }
-
-const BackToSummaryFab: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-yellow-400 text-black font-bold px-4 py-2 rounded-full shadow-lg hover:bg-yellow-300"
-    aria-label="Volver al resumen"
-  >
-    ← Volver
-  </button>
-);
 
 const PresentationView: React.FC<PresentationViewProps> = ({
   presentation,
@@ -29,9 +18,14 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 
   if (!presentation || !presentation.sections) {
     return (
-      <div className="max-w-4xl mx-auto p-6 animate-fadeIn text-center">
+      <div className="text-center p-6 animate-fadeIn">
         <p>No hay datos para mostrar.</p>
-        <BackToSummaryFab onClick={onBackToSummary} />
+        <button
+          onClick={onBackToSummary}
+          className="mt-4 px-4 py-2 border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg"
+        >
+          Volver
+        </button>
       </div>
     );
   }
@@ -39,108 +33,103 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   const expandAll = () => {
     containerRef.current?.querySelectorAll("details").forEach((d) => d.setAttribute("open", "true"));
   };
-
   const collapseAll = () => {
     containerRef.current?.querySelectorAll("details").forEach((d) => d.removeAttribute("open"));
   };
-
   const printPDF = () => window.print();
 
-  const esc = (s: string = "") =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  const sanitizeFilename = (s: string) =>
-    (s || "presentacion")
-      .replace(/[\\/:*?"<>|]+/g, "")
-      .replace(/\s+/g, "_")
-      .slice(0, 60);
-
-  // 💾 Descargar HTML de la presentación (resumen + secciones con niveles)
-  const downloadHTML = () => {
-    const toHTML = (section: any, level = 1): string => {
-      const titleTag = level === 1 ? "h2" : level === 2 ? "h3" : "h4";
-      const border =
-        level === 1
-          ? "border:1px solid #e5e7eb;background:#111827;color:#fff;border-radius:10px;"
-          : level === 2
-          ? "border:1px solid #e5e7eb;background:#1f2937;color:#fff;border-radius:10px;margin-left:8px;"
-          : "border:1px solid #e5e7eb;background:#374151;color:#fff;border-radius:10px;margin-left:16px;";
-      const headBg =
-        level === 1
-          ? "background:#facc15;color:#000"
-          : level === 2
-          ? "background:#2563eb;color:#fff"
-          : "background:#fde68a;color:#111827";
-      const emoji = section.emoji ? `${section.emoji} ` : "";
-      const content = section.content ? `<p style="margin:0;padding:12px">${esc(section.content)}</p>` : "";
-      const kids = Array.isArray(section.subsections)
-        ? section.subsections.map((s: any) => toHTML(s, level + 1)).join("")
-        : "";
-      return `
-        <section style="margin:10px 0;${border}">
-          <${titleTag} style="margin:0;padding:10px 12px;${headBg};font-weight:800">${emoji}${esc(section.title || "")}</${titleTag}>
-          ${content}
-          ${kids}
-        </section>
-      `;
-    };
-
-    const html = `<!doctype html><html lang="es">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${esc(summaryTitle || "Presentación")}</title>
-</head>
-<body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#0b1220;color:#fff;padding:16px;">
-  <header style="margin-bottom:12px">
-    <h1 style="margin:0 0 4px;font-size:24px;">Mapa conceptual (desplegables)</h1>
-    <div style="color:#facc15;font-style:italic">${esc(summaryTitle || "")}</div>
-    <div style="color:#9ca3af;margin-top:4px">Tipo: ${esc(String(presentationType))}</div>
-  </header>
-  <main>
-    ${presentation.sections.map((s: any) => toHTML(s, 1)).join("")}
-  </main>
-</body>
-</html>`;
-
-    const blob = new Blob([html], { type: "text/html" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${sanitizeFilename(summaryTitle || "presentacion")}.html`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-
-  const handleTopSummaryClick = (e: React.MouseEvent) => {
+  const handleTopSummaryClick = (e: React.MouseEvent, _idx: number) => {
     e.preventDefault();
-    const detailsEl = (e.currentTarget as HTMLElement).parentElement as HTMLDetailsElement;
+    const summaryEl = e.currentTarget as HTMLElement;
+    const detailsEl = summaryEl.parentElement as HTMLDetailsElement;
+    if (!containerRef.current || !detailsEl) return;
     const isOpen = detailsEl.hasAttribute("open");
-    const wrapper = containerRef.current;
-    if (!wrapper) return;
     if (isOpen) {
       detailsEl.removeAttribute("open");
     } else {
-      wrapper.querySelectorAll("details.lvl1").forEach((d) => d.removeAttribute("open"));
+      containerRef.current.querySelectorAll("details.lvl1").forEach((d) => d.removeAttribute("open"));
       detailsEl.setAttribute("open", "true");
     }
   };
 
-  const renderSection = (section: any, level = 1) => {
+  // === Descarga HTML que replica fielmente la vista (usa Tailwind CDN)
+  const downloadHTML = () => {
+    if (!containerRef.current) return;
+
+    const safeTitle =
+      (summaryTitle || presentation.title || "presentacion")
+        .replace(/[^a-z0-9_\- .]/gi, "")
+        .trim() || "presentacion";
+
+    const html = `<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${summaryTitle || presentation.title}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body{height:100%}
+  body{max-width:100%;overflow-x:hidden}
+  details{width:100%;max-width:100%}
+  summary{list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary, p { word-break: break-word; overflow-wrap: anywhere; }
+</style>
+<script>
+window._bulkOpen = false;
+function expandAll(){
+  window._bulkOpen = true;
+  document.querySelectorAll('details').forEach(d=>d.open=true);
+  setTimeout(()=>{ window._bulkOpen = false; }, 0);
+}
+function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
+function printPDF(){ window.print() }
+document.addEventListener('toggle', function(ev){
+  const el = ev.target;
+  if(!(el instanceof HTMLDetailsElement)) return;
+  if(window._bulkOpen) return;
+  if(el.classList.contains('lvl1') && el.open){
+    document.querySelectorAll('details.lvl1').forEach(function(d){ if(d!==el) d.open=false; });
+  }
+}, true);
+</script>
+</head>
+<body class="bg-gray-900 text-white p-3 sm:p-6">
+  <div class="mb-3 sm:mb-4">
+    <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
+    <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
+    <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
+  </div>
+  <div class="flex flex-wrap gap-2 justify-start mb-4">
+    <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">📂 Desplegar todos</button>
+    <button onclick="collapseAll()" class="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">📁 Colapsar todos</button>
+    <button onclick="printPDF()" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">🖨 Imprimir</button>
+  </div>
+  <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 space-y-3 overflow-x-hidden">
+    ${containerRef.current.innerHTML}
+  </div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeTitle}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderSection = (section: any, level = 1, idx = 0) => {
     let summaryClass =
       "bg-yellow-500 text-black px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
     let contentClass = "p-3 sm:p-4 whitespace-pre-line text-sm sm:text-base break-words";
     if (level === 2) {
-      summaryClass =
-        "bg-blue-600 text-white px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
-      contentClass =
-        "p-3 sm:p-4 bg-blue-100 text-black whitespace-pre-line text-sm sm:text-base break-words";
+      summaryClass = "bg-blue-600 text-white px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
+      contentClass = "p-3 sm:p-4 bg-blue-100 text-black whitespace-pre-line text-sm sm:text-base break-words";
     }
     if (level >= 3) {
-      summaryClass =
-        "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
-      contentClass =
-        "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base break-words";
+      summaryClass = "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
+      contentClass = "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base break-words";
     }
+
     const isTop = level === 1;
 
     return (
@@ -155,52 +144,47 @@ const PresentationView: React.FC<PresentationViewProps> = ({
       >
         <summary
           className={summaryClass}
-          onClick={isTop ? handleTopSummaryClick : undefined}
+          onClick={isTop ? (e) => handleTopSummaryClick(e, idx) : undefined}
         >
           {section.emoji} {section.title}
         </summary>
         {section.content && <p className={contentClass}>{section.content}</p>}
         {Array.isArray(section.subsections) &&
-          section.subsections.map((sub: any) => renderSection(sub, level + 1))}
+          section.subsections.map((sub: any, i: number) => renderSection(sub, level + 1, i))}
       </details>
     );
   };
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-6 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-6">
+      <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
+        <div className="w-full sm:w-auto">
+          <button
+            onClick={onBackToSummary}
+            className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-4 py-2 rounded-lg text-sm"
+          >
+            Volver
+          </button>
+        </div>
       </div>
 
-      {/* Controles */}
       <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-6">
-        <button onClick={expandAll} className="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">
-          📂 Desplegar todos
-        </button>
-        <button onClick={collapseAll} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">
-          📁 Colapsar todos
-        </button>
-        <button onClick={printPDF} className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">
-          🖨 Imprimir
-        </button>
-        {/* 💾 Descargar HTML (restaurado) */}
-        <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-3 rounded-lg text-sm">
-          💾 Descargar HTML
-        </button>
+        <button onClick={expandAll} className="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">📂 Desplegar todos</button>
+        <button onClick={collapseAll} className="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-sm">📁 Colapsar todos</button>
+        <button onClick={printPDF} className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded-lg text-sm">🖨 Imprimir</button>
+        <button onClick={downloadHTML} className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-3 rounded-lg text-sm">💾 Descargar HTML</button>
       </div>
 
       <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4 overflow-x-hidden">
         <div ref={containerRef} className="space-y-3">
-          {presentation.sections.map((section) => renderSection(section, 1))}
+          {presentation.sections.map((section, i) => renderSection(section, 1, i))}
         </div>
       </div>
-
-      {/* FAB Volver */}
-      <BackToSummaryFab onClick={onBackToSummary} />
     </div>
   );
 };
