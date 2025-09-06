@@ -42,7 +42,7 @@ import { supabase } from "./lib/supabaseClient";
 
 /* ────────────────────────────────────────────────────────────────────────
    Gate: si no hay usuario => AuthScreen; si viene de reset => UpdatePassword
-   + Cabecera fija con Logo→Home, Badge PRO, VOLVER y botón Salir
+   + Cabecera fija con Logo→Home, Badge PRO, VOLVER (flecha) y botón Salir
 ────────────────────────────────────────────────────────────────────────── */
 function Gate({ children }: { children: React.ReactNode }) {
   const auth = useAuth() as any;
@@ -86,15 +86,21 @@ function Gate({ children }: { children: React.ReactNode }) {
                 </span>
               )}
 
-            {/* VOLVER a Resumen (solo en 3ª pantalla y siguientes) */}
+            {/* VOLVER a Resumen (flecha atrás) */}
             {showBack && (
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent("rtx-back"))}
                 className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600 inline-flex items-center gap-2"
                 aria-label="Volver a resumen"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3l9 8h-3v7h-5v-5H11v5H6v-7H3l9-8z"/>
+                {/* ← flecha (chevron-left) */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                 </svg>
                 <span>Volver</span>
               </button>
