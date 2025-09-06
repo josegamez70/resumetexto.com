@@ -185,10 +185,10 @@ const AppInner: React.FC = () => {
       } catch (e) {
         console.error("verify checkout error", e);
       } finally {
-        // limpiar la URL
+        // limpiar la URL (fix ESLint: usar window.history)
         url.searchParams.delete("session_id");
         url.searchParams.delete("checkout_success");
-        history.replaceState({}, "", url.toString());
+        window.history.replaceState({}, "", url.toString());
       }
     })();
   }, []);
