@@ -1,4 +1,6 @@
 // netlify/functions/present.js
+// Añadido: preferModel (opcional) → por defecto "gemini-2.5-flash". Forzamos salida JSON.
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -18,7 +20,7 @@ exports.handler = async (event) => {
         statusCode: 500,
         body: JSON.stringify({
           error:
-            "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY). Configúrala en Netlify → Site settings → Environment.",
+            "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY).",
         }),
       };
     }
@@ -28,51 +30,23 @@ exports.handler = async (event) => {
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
     const summaryText = String(payload.summaryText || "");
-    const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Kids
+    const presentationType = String(payload.presentationType || "Extensive");
+    const preferModel = String(payload.preferModel || "gemini-2.5-flash");
     if (!summaryText) {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText: string }." }) };
     }
 
-    const MAX = 10000;
+    const MAX = 20000;
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
     const rules = {
-      Extensive: {
-        title: "Extensa (en detalle)",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 4,
-        maxDepth: 3, // sección > sub > sub-sub
-        contentLen: "2–3 frases por sección o subsección",
-        extra: "Lenguaje claro, técnico cuando sea necesario.",
-      },
-      Complete: {
-        title: "Completa (+50% más detalle que Extensa)",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 5,
-        maxDepth: 4, // sección > sub > sub-sub > sub-sub-sub
-        contentLen: "3–4 frases por sección o subsección",
-        extra: "Amplía causas, consecuencias y ejemplos.",
-      },
-      Kids: {
-        title: "Para Niños",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 3,
-        maxDepth: 3, // sección > sub > sub-sub (ahora permitido)
-        contentLen: "1–2 frases simples por sección o subsección",
-        extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
-      },
-    }[presentationType] || {
-      title: "Extensa (en detalle)",
-      sectionsMax: 6,
-      subsectionsMaxPerLevel: 4,
-      maxDepth: 3,
-      contentLen: "2–3 frases por sección o subsección",
-      extra: "",
-    };
+      Extensive: { title: "Extensa (en detalle)", sectionsMax: 6, subsectionsMaxPerLevel: 4, maxDepth: 3, contentLen: "2–3 frases por sección o subsección", extra: "Lenguaje claro, técnico cuando sea necesario." },
+      Complete:  { title: "Completa (+50% más detalle que Extensa)", sectionsMax: 6, subsectionsMaxPerLevel: 5, maxDepth: 4, contentLen: "3–4 frases por sección o subsección", extra: "Amplía causas, consecuencias y ejemplos." },
+      Kids:      { title: "Para Niños", sectionsMax: 6, subsectionsMaxPerLevel: 3, maxDepth: 3, contentLen: "1–2 frases simples por sección o subsección", extra: "Lenguaje muy sencillo, positivo, con emojis aptos." },
+    }[presentationType] || { title: "Extensa (en detalle)", sectionsMax: 6, subsectionsMaxPerLevel: 4, maxDepth: 3, contentLen: "2–3 frases por sección o subsección", extra: "" };
 
-    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
-    const genAI = new GGA(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: preferModel });
 
     const prompt = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
@@ -84,11 +58,11 @@ Estilo: ${rules.title}
 - ${rules.extra}
 
 Muy importante:
-- La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
+- La clave "subsections" puede aparecer en cualquier nivel hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
+- Devuelve EXCLUSIVAMENTE JSON válido (sin comentarios/explicaciones/bloques).
 
-Formato EXACTO (recursivo):
+Formato EXACTO:
 {
   "presentationData": {
     "title": "Título de la presentación",
@@ -103,11 +77,7 @@ Formato EXACTO (recursivo):
             "title": "Subsección",
             "content": "Detalle relevante.",
             "subsections": [
-              {
-                "emoji": "•",
-                "title": "Sub-subsección",
-                "content": "Detalle adicional."
-              }
+              { "emoji": "•", "title": "Sub-subsección", "content": "Detalle adicional." }
             ]
           }
         ]
@@ -122,7 +92,7 @@ ${safe}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.45 },
+      generationConfig: { temperature: 0.45, responseMimeType: "application/json" },
     });
 
     let raw = result.response.text().trim();
@@ -131,7 +101,7 @@ ${safe}
     let data;
     try { data = JSON.parse(raw); }
     catch {
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
       try { data = JSON.parse(cleaned); }
       catch {
         const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
@@ -140,11 +110,10 @@ ${safe}
           try { data = JSON.parse(slice); }
           catch {
             console.error("[present] JSON inválido. raw:", raw);
-            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
+            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
           }
         } else {
-          console.error("[present] No se encontró bloque JSON. raw:", raw);
-          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
+          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
         }
       }
     }

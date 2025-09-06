@@ -1,131 +1,77 @@
 // netlify/functions/flashcards.js
-// Usar require() para GoogleGenerativeAI es más consistente con tus otras funciones de Netlify
+// Ahora usa gemini-2.5-flash por defecto y fuerza salida JSON.
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// La función handler para Netlify Functions
-exports.handler = async (event, context) => {
-  const apiKey = process.env.GOOGLE_AI_API_KEY; // ¡Asegúrate de que este nombre sea correcto en Netlify!
-
-  console.log('Flashcards function started.');
-  if (apiKey) {
-    console.log('API Key successfully loaded (length:', apiKey.length, ', starts with:', apiKey.substring(0, 5), '...).');
-  } else {
-    console.error('CRITICAL ERROR: API Key is NOT available in environment variable GOOGLE_AI_API_KEY.');
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Configuration Error: API Key is missing for flashcards function." }),
-      headers: { "Content-Type": "application/json" }
-    };
+exports.handler = async (event) => {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
   }
-
   if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method Not Allowed" }),
-      headers: { "Content-Type": "application/json" }
-    };
+    return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
 
-  let summaryText;
+  let summaryText, preferModel;
   try {
-    const body = JSON.parse(event.body);
+    const body = JSON.parse(event.body || "{}");
     summaryText = body.summaryText;
-  } catch (parseError) {
-    console.error("Error parsing request body:", parseError);
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Invalid JSON body" }),
-      headers: { "Content-Type": "application/json" }
-    };
+    preferModel = body.preferModel || "gemini-2.5-flash";
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
   }
 
-  if (!summaryText || typeof summaryText !== 'string' || summaryText.trim().length === 0) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "summaryText is required and must be a non-empty string" }),
-      headers: { "Content-Type": "application/json" }
-    };
+  if (!summaryText || typeof summaryText !== "string" || !summaryText.trim()) {
+    return { statusCode: 400, body: JSON.stringify({ error: "summaryText es obligatorio" }) };
   }
-
-  let genAIInstance;
-  try {
-    genAIInstance = new GoogleGenerativeAI(apiKey);
-  } catch (initError) {
-    console.error("Error initializing GoogleGenerativeAI instance:", initError);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Failed to initialize AI model instance. Check API Key validity and Google Cloud project setup." }),
-      headers: { "Content-Type": "application/json" }
-    };
-  }
-
-  const model = genAIInstance.getGenerativeModel({ model: "gemini-1.5-pro" });
-
-  // --- CAMBIO AQUÍ PARA PEDIR 10-20 FLASHCARDS ---
-  const prompt = `A partir del siguiente resumen, genera entre 10 y 20 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa y directa. Asegúrate de que la pregunta y la respuesta sean claras y distintas.
-  Formatea la salida estrictamente como un array JSON de objetos, donde cada objeto tenga las propiedades "question" y "answer".
-
-  Ejemplo de formato:
-  [
-    { "question": "¿Quién fue el líder de la Alemania nazi?", "answer": "Adolf Hitler" },
-    { "question": "¿Cuándo empezó la Segunda Guerra Mundial?", "answer": "El 1 de septiembre de 1939" }
-  ]
-
-  Resumen:\n${summaryText}`;
 
   try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: String(preferModel) });
+
+    const prompt = `A partir del siguiente resumen, genera entre 10 y 20 flashcards.
+Cada flashcard debe tener "question" (pregunta directa) y "answer" (respuesta concisa).
+Devuelve EXCLUSIVAMENTE un array JSON válido, sin texto extra.
+
+Ejemplo:
+[
+  { "question": "¿Quién fue el líder de la Alemania nazi?", "answer": "Adolf Hitler" },
+  { "question": "¿Cuándo empezó la Segunda Guerra Mundial?", "answer": "1 de septiembre de 1939" }
+]
+
+Resumen:
+${summaryText}`;
+
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2 }, // Reducir temperatura para menos creatividad y más fidelidad
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
     });
 
-    const response = await result.response;
-    let text = response.text();
-
+    let text = result?.response?.text?.() || "[]";
     text = text.replace(/```json\n?|\n?```/g, "").trim();
 
-    let flashcards;
-    try {
-      flashcards = JSON.parse(text);
-      if (!Array.isArray(flashcards) || !flashcards.every(f => typeof f === 'object' && f !== null && 'question' in f && 'answer' in f)) {
-        console.error("AI returned invalid flashcards structure:", flashcards);
-        throw new Error("AI returned invalid flashcards structure.");
-      }
-    } catch (parseAndValidateError) {
-      console.error("Error parsing or validating AI response JSON:", parseAndValidateError);
-      console.error("Raw AI response:", text);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Failed to parse AI response for flashcards. Raw response logged." }),
-        headers: { "Content-Type": "application/json" }
-      };
+    let flashcards = [];
+    try { flashcards = JSON.parse(text); }
+    catch {
+      const a = text.indexOf("["), b = text.lastIndexOf("]");
+      if (a !== -1 && b > a) flashcards = JSON.parse(text.slice(a, b + 1));
     }
 
-    const validFlashcards = flashcards.filter(card => 
-      String(card.question || '').trim().length > 0 && 
-      String(card.answer || '').trim().length > 0
+    if (!Array.isArray(flashcards)) {
+      return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió un array JSON." }) };
+    }
+
+    const valid = flashcards.filter(
+      (f) => f && typeof f === "object" && String(f.question || "").trim() && String(f.answer || "").trim()
     );
 
-    if (validFlashcards.length === 0) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "AI generated no valid flashcards. Please try a more detailed summary or adjust AI prompt." }),
-        headers: { "Content-Type": "application/json" }
-      };
+    if (!valid.length) {
+      return { statusCode: 500, body: JSON.stringify({ error: "AI generó 0 flashcards válidas." }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ flashcards: validFlashcards }),
-      headers: { "Content-Type": "application/json" }
-    };
-
+    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flashcards: valid }) };
   } catch (error) {
-    console.error("Error during flashcard generation process:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error?.message || "Internal error in flashcards function" }),
-      headers: { "Content-Type": "application/json" }
-    };
+    console.error("flashcards error:", error);
+    return { statusCode: 500, body: JSON.stringify({ error: error?.message || "Internal error" }) };
   }
 };
