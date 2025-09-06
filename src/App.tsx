@@ -42,21 +42,23 @@ import { supabase } from "./lib/supabaseClient";
 
 /* ────────────────────────────────────────────────────────────────────────
    Gate: si no hay usuario => AuthScreen; si viene de reset => UpdatePassword
-   + Cabecera fija con Logo→Home, Badge PRO y botón Salir
+   + Cabecera fija con Logo→Home, Badge PRO, VOLVER y botón Salir
 ────────────────────────────────────────────────────────────────────────── */
 function Gate({ children }: { children: React.ReactNode }) {
   const auth = useAuth() as any;
   const { user, loading, signOut } = auth;
   const recovering = !!auth?.recovering;
+  const [showBack, setShowBack] = useState(false);
+
+  useEffect(() => {
+    const onToggleBack = (e: any) => setShowBack(!!e.detail);
+    window.addEventListener("rtx-show-back" as any, onToggleBack as any);
+    return () => window.removeEventListener("rtx-show-back" as any, onToggleBack as any);
+  }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
-        Cargando sesión…
-      </div>
-    );
+    return <div className="min-h-screen bg-gray-900 text-white p-6">Cargando sesión…</div>;
   }
-
   if (recovering) return <UpdatePasswordView />;
   if (!user) return <AuthScreen />;
 
@@ -76,13 +78,28 @@ function Gate({ children }: { children: React.ReactNode }) {
           </button>
 
           <div className="flex items-center gap-2">
-            {/* Badge PRO: lo actualiza AppInner vía localStorage */}
+            {/* Badge PRO (refrescado por AppInner vía localStorage) */}
             {typeof window !== "undefined" &&
               localStorage.getItem("rtx_is_pro") === "1" && (
                 <span className="text-xs px-2 py-1 rounded-full border border-emerald-500 text-emerald-300 bg-emerald-500/10">
                   PRO
                 </span>
               )}
+
+            {/* VOLVER a Resumen (solo en 3ª pantalla y siguientes) */}
+            {showBack && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("rtx-back"))}
+                className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600 inline-flex items-center gap-2"
+                aria-label="Volver a resumen"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3l9 8h-3v7h-5v-5H11v5H6v-7H3l9-8z"/>
+                </svg>
+                <span>Volver</span>
+              </button>
+            )}
+
             <button
               onClick={signOut}
               className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
@@ -163,6 +180,22 @@ const AppInner: React.FC = () => {
     loadPlan();
   }, []);
 
+  // Mostrar/ocultar botón VOLVER según la vista
+  useEffect(() => {
+    const show =
+      view === ViewState.PRESENTATION ||
+      view === ViewState.MINDMAP ||
+      view === ViewState.FLASHCARDS;
+    window.dispatchEvent(new CustomEvent("rtx-show-back", { detail: show }));
+  }, [view]);
+
+  // “Volver” desde la barra
+  useEffect(() => {
+    const onBack = () => setView(ViewState.SUMMARY);
+    window.addEventListener("rtx-back" as any, onBack as any);
+    return () => window.removeEventListener("rtx-back" as any, onBack as any);
+  }, []);
+
   // Verificar Checkout al volver con session_id (fallback al webhook)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -185,7 +218,7 @@ const AppInner: React.FC = () => {
       } catch (e) {
         console.error("verify checkout error", e);
       } finally {
-        // limpiar la URL (fix ESLint: usar window.history)
+        // limpiar la URL (usar window.history para evitar ESLint no-restricted-globals)
         url.searchParams.delete("session_id");
         url.searchParams.delete("checkout_success");
         window.history.replaceState({}, "", url.toString());
@@ -287,8 +320,8 @@ const AppInner: React.FC = () => {
     setIsProcessing(true);
     setLoadingMessage(
       colorMode === MindMapColorMode.BlancoNegro
-        ? "🧠 Generando mapa mental (clásico)..."
-        : "🧠 Generando mapa mental (más detalle)..."
+        ? "🧠 Generando mapa mental (clásico)... puede tardar unos minutos"
+        : "🧠 Generando mapa mental (más detalle)... puede tardar unos minutos"
     );
 
     try {
@@ -317,7 +350,7 @@ const AppInner: React.FC = () => {
   const handleGenerateFlashcards = async () => {
     if (!summary) return;
     setIsProcessing(true);
-    setLoadingMessage("📇 Generando flashcards, un momento por favor...");
+    setLoadingMessage("📇 Generando flashcards… puede tardar unos minutos");
     try {
       const cards = await generateFlashcards(summary);
       setFlashcards(cards);
@@ -343,9 +376,15 @@ const AppInner: React.FC = () => {
         </div>
       )}
 
-      {loadingMessage && (
-        <div className="bg-indigo-600/20 border border-indigo-500 text-indigo-200 px-4 py-2 rounded mb-3">
-          {loadingMessage}
+      {/* OVERLAY: barra amarilla parpadeante en el centro */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm text-center">
+            <div className="mb-3 text-yellow-300 font-semibold">
+              {loadingMessage || "Procesando… puede tardar unos minutos"}
+            </div>
+            <div className="h-3 rounded-full bg-yellow-400 animate-pulse" />
+          </div>
         </div>
       )}
 
@@ -374,7 +413,7 @@ const AppInner: React.FC = () => {
           presentationType={presentationType}
           summaryTitle={summaryTitle || ""}
           onBackToSummary={handleBackToSummary}
-          onHome={handleResetAll}            // ← botón Inicio
+          onHome={handleResetAll}
         />
       )}
 
@@ -387,7 +426,7 @@ const AppInner: React.FC = () => {
               onBack={() =>
                 setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
               }
-              onHome={handleResetAll}        // ← botón Inicio
+              onHome={handleResetAll}
             />
           ) : (
             <MindMapView
@@ -397,7 +436,7 @@ const AppInner: React.FC = () => {
               onBack={() =>
                 setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
               }
-              onHome={handleResetAll}        // ← botón Inicio
+              onHome={handleResetAll}
             />
           )}
         </>
