@@ -22,8 +22,6 @@ const FREE_LIMIT = 4;
 
 // Netlify Functions (redirigidas a /.netlify/functions/* via netlify.toml)
 const FN_CHECK_SESSION = "/api/check-session";
-const FN_CREATE_CHECKOUT = "/api/create-checkout";
-const FN_PORTAL = "/api/create-portal";
 
 type View =
   | "home"
@@ -95,10 +93,7 @@ const App: React.FC = () => {
   // ───────────────────────────────────────────────────────────────────────────
   // Gating de usos
   // ───────────────────────────────────────────────────────────────────────────
-  const canUse = useMemo(
-    () => isPro || freeCount < FREE_LIMIT,
-    [isPro, freeCount]
-  );
+  const canUse = useMemo(() => isPro || freeCount < FREE_LIMIT, [isPro, freeCount]);
 
   const consumeFree = () => {
     if (isPro) return;
@@ -200,39 +195,6 @@ const App: React.FC = () => {
     setSummary("");
     setSummaryTitle("");
     setView("home");
-  };
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Stripe Checkout / Portal
-  // ───────────────────────────────────────────────────────────────────────────
-  const startCheckout = async () => {
-    try {
-      const r = await fetch(FN_CREATE_CHECKOUT, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!r.ok) throw new Error("checkout init failed");
-      const data = await r.json();
-      if (data?.url) window.location.href = data.url;
-      else throw new Error("No checkout URL");
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo iniciar el pago. Intenta de nuevo.");
-    }
-  };
-
-  const openPortal = async () => {
-    try {
-      const r = await fetch(FN_PORTAL, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await r.json();
-      if (data?.url) window.location.href = data.url;
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo abrir el portal de facturación.");
-    }
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -400,12 +362,8 @@ const App: React.FC = () => {
 
       {showUpgrade && (
         <UpgradeModal
-          isOpen={showUpgrade}
-          isPro={isPro}
-          freeLeft={Math.max(FREE_LIMIT - freeCount, 0)}
+          open={showUpgrade}
           onClose={() => setShowUpgrade(false)}
-          onUpgrade={startCheckout}
-          onOpenPortal={openPortal}
         />
       )}
 
