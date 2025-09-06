@@ -95,7 +95,10 @@ const App: React.FC = () => {
   // ───────────────────────────────────────────────────────────────────────────
   // Gating de usos
   // ───────────────────────────────────────────────────────────────────────────
-  const canUse = useMemo(() => isPro || freeCount < FREE_LIMIT, [isPro, freeCount]);
+  const canUse = useMemo(
+    () => isPro || freeCount < FREE_LIMIT,
+    [isPro, freeCount]
+  );
 
   const consumeFree = () => {
     if (isPro) return;
@@ -128,7 +131,7 @@ const App: React.FC = () => {
     // TODO: reemplaza por tu llamada real
     const demo: PresentationData = {
       title: summaryTitle || "Mapa conceptual",
-      type: presentationType, // ← requerido por PresentationData
+      type: presentationType, // requerido por PresentationData
       sections: [
         {
           id: "sec-1",
@@ -182,8 +185,8 @@ const App: React.FC = () => {
 
     // TODO: reemplaza por tu llamada real
     const cards: Flashcard[] = [
-      { question: "¿Qué es X?", answer: "X es ..." },
-      { question: "¿Cómo funciona Y?", answer: "Y funciona así ..." },
+      { id: "fc-1", front: "¿Qué es X?", back: "X es ..." },
+      { id: "fc-2", front: "¿Cómo funciona Y?", back: "Y funciona así ..." },
     ];
     setFlashcards(cards);
     setView("flashcards");
@@ -220,7 +223,10 @@ const App: React.FC = () => {
 
   const openPortal = async () => {
     try {
-      const r = await fetch(FN_PORTAL, { method: "POST", credentials: "include" });
+      const r = await fetch(FN_PORTAL, {
+        method: "POST",
+        credentials: "include",
+      });
       const data = await r.json();
       if (data?.url) window.location.href = data.url;
     } catch (e) {
@@ -405,7 +411,11 @@ const App: React.FC = () => {
 
       {process.env.NODE_ENV === "development" && (
         <div className="fixed bottom-2 right-2 text-[11px] text-gray-400">
-          {checkingSession ? "Comprobando sesión…" : isPro ? "PRO" : `Gratis (${freeCount}/${FREE_LIMIT})`}
+          {checkingSession
+            ? "Comprobando sesión…"
+            : isPro
+            ? "PRO"
+            : `Gratis (${freeCount}/${FREE_LIMIT})`}
         </div>
       )}
     </div>
