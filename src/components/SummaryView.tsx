@@ -1,6 +1,7 @@
 // components/SummaryView.tsx
+
 import React, { useEffect, useRef, useState } from "react";
-import { PresentationType, MindMapColorMode } from "../types";
+import { PresentationType, MindMapColorMode } from "../types"; 
 
 interface SummaryViewProps {
   summary: string;
@@ -27,58 +28,27 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   const [speaking, setSpeaking] = useState(false);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // ── NUEVO: overlay de "barra amarilla" con mensaje dinámico ─────────────
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [overlayText, setOverlayText] = useState<string>("");
-
-  // Utilidad para mostrar la barra y lanzar la acción de inmediato
-  const runWithOverlay = (text: string, fn: () => void) => {
-    setOverlayText(text);
-    setShowOverlay(true);
-    try {
-      fn(); // ejecuta tu callback original
-    } catch (e) {
-      // si fallara sin cambiar de vista, quitamos el overlay para no bloquear
-      setShowOverlay(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-    };
-  }, []);
+  useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
 
   const handleSpeak = () => {
     const synth = window.speechSynthesis;
     if (!synth) return;
-    if (speaking) {
-      synth.cancel();
-      setSpeaking(false);
-      return;
-    }
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
     const u = new SpeechSynthesisUtterance(summary);
     const voices = synth.getVoices();
     const es =
-      voices.find((v) => v.lang?.toLowerCase().startsWith("es")) ||
-      voices.find((v) => v.lang?.toLowerCase().includes("es")) ||
+      voices.find(v => v.lang?.toLowerCase().startsWith("es")) ||
+      voices.find(v => v.lang?.toLowerCase().includes("es")) ||
       null;
     if (es) u.voice = es;
     u.lang = es?.lang || "es-ES";
-    u.rate = 1.0;
-    u.pitch = 1.0;
+    u.rate = 1.0; u.pitch = 1.0;
     u.onend = () => setSpeaking(false);
     u.onerror = () => setSpeaking(false);
-    utterRef.current = u;
-    setSpeaking(true);
-    synth.cancel();
-    synth.speak(u);
+    utterRef.current = u; setSpeaking(true); synth.cancel(); synth.speak(u);
   };
 
-  const esc = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
   const handlePrintSummary = () => {
     const html = `<!DOCTYPE html>
@@ -108,72 +78,40 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   </div>
 </body></html>`;
     const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
+    iframe.style.position = "fixed"; iframe.style.right = "0"; iframe.style.bottom = "0";
+    iframe.style.width = "0"; iframe.style.height = "0"; iframe.style.border = "0";
     document.body.appendChild(iframe);
-    const cleanup = () =>
-      setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch {}
-      }, 1500);
+    const cleanup = () => setTimeout(()=>{ try{ document.body.removeChild(iframe); }catch{} }, 1500);
     if (iframe.contentWindow) {
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } finally {
-          cleanup();
-        }
-      };
-      (iframe as any).srcdoc = html;
+      iframe.onload = () => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } finally { cleanup(); } };
+      iframe.srcdoc = html;
     } else {
-      const blob = new Blob([html], { type: "text/html" });
-      (iframe as any).src = URL.createObjectURL(blob);
-      iframe.onload = cleanup;
+      const blob = new Blob([html], { type: "text/html" }); iframe.src = URL.createObjectURL(blob); iframe.onload = cleanup;
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 animate-fadeIn">
-      {/* Título */}
       <div className="mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold mb-1">Resumen generado</h1>
         <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
       </div>
 
-      {/* Acciones rápidas */}
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        <button
-          onClick={handlePrintSummary}
-          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-        >
-          🖨 Imprimir resumen
-        </button>
-        <button
-          onClick={handleSpeak}
-          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded"
-        >
-          {speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}
-        </button>
+        <button onClick={handlePrintSummary} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">🖨 Imprimir resumen</button>
+        <button onClick={handleSpeak} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">{speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}</button>
       </div>
 
-      {/* Resumen */}
       <div className="bg-gray-800 text-white p-3 sm:p-4 rounded-lg mb-6 sm:mb-8 whitespace-pre-line text-sm sm:text-base">
         {summary}
       </div>
 
-      {/* Cajas: Mapa conceptual y Mapa mental (mismo layout) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Caja Mapa Conceptual */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
           <h2 className="text-xl sm:text-2xl font-bold mb-2">🧩 Mapa conceptual</h2>
           <p className="text-gray-300 mb-4 text-sm sm:text-base">
-            <strong>¿Qué es?</strong> Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles.
+            <strong>¿Qué es?</strong> Un esquema con secciones que puedes abrir/cerrar (desplegables) y subniveles. Útil para estudiar o repasar por bloques.
           </p>
 
           <label className="block text-sm text-gray-300 mb-2">Estilo:</label>
@@ -188,17 +126,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           </select>
 
           <div className="mt-4">
-            <button
-              onClick={() =>
-                runWithOverlay(
-                  "🧩 Generando mapa conceptual… Esto puede tardar unos minutos.",
-                  onGeneratePresentation
-                )
-              }
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-            >
-              Generar mapa conceptual
-            </button>
+            <button onClick={onGeneratePresentation} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">Generar mapa conceptual</button>
           </div>
         </div>
 
@@ -206,7 +134,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         <div className="bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
           <h2 className="text-xl sm:text-2xl font-bold mb-2">🧠 Mapa mental</h2>
           <p className="text-gray-300 mb-4 text-sm sm:text-base">
-            <strong>¿Qué es?</strong> Un árbol que parte del tema central y muestra las claves principales del documento.
+            <strong>¿Qué es?</strong> Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
           </p>
 
           <label className="block text-sm text-gray-300 mb-2">Modo:</label>
@@ -232,65 +160,25 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           </div>
 
           <div className="mt-4">
-            <button
-              onClick={() =>
-                runWithOverlay(
-                  colorMode === MindMapColorMode.BlancoNegro
-                    ? "🗺️ Generando mapa mental (clásico)… Esto puede tardar unos minutos."
-                    : "🧠 Generando mapa mental (más detalle)… Esto puede tardar unos minutos.",
-                  () => onOpenMindMap(colorMode)
-                )
-              }
-              className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded"
-            >
-              Generar mapa mental
-            </button>
+            <button onClick={() => onOpenMindMap(colorMode)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
           </div>
         </div>
       </div>
 
-      {/* Flashcards (misma sección) */}
+      {/* Flashcards */}
       <div className="mt-4 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
         <h2 className="text-xl sm:text-2xl font-bold mb-2">📇 Flashcards</h2>
         <p className="text-gray-300 mb-4 text-sm sm:text-base">
-          Tarjetas de pregunta-respuesta para repasar de forma activa.
+          <strong>¿Qué son?</strong> Tarjetas con una pregunta por delante y su respuesta por detrás. Ideal para el repaso activo.
         </p>
         <div className="mt-4">
-          <button
-            onClick={() =>
-              runWithOverlay(
-                "📇 Generando flashcards… Esto puede tardar unos minutos.",
-                onGenerateFlashcards
-              )
-            }
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded"
-          >
-            Generar flashcards
-          </button>
+          <button onClick={onGenerateFlashcards} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Generar flashcards</button>
         </div>
       </div>
 
-      {/* Botón existente (no cambiamos tu layout) */}
       <div className="mt-6">
-        <button
-          onClick={onReset}
-          className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
-        >
-          Volver a inicio
-        </button>
+        <button onClick={onReset} className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">Volver a inicio</button>
       </div>
-
-      {/* ───────── Overlay: barra amarilla parpadeante con el mensaje ───────── */}
-      {showOverlay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-          <div className="absolute inset-0 bg-black/30 rounded-none" />
-          <div className="relative w-full sm:w-2/3 lg:w-1/2 max-w-xl">
-            <div className="pointer-events-auto w-full py-4 rounded-xl bg-yellow-400 text-black font-extrabold text-center text-base sm:text-lg shadow-xl animate-pulse">
-              {overlayText}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

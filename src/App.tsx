@@ -41,7 +41,8 @@ import { getAttempts, incAttempt } from "./lib/attempts";
 import { supabase } from "./lib/supabaseClient";
 
 /* ────────────────────────────────────────────────────────────────────────
-   Gate: cabecera con Logo→Home, Badge PRO y botón Salir
+   Gate: si no hay usuario => AuthScreen; si viene de reset => UpdatePassword
+   + Cabecera fija con Logo→Home, Badge PRO y botón Salir
 ────────────────────────────────────────────────────────────────────────── */
 function Gate({ children }: { children: React.ReactNode }) {
   const auth = useAuth() as any;
@@ -184,10 +185,10 @@ const AppInner: React.FC = () => {
       } catch (e) {
         console.error("verify checkout error", e);
       } finally {
-        // limpiar la URL (fix ESLint: usar window.history)
+        // limpiar la URL
         url.searchParams.delete("session_id");
         url.searchParams.delete("checkout_success");
-        window.history.replaceState({}, "", url.toString());
+        history.replaceState({}, "", url.toString());
       }
     })();
   }, []);
@@ -286,8 +287,8 @@ const AppInner: React.FC = () => {
     setIsProcessing(true);
     setLoadingMessage(
       colorMode === MindMapColorMode.BlancoNegro
-        ? "🧠 Generando mapa mental (clásico)…"
-        : "🧠 Generando mapa mental (más detalle)…"
+        ? "🧠 Generando mapa mental (clásico)..."
+        : "🧠 Generando mapa mental (más detalle)..."
     );
 
     try {
@@ -316,7 +317,7 @@ const AppInner: React.FC = () => {
   const handleGenerateFlashcards = async () => {
     if (!summary) return;
     setIsProcessing(true);
-    setLoadingMessage("📇 Generando flashcards, un momento por favor…");
+    setLoadingMessage("📇 Generando flashcards, un momento por favor...");
     try {
       const cards = await generateFlashcards(summary);
       setFlashcards(cards);

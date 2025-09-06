@@ -6,6 +6,7 @@ interface PresentationViewProps {
   presentationType: PresentationType;
   summaryTitle: string;
   onBackToSummary: () => void;
+  onHome?: () => void; // NUEVO
 }
 
 const PresentationView: React.FC<PresentationViewProps> = ({
@@ -13,19 +14,28 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   presentationType,
   summaryTitle,
   onBackToSummary,
+  onHome,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const HomeBtn = (
+    <button
+      onClick={onHome || onBackToSummary}
+      className="inline-flex items-center justify-center gap-2 border border-gray-600 text-gray-100 hover:bg-gray-700/40 px-4 py-2 rounded-lg w-full sm:w-auto"
+      aria-label="Inicio"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3l9 8h-3v7h-5v-5H11v5H6v-7H3l9-8z"/>
+      </svg>
+      <span>Inicio</span>
+    </button>
+  );
+
   if (!presentation || !presentation.sections) {
     return (
-      <div className="text-center p-6 animate-fadeIn">
+      <div className="max-w-4xl mx-auto p-6 animate-fadeIn text-center">
         <p>No hay datos para mostrar.</p>
-        <button
-          onClick={onBackToSummary}
-          className="mt-4 px-4 py-2 border border-red-500 text-red-500 hover:bg-red-500/10 rounded-lg"
-        >
-          Volver
-        </button>
+        <div className="mt-4 flex justify-center">{HomeBtn}</div>
       </div>
     );
   }
@@ -38,6 +48,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
   const printPDF = () => window.print();
 
+  // Acordeón (primer nivel) en app
   const handleTopSummaryClick = (e: React.MouseEvent, _idx: number) => {
     e.preventDefault();
     const summaryEl = e.currentTarget as HTMLElement;
@@ -52,7 +63,6 @@ const PresentationView: React.FC<PresentationViewProps> = ({
     }
   };
 
-  // === Descarga HTML que replica fielmente la vista (usa Tailwind CDN)
   const downloadHTML = () => {
     if (!containerRef.current) return;
 
@@ -75,11 +85,7 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 </style>
 <script>
 window._bulkOpen = false;
-function expandAll(){
-  window._bulkOpen = true;
-  document.querySelectorAll('details').forEach(d=>d.open=true);
-  setTimeout(()=>{ window._bulkOpen = false; }, 0);
-}
+function expandAll(){ window._bulkOpen = true; document.querySelectorAll('details').forEach(d=>d.open=true); setTimeout(()=>{ window._bulkOpen = false; }, 0); }
 function collapseAll(){ document.querySelectorAll('details').forEach(d=>d.open=false) }
 function printPDF(){ window.print() }
 document.addEventListener('toggle', function(ev){
@@ -129,7 +135,6 @@ document.addEventListener('toggle', function(ev){
       summaryClass = "bg-yellow-200 text-gray-800 px-3 sm:px-4 py-2 font-semibold cursor-pointer select-none text-sm sm:text-base break-words";
       contentClass = "p-3 sm:p-4 bg-yellow-50 text-gray-800 whitespace-pre-line text-sm sm:text-base break-words";
     }
-
     const isTop = level === 1;
 
     return (
@@ -157,20 +162,13 @@ document.addEventListener('toggle', function(ev){
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-6 animate-fadeIn">
-      <div className="flex items-stretch sm:items-center justify-between gap-3 mb-3 sm:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
           <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
         </div>
-        <div className="w-full sm:w-auto">
-          <button
-            onClick={onBackToSummary}
-            className="w-full sm:w-auto border border-red-500 text-red-500 hover:bg-red-500/10 px-4 py-2 rounded-lg text-sm"
-          >
-            Volver
-          </button>
-        </div>
+        <div className="w-full sm:w-auto flex justify-center">{HomeBtn}</div>
       </div>
 
       <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-6">
