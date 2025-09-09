@@ -94,6 +94,72 @@ function guessMime(name: string): string {
   return "application/octet-stream";
 }
 
+/** Carga dinámica de pdf.js (solo si hace falta) */
+// @ts-ignore
+const loadPdfjs = async () => await import("pdfjs-dist/build/pdf");
+
+/** Extrae texto de hasta `maxPages` páginas de un PDF */
+async function extractPdfText(file: File, maxPages = 10): Promise<string> {
+  const pdfjs: any = await loadPdfjs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const pages = Math.min(pdf.numPages, maxPages);
+  let out = "";
+  for (let p = 1; p <= pages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const text = content.items.map((i: any) => i.str || "").join(" ").trim();
+    if (text) out += (out ? "\n\n" : "") + text;
+    // límite de seguridad para no saturar funciones
+    if (out.length > 300_000) break;
+  }
+  return out.trim();
+}
+
+/**
+ * Renderiza hasta `maxPages` páginas de un PDF a imágenes (JPEG base64),
+ * ideal para PDFs escaneados/manuscritos sin capa de texto.
+ */
+async function renderPdfPagesToImages(
+  file: File,
+  maxPages = 10,
+  scale = 1.5,
+  quality = 0.92
+): Promise<Array<{ inlineData: { mimeType: string; data: string } }>> {
+  const pdfjs: any = await loadPdfjs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const pages = Math.min(pdf.numPages, maxPages);
+
+  const parts: Array<{ inlineData: { mimeType: string; data: string } }> = [];
+  for (let p = 1; p <= pages; p++) {
+    const page = await pdf.getPage(p);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    const renderTask = page.render({ canvasContext: ctx, viewport });
+    await renderTask.promise;
+
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const base64 = dataUrl.split(",")[1];
+
+    parts.push({
+      inlineData: { mimeType: "image/jpeg", data: base64 },
+    });
+
+    // liberar memoria
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+  return parts;
+}
+
 /** POST JSON a funciones Netlify con tolerancia a respuesta texto/JSON */
 async function postJson<T = any>(fnName: string, body: any): Promise<T> {
   const url = `/.netlify/functions/${fnName}`;
@@ -124,8 +190,13 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
 
 /**
  * Resumen potente con OCR (PDF/imagen/manuscrito) y soporte de textos largos.
- * - En PDFs/IMÁGENES: envía base64 + mime y sugiere usar gemini-2.5-flash.
- * - En TEXTO: ya NO recorta a 10k; envía textChunks de ~15k.
+ *
+ * - PDF:
+ *    1) Intentamos extraer TEXTO de hasta 10 páginas (rápido).
+ *    2) Si no hay texto (escaneado/manuscrito), renderizamos hasta 10 páginas a imágenes
+ *       y enviamos como `fileParts` (OCR con gemini-2.5-flash).
+ * - Imagen: OCR directo.
+ * - Texto plano: sin recorte estricto; se trocea a chunks largos (~15k).
  */
 export async function summarizeContent(
   file: File,
@@ -134,24 +205,40 @@ export async function summarizeContent(
   const mime = file?.type || "";
   const payload: any = {
     summaryType,
-    // Sugerencia para el backend: usar modelo multimodal
     preferModel: "gemini-2.5-flash",
   };
 
-  // PDF o imagen → enviar binario (OCR robusto en backend)
-  if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
+  if (/^application\/pdf$/i.test(mime)) {
+    // 1) PDF digital → extraer texto (hasta 10 páginas)
+    let textFromPdf = "";
+    try {
+      textFromPdf = await extractPdfText(file, 10);
+    } catch {
+      // si pdf.js falla, caeremos al OCR
+    }
+
+    if (textFromPdf && textFromPdf.length > 500) {
+      // Enviar como texto troceado (rápido y evita 504)
+      payload.textChunks = splitTextIntoChunks(textFromPdf, 15000);
+    } else {
+      // 2) PDF escaneado/manuscrito → render a imágenes (hasta 10 páginas)
+      const parts = await renderPdfPagesToImages(file, 10, 1.5, 0.92);
+      if (!parts.length) {
+        // fallback final: enviar el PDF completo como binario (por si acaso)
+        const base64 = await fileToBase64(file);
+        payload.file = { base64, mimeType: mime || guessMime(file.name || "file"), ocr: true };
+      } else {
+        payload.fileParts = parts;
+      }
+    }
+  } else if (/^image\//i.test(mime)) {
+    // Imágenes → OCR directo
     const base64 = await fileToBase64(file);
-    payload.file = {
-      base64,
-      mimeType: mime || guessMime(file.name || "file"),
-      // Pista opcional al backend para activar OCR “duro”
-      ocr: true,
-    };
+    payload.file = { base64, mimeType: mime || guessMime(file.name || "image"), ocr: true };
   } else {
-    // Texto plano → sin recortar; trocear en bloques grandes
+    // Texto plano → troceado largo
     const raw = await file.text();
-    const chunks = splitTextIntoChunks(raw, 15000);
-    payload.textChunks = chunks;
+    payload.textChunks = splitTextIntoChunks(raw, 15000);
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
