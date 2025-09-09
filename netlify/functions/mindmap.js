@@ -1,16 +1,20 @@
 // netlify/functions/mindmap.js
-// Usa gemini-2.5-flash por defecto y fuerza JSON; normaliza y poda el árbol.
-// Recorta input a 12k chars y limita salida para evitar timeouts.
+// Mapa mental: cap input a 12k, fuerza JSON, parseo robusto y poda/normalización.
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const crypto = require("crypto");
+
 function genId() { return crypto.randomBytes(6).toString("hex"); }
 
-function safeParseJSON(s) {
-  try { return JSON.parse(s); } catch {}
-  const a = s.indexOf("{"), b = s.lastIndexOf("}");
-  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch {} }
-  return null;
+function safeJsonParseObject(s) {
+  const cleaned = String(s || "").replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+  try { return JSON.parse(cleaned); } catch {}
+  const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
+  if (a !== -1 && b > a) {
+    const slice = cleaned.slice(a, b + 1);
+    try { return JSON.parse(slice); } catch {}
+  }
+  throw new Error("No se pudo parsear el JSON del mapa mental.");
 }
 
 const MAX_WORDS_L1 = 4;
@@ -21,7 +25,6 @@ function shortLabel(label, maxWords) {
   if (words.length <= maxWords) return words.join(" ");
   return words.slice(0, maxWords).join(" ");
 }
-
 function isContentful(n) {
   return Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 }
@@ -60,11 +63,9 @@ function normalizeTree(node, level = 0) {
 
 exports.handler = async (event) => {
   try {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.VITE_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
-    }
+    if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
 
     let body = {};
     try { body = JSON.parse(event.body || "{}"); }
@@ -73,8 +74,7 @@ exports.handler = async (event) => {
     const rawText = String(body.text || "");
     if (!rawText.trim()) return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' para el mapa mental." }) };
 
-    // 🔹 capamos input para no exceder tiempos de ejecución
-    const MAX = 12000;
+    const MAX = 12000; // cap para evitar timeouts
     const cleaned = rawText.replace(/\s+/g, " ").trim();
     const safe = cleaned.length > MAX ? cleaned.slice(0, MAX) : cleaned;
 
@@ -133,8 +133,8 @@ Devuelve SOLO el JSON del mapa mental siguiendo las REGLAS.`;
       },
     });
 
-    const raw = result?.response?.text?.() || "";
-    const parsed = safeParseJSON(raw);
+    const raw = String(result?.response?.text?.() || "");
+    const parsed = safeJsonParseObject(raw);
     if (!parsed || !parsed.root) {
       return { statusCode: 500, body: JSON.stringify({ error: "No se pudo parsear el JSON del mapa mental." }) };
     }

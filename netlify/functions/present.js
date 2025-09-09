@@ -1,13 +1,23 @@
 // netlify/functions/present.js
-// Añadido: preferModel (opcional) → por defecto "gemini-2.5-flash". Forzamos salida JSON.
+// Genera presentación (mapa conceptual jerárquico). Fuerza JSON y hace parseo robusto.
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+function safeJsonParseObject(s) {
+  // Limpia fences ```json y extrae primer objeto { ... }
+  const cleaned = String(s || "").replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+  try { return JSON.parse(cleaned); } catch {}
+  const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
+  if (a !== -1 && b > a) {
+    const slice = cleaned.slice(a, b + 1);
+    try { return JSON.parse(slice); } catch {}
+  }
+  throw new Error("La IA no devolvió JSON válido.");
+}
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
-    }
-
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
 
     const apiKey =
       process.env.GOOGLE_AI_API_KEY ||
@@ -15,15 +25,7 @@ exports.handler = async (event) => {
       process.env.GEMINI_API_KEY ||
       "";
 
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error:
-            "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY).",
-        }),
-      };
-    }
+    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: "Falta API Key" }) };
 
     let payload;
     try { payload = JSON.parse(event.body || "{}"); }
@@ -32,9 +34,7 @@ exports.handler = async (event) => {
     const summaryText = String(payload.summaryText || "");
     const presentationType = String(payload.presentationType || "Extensive");
     const preferModel = String(payload.preferModel || "gemini-2.5-flash");
-    if (!summaryText) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText: string }." }) };
-    }
+    if (!summaryText) return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText }." }) };
 
     const MAX = 20000;
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
@@ -49,10 +49,10 @@ exports.handler = async (event) => {
     const model = genAI.getGenerativeModel({ model: preferModel });
 
     const prompt = `
-Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
+Genera un "Mapa conceptual" (desplegables) en ESPAÑOL a partir del TEXTO.
 Estilo: ${rules.title}
 - Máximo ${rules.sectionsMax} secciones.
-- Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
+- Máximo ${rules.subsectionsMaxPerLevel} "subsections" por nivel.
 - Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
 - Longitud: ${rules.contentLen}.
 - ${rules.extra}
@@ -95,28 +95,8 @@ ${safe}
       generationConfig: { temperature: 0.45, responseMimeType: "application/json" },
     });
 
-    let raw = result.response.text().trim();
-
-    // Parse robusto
-    let data;
-    try { data = JSON.parse(raw); }
-    catch {
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-      try { data = JSON.parse(cleaned); }
-      catch {
-        const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
-        if (start !== -1 && end !== -1 && end > start) {
-          const slice = cleaned.slice(start, end + 1);
-          try { data = JSON.parse(slice); }
-          catch {
-            console.error("[present] JSON inválido. raw:", raw);
-            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
-          }
-        } else {
-          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido." }) };
-        }
-      }
-    }
+    const raw = String(result?.response?.text?.() || "").trim();
+    const data = safeJsonParseObject(raw);
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
   } catch (err) {
