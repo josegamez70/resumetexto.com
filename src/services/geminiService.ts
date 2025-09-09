@@ -169,7 +169,7 @@ export async function summarizeContent(
 ): Promise<string> {
   const mime = file?.type || "";
   const payload: any = {
-    summaryType,                // ← el backend ya fuerza que el “largo” sea en párrafos
+    summaryType,                // el backend fuerza que “long” sea en párrafos
     preferModel: "gemini-2.5-flash",
   };
 
@@ -204,7 +204,7 @@ export async function summarizeContent(
   return summary;
 }
 
-/** ✅ Restaurada: crea presentación llamando al Function */
+/** ✅ Presentación: wrapper a la función de Netlify */
 export async function createPresentation(
   summaryText: string,
   presentationType: PresentationType
@@ -220,9 +220,14 @@ export async function createPresentation(
   return pres;
 }
 
+/** ✅ Mapa mental: recorta input para evitar timeouts */
 export async function createMindMapFromText(text: string): Promise<MindMapData> {
+  const MAX = 12000;
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  const safe = cleaned.length > MAX ? cleaned.slice(0, MAX) : cleaned;
+
   const data = await postJson<{ mindmap: MindMapData }>("mindmap", {
-    text,
+    text: safe,
     preferModel: "gemini-2.5-flash",
   });
   const mm = data?.mindmap ?? data;

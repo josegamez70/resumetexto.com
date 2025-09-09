@@ -1,5 +1,6 @@
 // netlify/functions/mindmap.js
 // Usa gemini-2.5-flash por defecto y fuerza JSON; normaliza y poda el árbol.
+// Recorta input a 12k chars y limita salida para evitar timeouts.
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const crypto = require("crypto");
@@ -69,10 +70,15 @@ exports.handler = async (event) => {
     try { body = JSON.parse(event.body || "{}"); }
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido" }) }; }
 
-    const text = String(body.text || "").trim();
-    const preferModel = String(body.preferModel || "gemini-2.5-flash");
-    if (!text) return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' para el mapa mental." }) };
+    const rawText = String(body.text || "");
+    if (!rawText.trim()) return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' para el mapa mental." }) };
 
+    // 🔹 capamos input para no exceder tiempos de ejecución
+    const MAX = 12000;
+    const cleaned = rawText.replace(/\s+/g, " ").trim();
+    const safe = cleaned.length > MAX ? cleaned.slice(0, MAX) : cleaned;
+
+    const preferModel = String(body.preferModel || "gemini-2.5-flash");
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: preferModel });
 
@@ -112,15 +118,19 @@ REGLAS:
 - JSON P U R O.`;
 
     const user = `
-Texto base:
+Texto base (recortado a ${MAX} caracteres para eficiencia):
 ---
-${text}
+${safe}
 ---
 Devuelve SOLO el JSON del mapa mental siguiendo las REGLAS.`;
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: system }, { text: user }] }],
-      generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+      generationConfig: {
+        temperature: 0.35,
+        responseMimeType: "application/json",
+        maxOutputTokens: 1024
+      },
     });
 
     const raw = result?.response?.text?.() || "";
