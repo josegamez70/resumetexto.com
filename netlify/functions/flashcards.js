@@ -1,37 +1,33 @@
 // netlify/functions/flashcards.js
-// Genera flashcards y parsea robusto arrays JSON.
+// Ahora usa gemini-2.5-flash por defecto y fuerza salida JSON.
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-function safeJsonParseArray(s) {
-  const cleaned = String(s || "").replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-  try { const arr = JSON.parse(cleaned); if (Array.isArray(arr)) return arr; } catch {}
-  const a = cleaned.indexOf("["), b = cleaned.lastIndexOf("]");
-  if (a !== -1 && b > a) { try { return JSON.parse(cleaned.slice(a, b + 1)); } catch {} }
-  throw new Error("La IA no devolvió un array JSON válido.");
-}
-
 exports.handler = async (event) => {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
+  }
+
+  let summaryText, preferModel;
   try {
-    const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.VITE_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
-    if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
+    const body = JSON.parse(event.body || "{}");
+    summaryText = body.summaryText;
+    preferModel = body.preferModel || "gemini-2.5-flash";
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
+  }
 
-    let summaryText, preferModel;
-    try {
-      const body = JSON.parse(event.body || "{}");
-      summaryText = String(body.summaryText || "");
-      preferModel = String(body.preferModel || "gemini-2.5-flash");
-    } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
-    }
+  if (!summaryText || typeof summaryText !== "string" || !summaryText.trim()) {
+    return { statusCode: 400, body: JSON.stringify({ error: "summaryText es obligatorio" }) };
+  }
 
-    if (!summaryText.trim()) {
-      return { statusCode: 400, body: JSON.stringify({ error: "summaryText es obligatorio" }) };
-    }
-
+  try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: preferModel });
+    const model = genAI.getGenerativeModel({ model: String(preferModel) });
 
     const prompt = `A partir del siguiente resumen, genera entre 10 y 20 flashcards.
 Cada flashcard debe tener "question" (pregunta directa) y "answer" (respuesta concisa).
@@ -51,8 +47,19 @@ ${summaryText}`;
       generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
     });
 
-    const raw = String(result?.response?.text?.() || "");
-    let flashcards = safeJsonParseArray(raw);
+    let text = result?.response?.text?.() || "[]";
+    text = text.replace(/```json\n?|\n?```/g, "").trim();
+
+    let flashcards = [];
+    try { flashcards = JSON.parse(text); }
+    catch {
+      const a = text.indexOf("["), b = text.lastIndexOf("]");
+      if (a !== -1 && b > a) flashcards = JSON.parse(text.slice(a, b + 1));
+    }
+
+    if (!Array.isArray(flashcards)) {
+      return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió un array JSON." }) };
+    }
 
     const valid = flashcards.filter(
       (f) => f && typeof f === "object" && String(f.question || "").trim() && String(f.answer || "").trim()
@@ -64,7 +71,7 @@ ${summaryText}`;
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flashcards: valid }) };
   } catch (error) {
-    console.error("[flashcards] ERROR:", error);
+    console.error("flashcards error:", error);
     return { statusCode: 500, body: JSON.stringify({ error: error?.message || "Internal error" }) };
   }
 };

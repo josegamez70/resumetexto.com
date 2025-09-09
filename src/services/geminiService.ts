@@ -1,7 +1,7 @@
 // src/services/geminiService.ts
 
 /* ---------------------------------------------------------
-   Importa tipos
+   Importa TODOS los tipos desde src/types
 --------------------------------------------------------- */
 import type {
   SummaryType,
@@ -14,6 +14,7 @@ import type {
 
 /* ---------------------------------------------------------
    Configuración PDF.js (evitar "Setting up fake worker")
+   Usamos el worker oficial por URL, compatible con CRA.
 --------------------------------------------------------- */
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -22,30 +23,43 @@ try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   }
-} catch {}
+} catch {
+  // si no hay pdfjs-dist en este contexto, ignoramos
+}
 
 /* ---------------------------------------------------------
    Helpers
 --------------------------------------------------------- */
 
+/** Extrae JSON de respuestas con o sin bloque ```json */
 function extractJson<T = any>(raw: string): T {
   if (!raw) throw new Error("Respuesta vacía del modelo");
+
+  // 1) Si viene en bloque ```json ... ```
   const fenced = /```json([\s\S]*?)```/i.exec(raw);
   let candidate = fenced ? fenced[1].trim() : raw.trim();
+
+  // 2) Recorta al primer { y último }
   const a = candidate.indexOf("{");
   const b = candidate.lastIndexOf("}");
   if (a !== -1 && b !== -1 && b > a) candidate = candidate.slice(a, b + 1);
-  candidate = candidate
-    .replace(/[\u201C-\u201F]/g, '"')
-    .replace(/,\s*([}\]])/g, "$1");
+
+  // 3) Normaliza comillas “”
+  candidate = candidate.replace(/[\u201C-\u201F]/g, '"');
+
+  // 4) Borra comas colgantes
+  candidate = candidate.replace(/,\s*([}\]])/g, "$1");
+
   try {
     return JSON.parse(candidate) as T;
   } catch {
+    // 5) Limpieza final por si hay restos de fences
     const cleaned = candidate.replace(/```+.*?```+/gs, "").trim();
     return JSON.parse(cleaned) as T;
   }
 }
 
+/** Convierte un File a base64 (solo datos) */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -59,6 +73,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/** Divide texto largo en chunks de tamaño máximo (por defecto 15000) */
 function splitTextIntoChunks(text: string, max = 15000): string[] {
   const chunks: string[] = [];
   let i = 0;
@@ -69,6 +84,7 @@ function splitTextIntoChunks(text: string, max = 15000): string[] {
   return chunks;
 }
 
+/** Adivina el mime por extensión si no viene en file.type */
 function guessMime(name: string): string {
   const n = name.toLowerCase();
   if (n.endsWith(".pdf")) return "application/pdf";
@@ -78,64 +94,7 @@ function guessMime(name: string): string {
   return "application/octet-stream";
 }
 
-// @ts-ignore
-const loadPdfjs = async () => await import("pdfjs-dist/build/pdf");
-
-async function extractPdfText(file: File, maxPages = 10): Promise<string> {
-  const pdfjs: any = await loadPdfjs();
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: buf }).promise;
-  const pages = Math.min(pdf.numPages, maxPages);
-  let out = "";
-  for (let p = 1; p <= pages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const text = content.items.map((i: any) => i.str || "").join(" ").trim();
-    if (text) out += (out ? "\n\n" : "") + text;
-    if (out.length > 300_000) break;
-  }
-  return out.trim();
-}
-
-async function renderPdfPagesToImages(
-  file: File,
-  maxPages = 10,
-  scale = 1.5,
-  quality = 0.92
-): Promise<Array<{ inlineData: { mimeType: string; data: string } }>> {
-  const pdfjs: any = await loadPdfjs();
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: buf }).promise;
-  const pages = Math.min(pdf.numPages, maxPages);
-
-  const parts: Array<{ inlineData: { mimeType: string; data: string } }> = [];
-  for (let p = 1; p <= pages; p++) {
-    const page = await pdf.getPage(p);
-    const viewport = page.getViewport({ scale });
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
-
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    const renderTask = page.render({ canvasContext: ctx, viewport });
-    await renderTask.promise;
-
-    const dataUrl = canvas.toDataURL("image/jpeg", quality);
-    const base64 = dataUrl.split(",")[1];
-
-    parts.push({
-      inlineData: { mimeType: "image/jpeg", data: base64 },
-    });
-
-    canvas.width = 1;
-    canvas.height = 1;
-  }
-  return parts;
-}
-
+/** POST JSON a funciones Netlify con tolerancia a respuesta texto/JSON */
 async function postJson<T = any>(fnName: string, body: any): Promise<T> {
   const url = `/.netlify/functions/${fnName}`;
   const resp = await fetch(url, {
@@ -163,39 +122,36 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
    API pública
 --------------------------------------------------------- */
 
+/**
+ * Resumen potente con OCR (PDF/imagen/manuscrito) y soporte de textos largos.
+ * - En PDFs/IMÁGENES: envía base64 + mime y sugiere usar gemini-2.5-flash.
+ * - En TEXTO: ya NO recorta a 10k; envía textChunks de ~15k.
+ */
 export async function summarizeContent(
   file: File,
   summaryType: SummaryType
 ): Promise<string> {
   const mime = file?.type || "";
   const payload: any = {
-    summaryType,                // el backend fuerza que “long” sea en párrafos
+    summaryType,
+    // Sugerencia para el backend: usar modelo multimodal
     preferModel: "gemini-2.5-flash",
   };
 
-  if (/^application\/pdf$/i.test(mime)) {
-    let textFromPdf = "";
-    try {
-      textFromPdf = await extractPdfText(file, 10);
-    } catch {}
-
-    if (textFromPdf && textFromPdf.length > 500) {
-      payload.textChunks = splitTextIntoChunks(textFromPdf, 15000);
-    } else {
-      const parts = await renderPdfPagesToImages(file, 10, 1.5, 0.92);
-      if (!parts.length) {
-        const base64 = await fileToBase64(file);
-        payload.file = { base64, mimeType: mime || guessMime(file.name || "file"), ocr: true };
-      } else {
-        payload.fileParts = parts;
-      }
-    }
-  } else if (/^image\//i.test(mime)) {
+  // PDF o imagen → enviar binario (OCR robusto en backend)
+  if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
     const base64 = await fileToBase64(file);
-    payload.file = { base64, mimeType: mime || guessMime(file.name || "image"), ocr: true };
+    payload.file = {
+      base64,
+      mimeType: mime || guessMime(file.name || "file"),
+      // Pista opcional al backend para activar OCR “duro”
+      ocr: true,
+    };
   } else {
+    // Texto plano → sin recortar; trocear en bloques grandes
     const raw = await file.text();
-    payload.textChunks = splitTextIntoChunks(raw, 15000);
+    const chunks = splitTextIntoChunks(raw, 15000);
+    payload.textChunks = chunks;
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
@@ -204,7 +160,7 @@ export async function summarizeContent(
   return summary;
 }
 
-/** ✅ Presentación: wrapper a la función de Netlify */
+/** Crea una presentación (usa el backend; se sugiere allí 2.5-flash también) */
 export async function createPresentation(
   summaryText: string,
   presentationType: PresentationType
@@ -220,14 +176,10 @@ export async function createPresentation(
   return pres;
 }
 
-/** ✅ Mapa mental: recorta input para evitar timeouts */
+/** Genera un mapa mental desde texto ya procesado */
 export async function createMindMapFromText(text: string): Promise<MindMapData> {
-  const MAX = 12000;
-  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
-  const safe = cleaned.length > MAX ? cleaned.slice(0, MAX) : cleaned;
-
   const data = await postJson<{ mindmap: MindMapData }>("mindmap", {
-    text: safe,
+    text,
     preferModel: "gemini-2.5-flash",
   });
   const mm = data?.mindmap ?? data;
@@ -235,6 +187,7 @@ export async function createMindMapFromText(text: string): Promise<MindMapData> 
   return mm;
 }
 
+/** Aplana la presentación a texto con jerarquía */
 export function flattenPresentationToText(p: PresentationData): string {
   const lines: string[] = [];
   lines.push(`# ${p.title}`);
@@ -248,6 +201,7 @@ export function flattenPresentationToText(p: PresentationData): string {
   return lines.join("\n");
 }
 
+/** Flashcards coherentes con el resumen y el contenido */
 export async function generateFlashcards(
   summaryText: string
 ): Promise<Flashcard[]> {
