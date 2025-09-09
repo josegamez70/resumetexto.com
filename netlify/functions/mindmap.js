@@ -1,5 +1,8 @@
-// netlify/functions/mindmap.js
-// Usa gemini-2.5-flash por defecto y fuerza JSON; normaliza y poda el árbol.
+// Reglas actualizadas:
+// - Niveles 1 y 2: etiquetas cortas (máx. 4 y 5 palabras).
+// - Profundidad máxima: 3 (root -> 1 -> 2 -> 3).
+// - Nivel 3 siempre hoja. Si está vacío (sin label ni note), se PRUNA (no se muestra nada).
+// - Si tras podar no quedan hijos, el padre queda sin subniveles => en el front no hay triángulo.
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const crypto = require("crypto");
@@ -25,6 +28,7 @@ function isContentful(n) {
   return Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 }
 
+// Normaliza ids, corta etiquetas y PODA niveles vacíos
 function normalizeTree(node, level = 0) {
   if (!node || typeof node !== "object") return;
   if (!node.id || typeof node.id !== "string" || node.id === "auto") node.id = genId();
@@ -33,6 +37,7 @@ function normalizeTree(node, level = 0) {
   if (level === 1) node.label = shortLabel(node.label, MAX_WORDS_L1);
   if (level === 2) node.label = shortLabel(node.label, MAX_WORDS_L2);
 
+  // Profundidad máxima: 3 (nivel 3 = hoja)
   if (level >= 3) {
     node.children = [];
     node.label = String(node.label ?? "").trim();
@@ -40,19 +45,24 @@ function normalizeTree(node, level = 0) {
     return;
   }
 
+  // Normalizar descendencia
   node.children.forEach((c) => normalizeTree(c, level + 1));
 
+  // Si estamos en nivel 2: sus hijos (nivel 3) son hojas; filtrar los VACÍOS
   if (level === 2) {
     node.children = node.children.map((c) => ({
       id: c.id || genId(),
       label: String(c.label ?? "").trim(),
       note:  String(c.note  ?? "").trim(),
-      children: [],
+      children: [], // hoja
     })).filter(isContentful);
   }
 
+  // En cualquier nivel, elimina hijos totalmente vacíos que hayan quedado
   node.children = node.children.filter((c) => {
+    // hoja vacía
     if (!Array.isArray(c.children) || c.children.length === 0) return isContentful(c);
+    // rama con hijos: mantener
     return true;
   });
 }
@@ -70,11 +80,10 @@ exports.handler = async (event) => {
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido" }) }; }
 
     const text = String(body.text || "").trim();
-    const preferModel = String(body.preferModel || "gemini-2.5-flash");
     if (!text) return { statusCode: 400, body: JSON.stringify({ error: "Falta 'text' para el mapa mental." }) };
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: preferModel });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const system = `
 Devuelve SOLO JSON (sin comentarios) con esta forma:
@@ -106,10 +115,11 @@ Devuelve SOLO JSON (sin comentarios) con esta forma:
 
 REGLAS:
 - Español.
-- Nivel 1: máx. 4 palabras; Nivel 2: máx. 5 palabras.
+- Nivel 1: máx. 4 palabras; Nivel 2: máx. 5 palabras (etiquetas cortas).
 - Profundidad máxima: 3 (root -> 1 -> 2 -> 3).
-- Nivel 3 es HOJA. Si no hay nada, su "label" puede quedar VACÍO (luego se oculta).
-- JSON P U R O.`;
+- Nivel 3 es HOJA. Si no hay nada que indicar, su "label" puede quedar VACÍO (y luego se ocultará).
+- JSON puro (sin viñetas ni Markdown).
+`;
 
     const user = `
 Texto base:
@@ -120,7 +130,7 @@ Devuelve SOLO el JSON del mapa mental siguiendo las REGLAS.`;
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: system }, { text: user }] }],
-      generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+      generationConfig: { temperature: 0.4 },
     });
 
     const raw = result?.response?.text?.() || "";
@@ -130,6 +140,7 @@ Devuelve SOLO el JSON del mapa mental siguiendo las REGLAS.`;
     }
 
     normalizeTree(parsed.root, 0);
+
     return { statusCode: 200, body: JSON.stringify({ mindmap: parsed }) };
   } catch (err) {
     console.error("[mindmap] ERROR:", err);

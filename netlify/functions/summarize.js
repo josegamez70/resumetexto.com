@@ -1,6 +1,8 @@
-// netlify/functions/summarize.js
-// Acepta: { fileParts, summaryType } | { text, summaryType } | { summaryType, file:{base64,mimeType} } | { textChunks, summaryType }
-// Añadido: preferModel (opcional) → por defecto "gemini-2.5-flash"
+// Acepta: { fileParts, summaryType } | { text, summaryType } | { summaryType, file:{base64,mimeType} }
+// Formatos:
+//  - corto/breve/express  -> párrafo 2–4 frases, sin viñetas
+//  - puntos/bullets       -> • una frase por viñeta
+//  - largo/long/extenso   -> 6–12 frases en 2–4 párrafos, sin viñetas
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -27,7 +29,7 @@ exports.handler = async (event) => {
     try { body = JSON.parse(event.body || "{}"); }
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido" }) }; }
 
-    const { fileParts, text, textChunks, summaryType, file, preferModel } = body;
+    const { fileParts, text, summaryType, file } = body;
     if (!summaryType) return { statusCode: 400, body: JSON.stringify({ error: "Falta summaryType" }) };
 
     const flavor = pickFlavor(summaryType);
@@ -59,12 +61,10 @@ FORMATO (GENERAL):
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = String(preferModel || "gemini-2.5-flash");
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const parts = [{ text: styleInstruction.trim() }];
 
-    // PDFs/Imágenes por partes (multimodal)
     if (Array.isArray(fileParts) && fileParts.length) {
       for (const p of fileParts) {
         if (p?.text) parts.push({ text: String(p.text) });
@@ -72,18 +72,12 @@ FORMATO (GENERAL):
           parts.push({ inlineData: { data: p.inlineData.data, mimeType: p.inlineData.mimeType } });
         }
       }
-    } else if (file?.base64 && file?.mimeType) {
-      // Único archivo binario (PDF/imagen)
-      parts.push({ inlineData: { data: file.base64, mimeType: file.mimeType } });
-    } else if (Array.isArray(textChunks) && textChunks.length) {
-      // Texto largo en chunks
-      for (const chunk of textChunks) {
-        parts.push({ text: String(chunk) });
-      }
     } else if (typeof text === "string" && text.trim()) {
       parts.push({ text: text.trim() });
+    } else if (file?.base64 && file?.mimeType) {
+      parts.push({ inlineData: { data: file.base64, mimeType: file.mimeType } });
     } else {
-      return { statusCode: 400, body: JSON.stringify({ error: "Falta 'fileParts' o 'file' o 'text/textChunks'." }) };
+      return { statusCode: 400, body: JSON.stringify({ error: "Falta 'fileParts' o 'text' o 'file'." }) };
     }
 
     const result = await model.generateContent({
