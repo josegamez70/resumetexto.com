@@ -23,7 +23,7 @@ export enum SummaryType {
 export enum PresentationType {
   Extensive = "extensive", // en detalle
   Complete  = "complete",  // +50% detalle
-  Kids      = "kids",      // para niños
+  Kids      = "Kids",      // para niños
 }
 
 // Estructura de la presentación
