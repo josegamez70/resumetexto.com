@@ -45,20 +45,20 @@ exports.handler = async (event) => {
         contentLen: "2–3 frases por sección o subsección",
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
-      Complete: {
-        title: "Completa (+50% más detalle que Extensa)",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 5,
-        maxDepth: 4, // sección > sub > sub-sub > sub-sub-sub
-        contentLen: "3–4 frases por sección o subsección",
-        extra: "Amplía causas, consecuencias y ejemplos.",
-      },
+        Complete: {
+    title: "Completa (+50% más detalle)",
+    sectionsMax: 6,                     
+    subsectionsMaxPerLevel: 6,          
+    maxDepth: 4,                        // puedes subir a 5 si quieres un nivel extra
+    contentLen: "5–6 frases por sección o subsección", 
+    extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
+  },
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 3,
         maxDepth: 3, // sección > sub > sub-sub (ahora permitido)
-        contentLen: "1–2 frases simples por sección o subsección",
+        contentLen: "2–3 frases simples por sección o subsección",
         extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
       },
     }[presentationType] || {
