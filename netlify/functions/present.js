@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
     const summaryText = String(payload.summaryText || "");
-    const presentationType = String(payload.presentationType || "Extensive");
+    const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Integro | Kids
     if (!summaryText) {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText: string }." }) };
     }
@@ -79,7 +79,7 @@ exports.handler = async (event) => {
       extra: "",
     };
 
-    // --- Directrices extra ---
+    // --- Directrices extra por tipo ---
     const styleByType = {
       Extensive: `
 - Prioriza claridad y síntesis técnica.
@@ -107,8 +107,56 @@ exports.handler = async (event) => {
 `,
     }[presentationType] || "";
 
-    // --- Prompt ---
-    const prompt = `
+    // --- PROMPTS ---
+    // Prompt LITERAL del archivo adjunto para Complete
+    const promptForComplete = `
+Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
+Estilo: ${rules.title}
+- Máximo ${rules.sectionsMax} secciones.
+- Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
+- Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
+- Longitud: ${rules.contentLen}.
+- ${rules.extra}
+
+Muy importante:
+- La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
+- Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
+- Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
+
+Formato EXACTO (recursivo):
+{
+  "presentationData": {
+    "title": "Título de la presentación",
+    "sections": [
+      {
+        "emoji": "📌",
+        "title": "Sección",
+        "content": "Párrafo corto con ideas clave.",
+        "subsections": [
+          {
+            "emoji": "🔹",
+            "title": "Subsección",
+            "content": "Detalle relevante.",
+            "subsections": [
+              {
+                "emoji": "•",
+                "title": "Sub-subsección",
+                "content": "Detalle adicional."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+TEXTO:
+${safe}
+`.trim();
+
+    // Prompt enriquecido para el resto (usa styleByType)
+    const promptRich = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
 
 Estilo: ${rules.title}
@@ -149,15 +197,24 @@ Formato EXACTO:
 
 TEXTO:
 ${safe}
-`;
+`.trim();
 
-    // --- Temperaturas ---
-    const tempByType = {
-      Extensive: 0.35,
-      Complete: 0.40,
-      Integro: 0.60,
-      Kids: 0.45,
-    }[presentationType] ?? 0.45;
+    // Selección de prompt y temperatura
+    let prompt;
+    let temperature;
+
+    if (presentationType === "Complete") {
+      prompt = promptForComplete;     // literal del archivo adjunto
+      temperature = 0.45;             // temperatura del adjunto
+    } else {
+      prompt = promptRich;
+      temperature = {
+        Extensive: 0.35,
+        Complete: 0.40, // no se usa aquí
+        Integro: 0.60,
+        Kids: 0.45,
+      }[presentationType] ?? 0.45;
+    }
 
     // --- Modelo único (flash) ---
     const modelName = "gemini-1.5-flash";
@@ -168,7 +225,7 @@ ${safe}
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: tempByType },
+      generationConfig: { temperature },
     });
 
     let raw = result.response.text().trim();
@@ -177,10 +234,15 @@ ${safe}
     let data;
     try { data = JSON.parse(raw); }
     catch {
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+      const cleaned = raw
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```$/i, "")
+        .trim();
       try { data = JSON.parse(cleaned); }
       catch {
-        const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1 && end > start) {
           const slice = cleaned.slice(start, end + 1);
           try { data = JSON.parse(slice); }
