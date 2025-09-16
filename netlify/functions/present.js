@@ -40,59 +40,62 @@ exports.handler = async (event) => {
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
     // --- Reglas base ---
-    const rules = {
-      Extensive: {
+    // (mismas que tu último archivo: Complete = más amplio; Integro = 5–6 frases)
+    const rules =
+      {
+        Extensive: {
+          title: "Extensa (en detalle)",
+          sectionsMax: 6,
+          subsectionsMaxPerLevel: 4,
+          maxDepth: 3,
+          contentLen: "2–3 frases por sección o subsección",
+          extra: "Lenguaje claro, técnico cuando sea necesario.",
+        },
+        // Complete adopta el alcance mayor (antes 'Íntegro')
+        Complete: {
+          title: "Completa (+50% más detalle)",
+          sectionsMax: 7,
+          subsectionsMaxPerLevel: 7,
+          maxDepth: 5,
+          contentLen: "6–8 frases por sección o subsección",
+          extra: "Cobertura máxima sin ser redundante. Estructura jerárquica muy clara.",
+        },
+        // Integro adopta el detalle medio-alto (antes 'Complete')
+        Integro: {
+          title: "Íntegro (muy completo, máximo alcance)",
+          sectionsMax: 6,
+          subsectionsMaxPerLevel: 6,
+          maxDepth: 4,
+          contentLen: "5–6 frases por sección o subsección",
+          extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
+        },
+        Kids: {
+          title: "Para Niños",
+          sectionsMax: 6,
+          subsectionsMaxPerLevel: 3,
+          maxDepth: 3,
+          contentLen: "2–3 frases simples por sección o subsección",
+          extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
+        },
+      }[presentationType] || {
         title: "Extensa (en detalle)",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 4,
         maxDepth: 3,
         contentLen: "2–3 frases por sección o subsección",
-        extra: "Lenguaje claro, técnico cuando sea necesario.",
-      },
-      // Ahora Complete adopta las reglas de Integro
-      Complete: {
-        title: "Completa (+50% más detalle)",
-        sectionsMax: 7,
-        subsectionsMaxPerLevel: 7,
-        maxDepth: 5,
-        contentLen: "6–8 frases por sección o subsección",
-        extra: "Cobertura máxima sin ser redundante. Estructura jerárquica muy clara.",
-      },
-      // Ahora Integro adopta las reglas anteriores de Complete
-      Integro: {
-        title: "Íntegro (muy completo, máximo alcance)",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 6,
-        maxDepth: 4,
-        contentLen: "5–6 frases por sección o subsección",
-        extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
-      },
-      Kids: {
-        title: "Para Niños",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 3,
-        maxDepth: 3,
-        contentLen: "2–3 frases simples por sección o subsección",
-        extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
-      },
-    }[presentationType] || {
-      title: "Extensa (en detalle)",
-      sectionsMax: 6,
-      subsectionsMaxPerLevel: 4,
-      maxDepth: 3,
-      contentLen: "2–3 frases por sección o subsección",
-      extra: "",
-    };
+        extra: "",
+      };
 
-    // --- Directrices extra por tipo ---
-    const styleByType = {
-      Extensive: `
+    // --- Directrices extra por tipo (como en tu último archivo) ---
+    const styleByType =
+      {
+        Extensive: `
 - Prioriza claridad y síntesis técnica.
 - Evita ejemplos extensos; céntrate en definiciones, causas y consecuencias.
 `,
 
-      // Ahora Complete tiene las directrices de Integro
-      Complete: `
+        // Ahora Complete tiene las directrices “amplias”
+        Complete: `
 - Diferénciate claramente de "Extensa": más amplitud y variedad.
 - Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
 - Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
@@ -100,22 +103,70 @@ exports.handler = async (event) => {
 - Evita repetir frases de otras secciones. Varía redacción y organización.
 `,
 
-      // Ahora Integro tiene las directrices de Complete
-      Integro: `
+        // Integro con las directrices de 5–6 frases
+        Integro: `
 - Amplía con 5–6 frases por punto.
 - Incluye causas, consecuencias, ejemplos y mini-casos.
 - Señala relaciones y comparaciones cuando aporten valor.
 `,
 
-      Kids: `
+        Kids: `
 - Lenguaje muy sencillo, positivo y cercano. Usa emojis adecuados.
 - 1–2 frases simples por punto, con ejemplos cotidianos.
 - Evita tecnicismos; si aparecen, explícalos como a un niño.
 `,
-    }[presentationType] || "";
+      }[presentationType] || "";
 
-    // --- Prompt ---
-    const prompt = `
+    // --- Prompt por tipo ---
+    // 1) Prompt "clásico" del archivo adjunto PARA COMPLETE
+    const promptCompleteAdjunto = `
+Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
+Estilo: ${rules.title}
+- Máximo ${rules.sectionsMax} secciones.
+- Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
+- Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
+- Longitud: ${rules.contentLen}.
+- ${rules.extra}
+
+Muy importante:
+- La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
+- Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
+- Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
+
+Formato EXACTO (recursivo):
+{
+  "presentationData": {
+    "title": "Título de la presentación",
+    "sections": [
+      {
+        "emoji": "📌",
+        "title": "Sección",
+        "content": "Párrafo corto con ideas clave.",
+        "subsections": [
+          {
+            "emoji": "🔹",
+            "title": "Subsección",
+            "content": "Detalle relevante.",
+            "subsections": [
+              {
+                "emoji": "•",
+                "title": "Sub-subsección",
+                "content": "Detalle adicional."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+TEXTO:
+${safe}
+`.trim();
+
+    // 2) Prompt “rico” (con Directrices específicas) PARA INTEGRO y resto
+    const promptRico = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
 
 Estilo: ${rules.title}
@@ -164,15 +215,20 @@ Formato EXACTO (recursivo):
 
 TEXTO:
 ${safe}
-`;
+`.trim();
 
-    // --- Temperatura variable según tipo ---
-    const tempByType = {
-      Extensive: 0.35,
-      Complete: 0.55, // antes Integro
-      Integro: 0.40,  // antes Complete
-      Kids: 0.45,
-    }[presentationType] ?? 0.45;
+    // Selección del prompt:
+    const prompt =
+      presentationType === "Complete" ? promptCompleteAdjunto : promptRico;
+
+    // --- Temperatura variable según tipo (tu último mapeo) ---
+    const tempByType =
+      {
+        Extensive: 0.35,
+        Complete: 0.40, // (antes Integro)
+        Integro: 0.55,  // (antes Complete)
+        Kids: 0.45,
+      }[presentationType] ?? 0.45;
 
     // --- Modelo único para todos ---
     const modelName = "gemini-1.5-flash";
@@ -209,18 +265,37 @@ ${safe}
             data = JSON.parse(slice);
           } catch {
             console.error("[present] JSON inválido. raw:", raw);
-            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
+            return {
+              statusCode: 500,
+              body: JSON.stringify({
+                error: "La IA no devolvió JSON válido.",
+                raw: raw.slice(0, 5000),
+              }),
+            };
           }
         } else {
           console.error("[present] No se encontró bloque JSON. raw:", raw);
-          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
+          return {
+            statusCode: 500,
+            body: JSON.stringify({
+              error: "La IA no devolvió JSON válido.",
+              raw: raw.slice(0, 5000),
+            }),
+          };
         }
       }
     }
 
-    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    };
   } catch (err) {
     console.error("[present] error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en present" }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err?.message || "Error en present" }),
+    };
   }
 };
