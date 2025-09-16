@@ -94,7 +94,7 @@ exports.handler = async (event) => {
 
       Integro: `
 - Diferénciate claramente de "Completa": más amplitud y variedad.
-- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
+- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios, curiosidades y comparativas si aplican.
 - Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
 - Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario" dentro del árbol (como subsecciones).
 - Evita repetir frases de “Completa”. Varía redacción y organización: reparte ideas en niveles más profundos (hasta ${rules.maxDepth}).
@@ -125,7 +125,7 @@ ${styleByType}
 Muy importante:
 - La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Mantén coherencia y no repitas ideas. Si un punto ya se explicó, aporta un ángulo distinto (ejemplo, contrapunto, error común, pregunta frecuente…).
+- Mantén coherencia y no repitas ideas. Si un punto ya se explicó, aporta un ángulo distinto (ejemplo, curiosidades, contrapunto, error común, pregunta frecuente…).
 - Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
 Formato EXACTO (recursivo):
@@ -168,9 +168,14 @@ ${safe}
       Kids:      0.45,
     }[presentationType] ?? 0.45;
 
+    // --- Selección de modelo según tipo ---
+    const modelByType = (presentationType === "Integro")
+      ? "gemini-1.5-pro"
+      : "gemini-1.5-flash";
+
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: modelByType });
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
