@@ -1,3 +1,4 @@
+// src/components/PresentationView.tsx
 import React, { useRef } from "react";
 import { PresentationData, PresentationType } from "../types";
 
@@ -6,8 +7,15 @@ interface PresentationViewProps {
   presentationType: PresentationType;
   summaryTitle: string;
   onBackToSummary: () => void;
-  onHome?: () => void; // NUEVO
+  onHome?: () => void;
 }
+
+const TYPE_LABELS: Record<string, string> = {
+  Extensive: "Extensa (detalle)",
+  Complete: "Completa (+50% detalle)",
+  Integro: "Íntegro (muy completo)",
+  Kids: "Para Niños",
+};
 
 const PresentationView: React.FC<PresentationViewProps> = ({
   presentation,
@@ -71,6 +79,8 @@ const PresentationView: React.FC<PresentationViewProps> = ({
         .replace(/[^a-z0-9_\- .]/gi, "")
         .trim() || "presentacion";
 
+    const prettyType = TYPE_LABELS[String(presentationType)] || String(presentationType);
+
     const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${summaryTitle || presentation.title}</title>
@@ -102,7 +112,7 @@ document.addEventListener('toggle', function(ev){
   <div class="mb-3 sm:mb-4">
     <h1 class="text-lg sm:text-2xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
     <h3 class="text-sm sm:text-lg italic text-yellow-400">${summaryTitle || ""}</h3>
-    <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${presentationType}</p>
+    <p class="text-xs sm:text-sm text-gray-400 italic">Tipo: ${prettyType}</p>
   </div>
   <div class="flex flex-wrap gap-2 justify-start mb-4">
     <button onclick="expandAll()" class="bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg text-sm">📂 Desplegar todos</button>
@@ -139,7 +149,7 @@ document.addEventListener('toggle', function(ev){
 
     return (
       <details
-        className={`border rounded-lg overflow-hidden w-full max-w-full ${
+        className={`border rounded-lg overflow-hidden w/full max-w-full ${
           isTop
             ? "lvl1 bg-gray-800 border-gray-700"
             : level === 2
@@ -166,7 +176,9 @@ document.addEventListener('toggle', function(ev){
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Mapa conceptual (desplegables)</h1>
           <h3 className="text-base sm:text-lg italic text-yellow-400">{summaryTitle}</h3>
-          <p className="text-xs sm:text-sm text-gray-400 italic">Tipo: {presentationType}</p>
+          <p className="text-xs sm:text-sm text-gray-400 italic">
+            Tipo: {TYPE_LABELS[String(presentationType)] || String(presentationType)}
+          </p>
         </div>
         <div className="w-full sm:w-auto flex justify-center">{HomeBtn}</div>
       </div>

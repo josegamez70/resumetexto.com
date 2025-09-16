@@ -136,7 +136,11 @@ export function flattenPresentationToText(p: PresentationData): string {
     const pad = "  ".repeat(depth - 1);
     lines.push(`${pad}- ${s.emoji ? s.emoji + " " : ""}${s.title}`);
     if (s.content) lines.push(`${pad}  ${s.content}`);
-    (s.subsections || []).forEach((x) => walk(x, depth + 1));
+    const subs = [
+      ...(s.subsections || []),
+      ...(s.children || []), // soporta alias "children"
+    ];
+    subs.forEach((x) => walk(x, depth + 1));
   };
   (p.sections || []).forEach((sec) => walk(sec, 1));
   return lines.join("\n");
