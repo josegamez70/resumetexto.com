@@ -125,7 +125,7 @@ ${styleByType}
 Muy importante:
 - La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Mantén coherencia y no repitas ideas: aporta siempre ángulos distintos.
+- Mantén coherencia y no repitas ideas. Si un punto ya se explicó, aporta un ángulo distinto (ejemplo, contrapunto, error común, pregunta frecuente…).
 - Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
 Formato EXACTO (recursivo):
