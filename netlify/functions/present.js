@@ -24,8 +24,11 @@ exports.handler = async (event) => {
     }
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
+    }
 
     const summaryText = String(payload.summaryText || "");
     const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Integro | Kids
@@ -37,7 +40,6 @@ exports.handler = async (event) => {
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
     // --- Reglas base ---
-    // OJO: Complete e Integro están INTERCAMBIADOS respecto a antes.
     const rules = {
       Extensive: {
         title: "Extensa (en detalle)",
@@ -47,18 +49,18 @@ exports.handler = async (event) => {
         contentLen: "2–3 frases por sección o subsección",
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
-      // COMPLETE ahora usa lo que antes era INTEGRO (muy completo, máximo alcance)
+      // Ahora Complete adopta las reglas de Integro
       Complete: {
-        title: "Íntegro (muy completo, máximo alcance)",
+        title: "Completa (+50% más detalle)",
         sectionsMax: 7,
         subsectionsMaxPerLevel: 7,
         maxDepth: 5,
         contentLen: "6–8 frases por sección o subsección",
         extra: "Cobertura máxima sin ser redundante. Estructura jerárquica muy clara.",
       },
-      // INTEGRO ahora usa lo que antes era COMPLETE (+50% detalle)
+      // Ahora Integro adopta las reglas anteriores de Complete
       Integro: {
-        title: "Completa (+50% más detalle)",
+        title: "Íntegro (muy completo, máximo alcance)",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 6,
         maxDepth: 4,
@@ -83,24 +85,22 @@ exports.handler = async (event) => {
     };
 
     // --- Directrices extra por tipo ---
-    // OJO: También INTERCAMBIAMOS los bloques de estilo de Complete e Integro.
     const styleByType = {
       Extensive: `
 - Prioriza claridad y síntesis técnica.
 - Evita ejemplos extensos; céntrate en definiciones, causas y consecuencias.
 `,
 
-      // COMPLETE ahora toma el estilo "antes Integro"
+      // Ahora Complete tiene las directrices de Integro
       Complete: `
-- Diferénciate claramente de "Completa" tradicional: más amplitud y variedad.
-- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios, curiosidades y comparativas si aplican.
+- Diferénciate claramente de "Extensa": más amplitud y variedad.
+- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
 - Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
-- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario" dentro del árbol (como subsecciones).
-- Evita repetir ideas ya expuestas. Varía redacción y organización: reparte ideas en niveles más profundos (hasta ${rules.maxDepth}).
-- Cada frase debe aportar valor nuevo, nada de relleno.
+- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario".
+- Evita repetir frases de otras secciones. Varía redacción y organización.
 `,
 
-      // INTEGRO ahora toma el estilo "antes Complete"
+      // Ahora Integro tiene las directrices de Complete
       Integro: `
 - Amplía con 5–6 frases por punto.
 - Incluye causas, consecuencias, ejemplos y mini-casos.
@@ -131,7 +131,7 @@ ${styleByType}
 Muy importante:
 - La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Mantén coherencia y no repitas ideas. Si un punto ya se explicó, aporta un ángulo distinto (ejemplo, curiosidades, contrapunto, error común, pregunta frecuente…).
+- Mantén coherencia y no repitas ideas: aporta siempre ángulos distintos.
 - Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
 Formato EXACTO (recursivo):
@@ -169,20 +169,17 @@ ${safe}
     // --- Temperatura variable según tipo ---
     const tempByType = {
       Extensive: 0.35,
-      Complete:  0.40,
-      Integro:   0.55,
-      Kids:      0.45,
+      Complete: 0.55, // antes Integro
+      Integro: 0.40,  // antes Complete
+      Kids: 0.45,
     }[presentationType] ?? 0.45;
 
-    // --- Selección de modelo según tipo ---
-    // Manteniendo tu criterio: SOLO Integro usa PRO; todos los demás usan FLASH.
-    const modelByType = (presentationType === "Integro")
-      ? "gemini-1.5-pro"
-      : "gemini-1.5-flash";
+    // --- Modelo único para todos ---
+    const modelName = "gemini-1.5-flash";
 
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
-    const model = genAI.getGenerativeModel({ model: modelByType });
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -193,16 +190,24 @@ ${safe}
 
     // Parse robusto
     let data;
-    try { data = JSON.parse(raw); }
-    catch {
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-      try { data = JSON.parse(cleaned); }
-      catch {
-        const start = cleaned.indexOf("{"); const end = cleaned.lastIndexOf("}");
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      const cleaned = raw
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```$/i, "")
+        .trim();
+      try {
+        data = JSON.parse(cleaned);
+      } catch {
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1 && end > start) {
           const slice = cleaned.slice(start, end + 1);
-          try { data = JSON.parse(slice); }
-          catch {
+          try {
+            data = JSON.parse(slice);
+          } catch {
             console.error("[present] JSON inválido. raw:", raw);
             return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
           }
