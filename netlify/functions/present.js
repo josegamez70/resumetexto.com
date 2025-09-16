@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
     const summaryText = String(payload.summaryText || "");
-    const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Kids
+    const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Integro | Kids
     if (!summaryText) {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText: string }." }) };
     }
@@ -36,28 +36,37 @@ exports.handler = async (event) => {
     const MAX = 10000;
     const safe = summaryText.length > MAX ? summaryText.slice(0, MAX) : summaryText;
 
+    // --- Reglas base ---
     const rules = {
       Extensive: {
         title: "Extensa (en detalle)",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 4,
-        maxDepth: 3, // sección > sub > sub-sub
+        maxDepth: 3,
         contentLen: "2–3 frases por sección o subsección",
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
-        Complete: {
-    title: "Completa (+50% más detalle)",
-    sectionsMax: 6,                     
-    subsectionsMaxPerLevel: 6,          
-    maxDepth: 4,                        // puedes subir a 5 si quieres un nivel extra
-    contentLen: "5–6 frases por sección o subsección", 
-    extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
-  },
+      Complete: {
+        title: "Completa (+50% más detalle)",
+        sectionsMax: 6,
+        subsectionsMaxPerLevel: 6,
+        maxDepth: 4,
+        contentLen: "5–6 frases por sección o subsección",
+        extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
+      },
+      Integro: {
+        title: "Íntegro (muy completo, máximo alcance)",
+        sectionsMax: 7,
+        subsectionsMaxPerLevel: 7,
+        maxDepth: 5,
+        contentLen: "6–8 frases por sección o subsección",
+        extra: "Cobertura máxima sin ser redundante. Estructura jerárquica muy clara.",
+      },
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 3,
-        maxDepth: 3, // sección > sub > sub-sub (ahora permitido)
+        maxDepth: 3,
         contentLen: "2–3 frases simples por sección o subsección",
         extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
       },
@@ -70,12 +79,39 @@ exports.handler = async (event) => {
       extra: "",
     };
 
-    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
-    const genAI = new GGA(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // --- Directrices extra por tipo ---
+    const styleByType = {
+      Extensive: `
+- Prioriza claridad y síntesis técnica.
+- Evita ejemplos extensos; céntrate en definiciones, causas y consecuencias.
+`,
 
+      Complete: `
+- Amplía con 5–6 frases por punto.
+- Incluye causas, consecuencias, ejemplos y mini-casos.
+- Señala relaciones y comparaciones cuando aporten valor.
+`,
+
+      Integro: `
+- Diferénciate claramente de "Completa": más amplitud y variedad.
+- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
+- Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
+- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario" dentro del árbol (como subsecciones).
+- Evita repetir frases de “Completa”. Varía redacción y organización: reparte ideas en niveles más profundos (hasta ${rules.maxDepth}).
+- Cada frase debe aportar valor nuevo, nada de relleno.
+`,
+
+      Kids: `
+- Lenguaje muy sencillo, positivo y cercano. Usa emojis adecuados.
+- 1–2 frases simples por punto, con ejemplos cotidianos.
+- Evita tecnicismos; si aparecen, explícalos como a un niño.
+`,
+    }[presentationType] || "";
+
+    // --- Prompt ---
     const prompt = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
+
 Estilo: ${rules.title}
 - Máximo ${rules.sectionsMax} secciones.
 - Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
@@ -83,9 +119,13 @@ Estilo: ${rules.title}
 - Longitud: ${rules.contentLen}.
 - ${rules.extra}
 
+Directrices específicas:
+${styleByType}
+
 Muy importante:
 - La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
+- Mantén coherencia y no repitas ideas: aporta siempre ángulos distintos.
 - Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
 
 Formato EXACTO (recursivo):
@@ -120,9 +160,21 @@ TEXTO:
 ${safe}
 `;
 
+    // --- Temperatura variable según tipo ---
+    const tempByType = {
+      Extensive: 0.35,
+      Complete:  0.40,
+      Integro:   0.55,
+      Kids:      0.45,
+    }[presentationType] ?? 0.45;
+
+    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
+    const genAI = new GGA(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.45 },
+      generationConfig: { temperature: tempByType },
     });
 
     let raw = result.response.text().trim();

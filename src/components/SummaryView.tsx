@@ -1,7 +1,7 @@
 // components/SummaryView.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-import { PresentationType, MindMapColorMode } from "../types";
+import { PresentationType, MindMapColorMode } from "../types"; 
 
 interface SummaryViewProps {
   summary: string;
@@ -122,7 +122,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           >
             <option value={PresentationType.Extensive}>Extensa (en detalle)</option>
             <option value={PresentationType.Complete}>Completa (+50% detalle)</option>
-            <option value={PresentationType.Integro}>Íntegro (muy completo)</option>
+            <option value={PresentationType.Integro}>Íntegro (muy completo, máximo alcance)</option>
             <option value={PresentationType.Kids}>Para Niños</option>
           </select>
 

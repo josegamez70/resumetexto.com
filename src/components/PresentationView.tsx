@@ -13,7 +13,7 @@ interface PresentationViewProps {
 const TYPE_LABELS: Record<string, string> = {
   Extensive: "Extensa (detalle)",
   Complete: "Completa (+50% detalle)",
-  Integro: "Íntegro (muy completo)",
+  Integro: "Íntegro (muy completo, máximo alcance)",
   Kids: "Para Niños",
 };
 
@@ -56,16 +56,13 @@ const PresentationView: React.FC<PresentationViewProps> = ({
   };
   const printPDF = () => window.print();
 
-  // Acordeón (primer nivel) en app
   const handleTopSummaryClick = (e: React.MouseEvent, _idx: number) => {
     e.preventDefault();
-    const summaryEl = e.currentTarget as HTMLElement;
-    const detailsEl = summaryEl.parentElement as HTMLDetailsElement;
+    const detailsEl = (e.currentTarget as HTMLElement).parentElement as HTMLDetailsElement;
     if (!containerRef.current || !detailsEl) return;
     const isOpen = detailsEl.hasAttribute("open");
-    if (isOpen) {
-      detailsEl.removeAttribute("open");
-    } else {
+    if (isOpen) detailsEl.removeAttribute("open");
+    else {
       containerRef.current.querySelectorAll("details.lvl1").forEach((d) => d.removeAttribute("open"));
       detailsEl.setAttribute("open", "true");
     }
@@ -73,12 +70,10 @@ const PresentationView: React.FC<PresentationViewProps> = ({
 
   const downloadHTML = () => {
     if (!containerRef.current) return;
-
     const safeTitle =
       (summaryTitle || presentation.title || "presentacion")
         .replace(/[^a-z0-9_\- .]/gi, "")
         .trim() || "presentacion";
-
     const prettyType = TYPE_LABELS[String(presentationType)] || String(presentationType);
 
     const html = `<!DOCTYPE html><html lang="es"><head>
@@ -147,7 +142,6 @@ document.addEventListener('toggle', function(ev){
     }
     const isTop = level === 1;
 
-    // Soporte para 'subsections' y alias 'children'
     const getSubs = (s: any) => [
       ...(Array.isArray(s.subsections) ? s.subsections : []),
       ...(Array.isArray(s.children) ? s.children : []),

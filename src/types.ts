@@ -1,6 +1,8 @@
 // src/types.ts
 
+// -----------------------------
 // Estados de la app
+// -----------------------------
 export enum ViewState {
   UPLOADER = "UPLOADER",
   SUMMARY = "SUMMARY",
@@ -9,7 +11,9 @@ export enum ViewState {
   FLASHCARDS = "FLASHCARDS",
 }
 
-// Tipos de resumen (con alias para compatibilidad)
+// -----------------------------
+// Tipos de resumen (con alias)
+// -----------------------------
 export enum SummaryType {
   Short    = "short",
   Basic    = "short",     // alias
@@ -21,39 +25,46 @@ export enum SummaryType {
   Bullets  = "bullet",    // alias (plural)
 }
 
+// -------------------------------------------
 // Tipos de presentación / mapa conceptual
-// ⚠️ Importante: usar mayúscula inicial para alinear con present.js
+// ⚠️ Usar Mayúscula inicial para alinear
+//    con present.js (backend)
+// -------------------------------------------
 export enum PresentationType {
   Extensive = "Extensive", // en detalle
-  Complete  = "Complete",  // +50% detalle (ahora 5–6 frases, más ramas)
-  Integro   = "Integro",   // muy completo, mayor alcance que "Complete"
-  Kids      = "Kids",      // para niños
+  Complete  = "Complete",  // +50% detalle (5–6 frases, más ramas)
+  Integro   = "Integro",   // muy completo, > Complete (máximo alcance)
+  Kids      = "Kids",      // para niños (lenguaje sencillo + emojis)
 }
 
-// Estructura de la presentación
+// -------------------------------------------------
+// Estructuras del Mapa conceptual (Presentación)
+// -------------------------------------------------
 export interface PresentationSection {
   id: string;
   title: string;
   emoji?: string;
 
-  // Contenido de bloque (algunos sitios lo llaman `content`)
+  // Contenido del bloque
   content?: string;
 
-  // Puntos/ideas del bloque
+  // Puntos/ideas (si en algún flujo se usan bullets)
   bullets?: string[];
 
-  // Subniveles (alias para compatibilidad: `children` y `subsections`)
+  // Subniveles (acepta ambos alias)
   children?: PresentationSection[];
   subsections?: PresentationSection[];
 }
 
 export interface PresentationData {
-  title: string;                 // requerido
+  title: string;                 // obligatorio
   type?: PresentationType;       // opcional (algunos generadores no lo devuelven)
   sections: PresentationSection[];
 }
 
+// -----------------------------
 // Mapa mental
+// -----------------------------
 export interface MindMapNode {
   id: string;
   label: string;
@@ -65,17 +76,22 @@ export interface MindMapData {
   root: MindMapNode;
 }
 
-// Modo del mapa mental
+// -----------------------------
+// Modo del mapa mental (UI)
+// -----------------------------
 export enum MindMapColorMode {
   BlancoNegro = "classic", // “Clásico”
   Color       = "detail",  // “Más detalle”
 }
 
+// -----------------------------
 // Flashcards
+// -----------------------------
 export interface Flashcard {
   id: string;
   front: string;
   back: string;
-  question?: string; // alias
-  answer?: string;   // alias
+  // alias opcionales (compatibilidad)
+  question?: string;
+  answer?: string;
 }
