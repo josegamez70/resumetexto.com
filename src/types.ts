@@ -1,3 +1,5 @@
+// src/types.ts
+
 // Estados de la app
 export enum ViewState {
   UPLOADER = "UPLOADER",
@@ -20,9 +22,11 @@ export enum SummaryType {
 }
 
 // Tipos de presentación / mapa conceptual
+// ⚠️ Importante: usar mayúscula inicial para alinear con present.js
 export enum PresentationType {
-  Extensive = "extensive", // en detalle
-  Complete  = "complete",  // +50% detalle
+  Extensive = "Extensive", // en detalle
+  Complete  = "Complete",  // +50% detalle (ahora 5–6 frases, más ramas)
+  Integro   = "Integro",   // muy completo, mayor alcance que "Complete"
   Kids      = "Kids",      // para niños
 }
 
@@ -45,7 +49,7 @@ export interface PresentationSection {
 
 export interface PresentationData {
   title: string;                 // requerido
-  type: PresentationType;
+  type?: PresentationType;       // opcional (algunos generadores no lo devuelven)
   sections: PresentationSection[];
 }
 

@@ -147,15 +147,22 @@ document.addEventListener('toggle', function(ev){
     }
     const isTop = level === 1;
 
+    // Soporte para 'subsections' y alias 'children'
+    const getSubs = (s: any) => [
+      ...(Array.isArray(s.subsections) ? s.subsections : []),
+      ...(Array.isArray(s.children) ? s.children : []),
+    ];
+
     return (
       <details
-        className={`border rounded-lg overflow-hidden w/full max-w-full ${
+        className={`border rounded-lg overflow-hidden w-full max-w-full ${
           isTop
             ? "lvl1 bg-gray-800 border-gray-700"
             : level === 2
             ? "bg-gray-700 border-gray-600 pl-2 sm:pl-4"
             : "bg-gray-600 border-gray-500 pl-3 sm:pl-6"
         }`}
+        key={(section.id ?? section.title ?? "sec") + "-" + level + "-" + idx}
       >
         <summary
           className={summaryClass}
@@ -164,8 +171,7 @@ document.addEventListener('toggle', function(ev){
           {section.emoji} {section.title}
         </summary>
         {section.content && <p className={contentClass}>{section.content}</p>}
-        {Array.isArray(section.subsections) &&
-          section.subsections.map((sub: any, i: number) => renderSection(sub, level + 1, i))}
+        {getSubs(section).map((sub: any, i: number) => renderSection(sub, level + 1, i))}
       </details>
     );
   };
