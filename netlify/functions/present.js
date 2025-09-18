@@ -55,13 +55,13 @@ exports.handler = async (event) => {
         extra: "Incluye causas, consecuencias, ejemplos y mini-casos.",
       },
       Integro: {
-        title: "Íntegro (muy completo, máximo alcance)",
-        sectionsMax: 7,
-        subsectionsMaxPerLevel: 7,
-        maxDepth: 5,
-        contentLen: "6–8 frases por sección o subsección",
-        extra: "Cobertura máxima sin redundancias. Jerarquía clara.",
-      },
+  title: "Íntegro (muy completo, máximo alcance)",
+  sectionsMax: 6,
+  subsectionsMaxPerLevel: 7, // opcional subir a 7
+  maxDepth: 5,               // ← antes 4; ahora permite sub-subdesplegables
+  contentLen: "5–6 frases por sección o subsección",
+  extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
+},
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,

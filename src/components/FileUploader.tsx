@@ -130,10 +130,18 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           mx-auto
           relative overflow-hidden`}
       >
-        {/* Icono */}
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-yellow-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
-        </svg>
+       {/* Icono */}
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  className={`w-12 h-12 text-yellow-400 mb-3 transition-opacity ${
+    allImages && imagesCount >= 1 ? "opacity-20" : "opacity-100"
+  }`}
+  fill="none"
+  viewBox="0 0 24 24"
+  stroke="currentColor"
+>
+  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
+</svg>
 
         {/* Texto base: lo ocultamos cuando mostramos overlay para evitar solapes */}
         {!showOverlay && (

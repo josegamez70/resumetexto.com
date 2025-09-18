@@ -52,8 +52,8 @@ FORMATO (CORTO / BREVE / EXPRESS):
     } else if (flavor === "long") {
       styleInstruction += `
 FORMATO (LARGO / EXTENSO / DETALLADO):
-- Devuelve entre 9 y 15 frases completas.
-- Organiza el texto en 4 a 6 párrafos.
+- Devuelve entre 18 y 30 frases completas.
+- Organiza el texto en 8 a 12 párrafos.
 - Explica con contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.`;
     } else {
