@@ -43,26 +43,30 @@ exports.handler = async (event) => {
     // --- Instrucciones por tipo ---
     let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
-   if (flavor === "short") {
-  styleInstruction += `
+    if (flavor === "short") {
+      styleInstruction += `
 FORMATO (CORTO, SIN VIÑETAS):
 - Devuelve 2–4 frases completas en un único bloque de texto.
 - No uses guiones, numeración ni viñetas.`;
-} else if (flavor === "bullet") {
-  styleInstruction += `
+    } else if (flavor === "bullet") {
+      styleInstruction += `
 FORMATO (PUNTOS):
 - Devuelve SÓLO viñetas con el símbolo "• " al inicio.
 - Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
 - No numeres, no añadas títulos.`;
-} else if (flavor === "long") {
-  styleInstruction += `
+    } else if (flavor === "long") {
+      styleInstruction += `
 FORMATO (LARGO, SIN VIÑETAS):
 - Devuelve entre 18 y 30 frases completas.
 - Organiza el texto en 8 a 12 párrafos.
 - Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
-- No uses viñetas ni numeración. Solo párrafos corridos.`;
-}
-
+- No uses viñetas ni numeración. Solo párrafos corridos.
+- Si el material fuente es breve, amplía con contexto, ejemplos y matices para cumplir la longitud.`;
+    } else {
+      styleInstruction += `
+FORMATO (GENERAL):
+- Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
+    }
 
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
@@ -119,9 +123,15 @@ Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integr
 No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).`.trim(),
     });
 
+    // ++ Dar más espacio de salida cuando es 'long'
+    const isLong = flavor === "long";
+
     const result = await model.generateContent({
       contents: [{ role: "user", parts }],
-      generationConfig: { temperature: 0.35 },
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: isLong ? 2048 : 1024, // ⟵ más tokens para el largo
+      },
     });
 
     const summary = String(result?.response?.text?.() || "").trim();
