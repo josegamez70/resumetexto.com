@@ -24,14 +24,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
   }, [selected]);
 
   function appendImages(newImages: File[]) {
-    // Si ya había PDF, reemplazamos por imágenes
     const hadPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
     if (hadPDF) {
       setMsg("Has elegido fotos, he reemplazado el PDF por las fotos.");
       setSelected(newImages.slice(0, 6));
       return;
     }
-    // Acumular imágenes (cámara devuelve 1 cada vez)
     const currentImages = selected.filter(f => /^image\//i.test(f.type));
     let next = [...currentImages, ...newImages];
     if (next.length > 6) {
@@ -49,7 +47,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     const pdfs   = incoming.filter(f => /^application\/pdf$/i.test(f.type));
     const images = incoming.filter(f => /^image\//i.test(f.type));
 
-    // Si viene PDF, reemplaza siempre
     if (pdfs.length > 0) {
       const hadOnlyImages = selected.length && selected.every(f => /^image\//i.test(f.type));
       if (hadOnlyImages) setMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
@@ -58,7 +55,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
       return;
     }
 
-    // Si vienen imágenes, acumulamos hasta 6
     if (images.length > 0) {
       appendImages(images);
     }
@@ -66,8 +62,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     pickFiles(e.target.files);
-    // Limpia el valor para que futuras selecciones/capturas vuelvan a disparar onChange
-    // incluso si se selecciona el mismo archivo/foto
     e.target.value = "";
   }
 
@@ -142,7 +136,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
               : `${selected.length} archivos seleccionados`
             : "Haz clic o arrastra tus archivos aquí"}
         </span>
-        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6)</span>
+        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6), no mezclar</span>
         <input
           id="fileInput"
           type="file"
@@ -154,10 +148,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
         />
       </label>
 
-      {/* Mensaje bajo el input */}
-      <p className="text-gray-300 text-xs mt-2 text-center">
-        Sube 1 PDF o hasta 6 fotos <strong>(no mezcles)</strong>. Si eliges un PDF después de fotos, reemplazaré tu selección.
-      </p>
+      {/* Aviso dinámico */}
       {msg && <div className="text-yellow-300 text-sm mt-2 text-center">{msg}</div>}
 
       {/* Mini thumbnails */}
@@ -191,8 +182,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm sm:text-base"
         >
           <option value={SummaryType.Short}>📄 Corto</option>
-          <option value={SummaryType.Medium}>📃 Medio</option>
-          <option value={SummaryType.Detailed}>📜 Detallado</option>
+          <option value={SummaryType.Detailed}>📜 Largo</option>
           <option value={SummaryType.Bullet}>🔹 Por Puntos</option>
         </select>
       </div>
