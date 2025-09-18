@@ -1,8 +1,6 @@
 // netlify/functions/summarize.js
-// Retrocompatible:
-// - Acepta { file, text } (formato antiguo)
-// - Acepta { files: [{base64,mimeType},...], textChunks: [ ... ] } (formato nuevo)
-// Tipos soportados: short | long | bullet
+// Retrocompatible: {file,text} y {files[],textChunks[]}
+// Tipos: short | long | bullet
 
 exports.handler = async (event) => {
   try {
@@ -19,54 +17,28 @@ exports.handler = async (event) => {
       "";
 
     if (!apiKey) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error:
-            "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY). Configúrala en Netlify → Site settings → Environment.",
-        }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY)." }) };
     }
 
-    // Parse body
+    // Body
     let payload = {};
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
-    }
+    try { payload = JSON.parse(event.body || "{}"); }
+    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
-    // Formatos soportados
-    const files = Array.isArray(payload.files)
-      ? payload.files
-      : (payload.file ? [payload.file] : []);
-
-    const textChunks = Array.isArray(payload.textChunks)
-      ? payload.textChunks
-      : (payload.text ? [payload.text] : []);
-
+    const files = Array.isArray(payload.files) ? payload.files : (payload.file ? [payload.file] : []);
+    const textChunks = Array.isArray(payload.textChunks) ? payload.textChunks : (payload.text ? [payload.text] : []);
     const summaryType = String(payload.summaryType || "short");
 
     if (!files.length && !textChunks.length) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Debes enviar al menos un archivo (pdf/imagen) o texto." }),
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar al menos un archivo (pdf/imagen) o texto." }) };
     }
 
-    // --------- Mapeo de tipos (short | long | bullet) ----------
-    const norm = (s = "") =>
-      String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
+    // Map tipos
+    const norm = (s = "") => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const s = norm(summaryType);
     let flavor = "short";
-    if (s.includes("bullet") || s.includes("punto") || s.includes("vinet") || s.includes("viñet")) {
-      flavor = "bullet";
-    } else if (s.includes("long") || s.includes("largo") || s.includes("detall")) {
-      flavor = "long";
-    } else {
-      flavor = "short";
-    }
+    if (s.includes("bullet") || s.includes("punto") || s.includes("viñet") || s.includes("vinet")) flavor = "bullet";
+    else if (s.includes("long") || s.includes("largo") || s.includes("detall")) flavor = "long";
 
     let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
@@ -82,7 +54,6 @@ FORMATO (LARGO, SIN VIÑETAS):
 - No uses guiones, numeración ni viñetas.
 - No añadas títulos o etiquetas.`;
     } else {
-      // bullet
       styleInstruction += `
 FORMATO (POR PUNTOS):
 - Devuelve SÓLO viñetas con el símbolo "• " al inicio.
@@ -90,47 +61,54 @@ FORMATO (POR PUNTOS):
 - No numeres, no añadas títulos.`;
     }
 
-    // Modelo único
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Construcción de partes: primero instrucciones, luego textos, luego binarios
     const parts = [{ text: styleInstruction }];
 
-    // Textos (truncado seguro)
+    // Texto (truncado)
     const MAX_TOK_TEXT = 18000;
     for (const t of textChunks) {
       if (!t) continue;
       parts.push({ text: String(t).slice(0, MAX_TOK_TEXT) });
     }
 
-    // Archivos (máximo 6 imágenes; 1 PDF; HEIC/HEIF normalizado)
+    // Archivos con límites
     const MAX_IMAGES = 6;
+    const MAX_PART_BYTES = 3.5 * 1024 * 1024; // ~3.5MB por parte (base64 un 33% más)
     let imageCount = 0;
     let hasPdf = false;
 
     for (const f of files) {
       let mimeType = String(f?.mimeType || "").toLowerCase();
-      const data = String(f?.base64 || "");
-      if (!mimeType || !data) continue;
+      const base64 = String(f?.base64 || "");
+      if (!mimeType || !base64) continue;
+
+      // Rechazo amable si un part es gigante (evita Internal Error del proveedor)
+      const approxBytes = Math.floor(base64.length * 0.75);
+      if (approxBytes > MAX_PART_BYTES) {
+        return {
+          statusCode: 413,
+          body: JSON.stringify({
+            error: "Imagen demasiado grande tras compresión. Toma la foto en calidad media o súbela más pequeña.",
+          }),
+        };
+      }
 
       if (mimeType === "application/pdf") {
-        if (hasPdf) continue; // solo 1 PDF
+        if (hasPdf) continue;
         hasPdf = true;
-        parts.push({ inlineData: { mimeType, data } });
+        parts.push({ inlineData: { mimeType, data: base64 } });
         continue;
       }
 
       if (mimeType.startsWith("image/")) {
         if (imageCount >= MAX_IMAGES) continue;
         if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic";
-        parts.push({ inlineData: { mimeType, data } });
+        parts.push({ inlineData: { mimeType, data: base64 } });
         imageCount++;
-        continue;
       }
-
-      // Otros tipos los ignoramos silenciosamente
     }
 
     parts.push({
@@ -139,14 +117,12 @@ Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integr
 No devuelvas JSON ni Markdown, solo texto corrido (o viñetas si el tipo lo pide).`.trim(),
     });
 
-    // Llamada al modelo
     const result = await model.generateContent({
       contents: [{ role: "user", parts }],
       generationConfig: { temperature: 0.35 },
     });
 
     const summary = String(result?.response?.text?.() || "").trim();
-
     if (!summary) {
       console.error("[summarize] Respuesta vacía del modelo");
       return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
