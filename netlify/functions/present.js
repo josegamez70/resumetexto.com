@@ -49,21 +49,22 @@ exports.handler = async (event) => {
         extra: "Lenguaje claro, técnico cuando sea necesario.",
       },
       Complete: {
-        title: "Completa (+50% más detalle)",
-        sectionsMax: 7,
-        subsectionsMaxPerLevel: 7,
-        maxDepth: 5,
-        contentLen: "6–8 frases por sección o subsección",
-        extra: "Cobertura máxima sin redundancias. Estructura jerárquica muy clara.",
-      },
-      Integro: {
-        title: "Íntegro (muy completo, máximo alcance)",
-        sectionsMax: 7,
-        subsectionsMaxPerLevel: 7,
-        maxDepth: 5,
-        contentLen: "6–8 frases por sección o subsección",
-        extra: "Cobertura máxima sin redundancias. Jerarquía clara.",
-      },
+  title: "Completa (+50% más detalle)",
+  sectionsMax: 7,
+  subsectionsMaxPerLevel: 6,
+  maxDepth: 5,
+  contentLen: "5–7 frases por sección o subsección",
+  extra: "Define, explica por qué importa, cómo funciona y da 1–2 ejemplos breves. Incluye riesgos/limitaciones y recomendaciones claras sin extenderse.",
+},
+Integro: {
+  title: "Íntegro (muy completo, máximo alcance)",
+  sectionsMax: 8,                    // más amplitud
+  subsectionsMaxPerLevel: 9,         // más ramificación por nivel
+  maxDepth: 6,                       // permite capas extra (sub-sub y más)
+  contentLen: "8–12 frases por sección o subsección",
+  extra: "Cobertura máxima y no redundante: definición, contexto/antecedentes, causas, consecuencias, comparativas, contraejemplos, errores frecuentes, mini-casos, FAQ y glosario cuando aporte valor; referencias/normativa SOLO si el texto original las incluye.",
+},
+
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
@@ -87,23 +88,19 @@ exports.handler = async (event) => {
 - Prioriza claridad y síntesis técnica.
 - Evita ejemplos extensos; céntrate en definiciones, causas y consecuencias.
 `,
-      Complete: `
-- Diferénciate claramente de "Extensa": más amplitud y variedad.
-- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
-- Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
-- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario".
-- Evita repetir frases de otras secciones. Varía redacción y organización.
+     Complete: `
+- Diferénciate de "Extensa" con mayor amplitud y organización clara.
+- Para cada bloque: ¿qué es? → ¿por qué importa? → ¿cómo funciona? → 1–2 ejemplos breves → riesgos/limitaciones → recomendaciones.
+- Evita redundancias; resume sin perder precisión técnica.
+- Puedes cerrar con un mini “Checklist” o 2–3 preguntas frecuentes si realmente ayudan.
 `,
-      Integro: `
-- Diferénciate claramente de "Extensa": más amplitud y variedad.
-- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
-- Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
-- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario".
-- Evita repetir frases de otras secciones. Varía redacción y organización.
-- Amplía con 5–6 frases por punto.
-- Incluye causas, consecuencias, ejemplos y mini-casos.
-- Señala relaciones y comparaciones cuando aporten valor.
+Integro: `
+- Máxima cobertura y variedad de ángulos. Profundiza sin repetir.
+- En al menos la mitad de secciones incluye nivel 3 (sub-subsecciones) cuando aporte valor.
+- Para cada bloque: definición, contexto/antecedentes, causas, consecuencias, ejemplos y contraejemplos, errores frecuentes, micro-escenarios, comparativas, recomendaciones prácticas.
+- Considera FAQ y Glosario al final de bloques complejos. Referencias/normativa sólo si aparecen en el texto original.
 `,
+
       Kids: `
 - Lenguaje muy sencillo, positivo y cercano. Usa emojis adecuados.
 - 1–2 frases simples por punto, con ejemplos cotidianos.
@@ -206,16 +203,16 @@ ${safe}
     let prompt;
     let temperature;
 
-    if (presentationType === "Complete" || presentationType === "Integro") {
-      prompt = promptForComplete;
-      temperature = presentationType === "Integro" ? 0.60 : 0.45;
-    } else {
-      prompt = promptRich;
-      temperature = {
-        Extensive: 0.35,
-        Kids: 0.45,
-      }[presentationType] ?? 0.45;
-    }
+   if (presentationType === "Complete" || presentationType === "Integro") {
+  prompt = promptForComplete; // mantiene el ejemplo recursivo con sub-sub
+  temperature = (presentationType === "Integro") ? 0.60 : 0.50;
+} else {
+  prompt = promptRich;
+  temperature = {
+    Extensive: 0.35,
+    Kids: 0.45,
+  }[presentationType] ?? 0.45;
+}
 
     // --- Modelo único
     const modelName = "gemini-1.5-flash";
