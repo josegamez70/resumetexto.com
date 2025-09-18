@@ -1,44 +1,83 @@
-import React, { useState } from 'react';
-import { SummaryType } from '../types';
+import React, { useMemo, useState } from "react";
+import { SummaryType } from "../types";
 
 export interface FileUploaderProps {
-  onFileUpload: (file: File, summaryType: SummaryType) => Promise<void>;
+  // Nuevo: podemos subir varios archivos (1 PDF o hasta 6 fotos)
+  onUpload: (files: File[], summaryType: SummaryType) => Promise<void> | void;
   isProcessing?: boolean;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, isProcessing }) => {
-  const [file, setFile] = useState<File | null>(null);
+const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) => {
+  const [selected, setSelected] = useState<File[]>([]);
   const [summaryType, setSummaryType] = useState<SummaryType>(SummaryType.Short);
   const [dragActive, setDragActive] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  const handleUpload = () => {
-    if (file) {
-      onFileUpload(file, summaryType);
+  /** Validación: 1 PDF o hasta 6 fotos, sin mezclar */
+  const isValid = useMemo(() => {
+    if (!selected.length) return false;
+    const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
+    const hasIMG = selected.some(f => /^image\//i.test(f.type));
+    if (hasPDF && hasIMG) return false;
+    if (hasPDF && selected.length !== 1) return false;
+    if (!hasPDF && hasIMG && selected.length > 6) return false;
+    return true;
+  }, [selected]);
+
+  function pickFiles(filesList: FileList | null) {
+    setMsg("");
+    const incoming = Array.from(filesList ?? []);
+    if (!incoming.length) {
+      setSelected([]);
+      return;
     }
-  };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+    const pdfs   = incoming.filter(f => /^application\/pdf$/i.test(f.type));
+    const images = incoming.filter(f => /^image\//i.test(f.type));
+
+    // Reglas: o 1 PDF o hasta 6 fotos
+    if (pdfs.length > 0) {
+      const hadOnlyImages = selected.length && selected.every(f => /^image\//i.test(f.type));
+      if (hadOnlyImages) {
+        setMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
+      }
+      if (pdfs.length > 1) {
+        setMsg("Solo se admite 1 PDF. He seleccionado el primero.");
+      }
+      setSelected([pdfs[0]]);
+      return;
     }
-  };
 
-  const handleDragOver = (e: React.DragEvent) => {
+    if (images.length > 6) {
+      setMsg("Máximo 6 fotos. He seleccionado las 6 primeras.");
+      setSelected(images.slice(0, 6));
+      return;
+    }
+    setSelected(images);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     setDragActive(true);
-  };
-
-  const handleDragLeave = () => {
+  }
+  function handleDragLeave() {
     setDragActive(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  }
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
+      pickFiles(e.dataTransfer.files);
     }
-  };
+  }
+
+  async function handleGenerate() {
+    if (!isValid || isProcessing) {
+      if (!isValid) setMsg("Selecciona 1 PDF o hasta 6 fotos (no mezcles).");
+      return;
+    }
+    await onUpload(selected, summaryType);
+  }
 
   return (
     <div className="bg-brand-surface p-6 rounded-2xl shadow-lg max-w-md mx-auto animate-fadeIn">
@@ -56,9 +95,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, isProcessing 
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">RESÚMELO!</h1>
         <p className="text-gray-300 text-sm max-w-sm">
-          Sube un <strong>PDF</strong> o una <strong>foto</strong> y deja que la IA cree un <strong>resumen</strong>, 
-          que después puedes convertir en un <strong>Mapa Mental</strong>, como esquema interactivo, 
-          para acelerar tu aprendizaje.
+          Sube un <strong>PDF</strong> o hasta <strong>6 fotos</strong> y deja que la IA cree un <strong>resumen</strong>,
+          que después puedes convertir en un <strong>Mapa Mental</strong>.
         </p>
       </div>
 
@@ -78,19 +116,53 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, isProcessing 
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
         </svg>
         <span className="text-lg font-semibold text-gray-200 mb-1">
-          {file ? file.name : "Haz clic o arrastra tu archivo aquí"}
+          {selected.length
+            ? selected.length === 1
+              ? selected[0].name
+              : `${selected.length} archivos seleccionados`
+            : "Haz clic o arrastra tus archivos aquí"}
         </span>
-        <span className="text-sm text-gray-400">PDF o Imagen</span>
+        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6)</span>
         <input
           id="fileInput"
           type="file"
           accept=".pdf,image/*"
-          onChange={handleFileChange}
+          multiple
+          capture="environment"
+          onChange={(e) => pickFiles(e.target.files)}
           className="hidden"
         />
       </label>
 
-      {/* Selector de tipo de resumen */}
+      {/* Mensaje bajo el input */}
+      <p className="text-gray-300 text-xs mt-2 text-center">
+        Sube 1 PDF o hasta 6 fotos <strong>(no mezcles)</strong>. Si eliges un PDF después de fotos, reemplazaré tu selección.
+      </p>
+      {msg && <div className="text-yellow-300 text-sm mt-2 text-center">{msg}</div>}
+
+      {/* Mini thumbnails */}
+      {selected.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+          {selected.map((f, idx) => (
+            <div key={idx} className="border border-gray-600 rounded-lg p-2 text-xs text-gray-300">
+              {/^image\//i.test(f.type) ? (
+                <img
+                  src={URL.createObjectURL(f)}
+                  alt={f.name}
+                  className="w-full h-24 object-cover rounded"
+                />
+              ) : (
+                <div className="w-full h-24 grid place-items-center bg-gray-800 rounded">
+                  📄 PDF
+                </div>
+              )}
+              <div className="truncate mt-1" title={f.name}>{f.name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tipo de resumen */}
       <div className="mt-6">
         <label className="block mb-2 text-gray-300 font-medium">Tipo de resumen:</label>
         <select
@@ -106,17 +178,17 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, isProcessing 
 
       {/* Botón de acción */}
       <button
-        onClick={handleUpload}
-        disabled={!file || isProcessing}
-        className={`mt-8 w-full px-4 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+        onClick={handleGenerate}
+        disabled={!isValid || !!isProcessing}
+        className={`mt-6 w-full px-4 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
           isProcessing
-            ? 'bg-yellow-500 cursor-wait'
-            : file
-            ? 'bg-green-500 hover:bg-green-600'
-            : 'bg-gray-500 cursor-not-allowed'
+            ? "bg-yellow-500 cursor-wait"
+            : isValid
+            ? "bg-green-500 hover:bg-green-600"
+            : "bg-gray-500 cursor-not-allowed"
         }`}
       >
-        {isProcessing ? "Procesando..." : "Subir y Resumir"}
+        {isProcessing ? "Procesando..." : "Generar"}
       </button>
     </div>
   );
