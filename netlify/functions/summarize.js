@@ -55,14 +55,14 @@ FORMATO (PUNTOS):
 - Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
 - No numeres, no añadas títulos.`;
     } else if (flavor === "long") {
-      styleInstruction += `
+  styleInstruction += `
 FORMATO (LARGO, SIN VIÑETAS):
-- Devuelve entre 18 y 30 frases completas.
-- Organiza el texto en 8 a 12 párrafos.
+- Extensión objetivo: 350–650 palabras (mínimo 320 palabras).
+- Devuelve entre 18 y 30 frases completas organizadas en 6 a 10 párrafos.
 - Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.
-- Si el material fuente es breve, amplía con contexto, ejemplos y matices para cumplir la longitud.`;
-    } else {
+- Si el material fuente es breve, amplía con explicaciones, conexiones y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
+} else {
       styleInstruction += `
 FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
@@ -117,22 +117,26 @@ FORMATO (GENERAL):
       }
     }
 
-    parts.push({
-      text: `
+   parts.push({
+  text: `
 Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada en español.
-No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).`.trim(),
-    });
+No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).
+Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 320 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar.`.trim(),
+});
 
-    // ++ Dar más espacio de salida cuando es 'long'
-    const isLong = flavor === "long";
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts }],
-      generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: isLong ? 2048 : 1024, // ⟵ más tokens para el largo
-      },
-    });
+   // ++ Dar más espacio de salida cuando es 'long'
+const isLong = flavor === "long";
+
+const result = await model.generateContent({
+  contents: [{ role: "user", parts }],
+  generationConfig: {
+    temperature: 0.45,
+    maxOutputTokens: isLong ? 3072 : 1024, // más tokens para 'largo'
+    candidateCount: 1,
+  },
+});
+
 
     const summary = String(result?.response?.text?.() || "").trim();
     if (!summary) {
