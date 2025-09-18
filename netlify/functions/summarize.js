@@ -43,26 +43,26 @@ exports.handler = async (event) => {
     // --- Instrucciones por tipo ---
     let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
-    if (flavor === "short") {
-      styleInstruction += `
-FORMATO (CORTO / BREVE / EXPRESS):
-- Devuelve entre 2 y 4 frases.
-- Solo texto corrido, sin viñetas ni numeración.
-- Resume lo esencial en pocas palabras.`;
-    } else if (flavor === "long") {
+   if (flavor === "short") {
   styleInstruction += `
-FORMATO (LARGO / EXTENSO / DETALLADO):
-- Devuelve entre 22 y 35 frases completas.
+FORMATO (CORTO, SIN VIÑETAS):
+- Devuelve 2–4 frases completas en un único bloque de texto.
+- No uses guiones, numeración ni viñetas.`;
+} else if (flavor === "bullet") {
+  styleInstruction += `
+FORMATO (PUNTOS):
+- Devuelve SÓLO viñetas con el símbolo "• " al inicio.
+- Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
+- No numeres, no añadas títulos.`;
+} else if (flavor === "long") {
+  styleInstruction += `
+FORMATO (LARGO, SIN VIÑETAS):
+- Devuelve entre 18 y 30 frases completas.
 - Organiza el texto en 8 a 12 párrafos.
 - Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.`;
-} else {
-      styleInstruction += `
-FORMATO (POR PUNTOS / BULLETS):
-- Devuelve de 5 a 10 frases en viñetas.
-- Cada viñeta comienza con "• " y contiene UNA sola idea.
-- No uses numeración ni texto corrido. Solo viñetas.`;
-    }
+}
+
 
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
