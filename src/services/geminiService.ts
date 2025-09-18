@@ -10,7 +10,7 @@ import type {
 } from "../types";
 
 /* ---------------------------------------------------------
-   Configuración PDF.js (evitar "Setting up fake worker")
+   PDF.js worker (evitar "Setting up fake worker")
 --------------------------------------------------------- */
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -19,7 +19,9 @@ try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   }
-} catch { /* no-op */ }
+} catch {
+  /* no-op */
+}
 
 /* ---------------------------------------------------------
    Helpers
@@ -32,10 +34,11 @@ function extractJson<T = any>(raw: string): T {
   const b = candidate.lastIndexOf("}");
   if (a !== -1 && b !== -1 && b > a) candidate = candidate.slice(a, b + 1);
   candidate = candidate
-    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u201C-\u201F]/g, '"')
     .replace(/,\s*([}\]])/g, "$1");
-  try { return JSON.parse(candidate) as T; }
-  catch {
+  try {
+    return JSON.parse(candidate) as T;
+  } catch {
     const cleaned = candidate.replace(/```+.*?```+/gs, "").trim();
     return JSON.parse(cleaned) as T;
   }
@@ -70,8 +73,11 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
       throw new Error(`Error ${resp.status} en ${fnName}: ${text.slice(0, 500)}`);
     }
   }
-  try { return JSON.parse(text) as T; }
-  catch { return extractJson<T>(text); }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return extractJson<T>(text);
+  }
 }
 
 /* ---------------------------------------------------------
@@ -79,30 +85,15 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
 --------------------------------------------------------- */
 
 /**
- * NUEVO: admite 1 PDF o hasta 6 fotos (sin mezclar).
- * Si recibes mezcla, prioriza validación/errores en backend.
+ * Soporta varias fotos (máx. 6) o incluso mezcla si alguien la llama mal.
+ * Empaqueta SIEMPRE como { files: [{base64,mimeType}], summaryType }.
  */
 export async function summarizeContents(
   files: File[],
   summaryType: SummaryType
 ): Promise<string> {
-  // Normalizamos y validamos de forma suave (backend valida estrictamente)
-  const pdfs   = files.filter(f => /^application\/pdf$/i.test(f.type));
-  const images = files.filter(f => /^image\//i.test(f.type));
-
-  let normalized: File[] = [];
-
-  if (pdfs.length > 0 && images.length === 0) {
-    normalized = [pdfs[0]]; // solo 1 PDF (si llegan varios, tomamos el primero)
-  } else if (pdfs.length === 0 && images.length > 0) {
-    normalized = images.slice(0, 6); // hasta 6 fotos
-  } else if (pdfs.length === 0 && images.length === 0) {
-    // Caso texto plano u otros tipos: se envía como textoChunks
-    normalized = [];
-  } else {
-    // Mezcla: dejamos que lo rechace el backend con un error claro
-    normalized = files;
-  }
+  // Normaliza: máx. 6 imágenes; si hay PDFs, los dejamos pasar y el backend decide.
+  const arr = files.slice(0, 6);
 
   const payload: any = {
     summaryType,
@@ -110,21 +101,14 @@ export async function summarizeContents(
     textChunks: [] as string[],
   };
 
-  if (normalized.length) {
-    for (const file of normalized) {
-      const mime = file?.type || "";
-      if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
-        const base64 = await fileToBase64(file);
-        payload.files.push({ base64, mimeType: mime });
-      } else {
-        const text = await file.text();
-        payload.textChunks.push(text.slice(0, 20000));
-      }
-    }
-  } else {
-    // Si no hay archivos (p.ej. input de texto en otras rutas), intenta leer como texto
-    for (const file of files) {
-      const text = await file.text().catch(() => "");
+  for (const f of arr) {
+    const mime = f?.type || "";
+    // Enviamos binarios para pdf o imagen; otros tipos van como texto
+    if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
+      const base64 = await fileToBase64(f);
+      payload.files.push({ base64, mimeType: mime });
+    } else {
+      const text = await f.text().catch(() => "");
       if (text) payload.textChunks.push(text.slice(0, 20000));
     }
   }
@@ -136,13 +120,13 @@ export async function summarizeContents(
 }
 
 /**
- * Compatibilidad: firma antigua (1 archivo).
- * Internamente usa summarizeContents para unificar lógica.
+ * Versión 1 archivo (PDF o imagen). Retrocompatible con tu flujo original.
  */
 export async function summarizeContent(
   file: File,
   summaryType: SummaryType
 ): Promise<string> {
+  // Reusa summarizeContents para mantener un único camino
   return summarizeContents([file], summaryType);
 }
 
