@@ -1,6 +1,6 @@
 // netlify/functions/summarize.js
 // Retrocompatible: {file,text} y {files[],textChunks[]}
-// Tipos: short | long | bullet
+// Tipos soportados: short | long | bullet
 
 exports.handler = async (event) => {
   try {
@@ -33,32 +33,35 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar al menos un archivo (pdf/imagen) o texto." }) };
     }
 
-    // Map tipos
+    // --- Normalización tipos ---
     const norm = (s = "") => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const s = norm(summaryType);
     let flavor = "short";
     if (s.includes("bullet") || s.includes("punto") || s.includes("viñet") || s.includes("vinet")) flavor = "bullet";
-    else if (s.includes("long") || s.includes("largo") || s.includes("detall")) flavor = "long";
+    else if (s.includes("long") || s.includes("largo") || s.includes("detall") || s.includes("extenso")) flavor = "long";
 
+    // --- Instrucciones por tipo (restauradas del original) ---
     let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
     if (flavor === "short") {
       styleInstruction += `
-FORMATO (CORTO, SIN VIÑETAS):
-- Devuelve 5–7 frases en un único bloque de texto.
-- No uses guiones, numeración ni viñetas.`;
+FORMATO (CORTO / BREVE / EXPRESS):
+- Devuelve entre 2 y 4 frases.
+- Solo texto corrido, sin viñetas ni numeración.
+- Resume lo esencial en pocas palabras.`;
     } else if (flavor === "long") {
       styleInstruction += `
-FORMATO (LARGO, SIN VIÑETAS):
-- Devuelve 8–14 frases completas repartidas en 2–4 párrafos.
-- No uses guiones, numeración ni viñetas.
-- No añadas títulos o etiquetas.`;
+FORMATO (LARGO / EXTENSO / DETALLADO):
+- Devuelve entre 6 y 12 frases completas.
+- Organiza el texto en 2 a 4 párrafos.
+- Explica con mayor contexto, ejemplos o consecuencias si aplica.
+- No uses viñetas ni numeración. Solo párrafos corridos.`;
     } else {
       styleInstruction += `
-FORMATO (POR PUNTOS):
-- Devuelve SÓLO viñetas con el símbolo "• " al inicio.
-- Cada viñeta debe ser UNA frase. 5–12 viñetas máx.
-- No numeres, no añadas títulos.`;
+FORMATO (POR PUNTOS / BULLETS):
+- Devuelve de 5 a 10 frases en viñetas.
+- Cada viñeta comienza con "• " y contiene UNA sola idea.
+- No uses numeración ni texto corrido. Solo viñetas.`;
     }
 
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
@@ -76,7 +79,7 @@ FORMATO (POR PUNTOS):
 
     // Archivos con límites
     const MAX_IMAGES = 6;
-    const MAX_PART_BYTES = 3.5 * 1024 * 1024; // ~3.5MB por parte (base64 un 33% más)
+    const MAX_PART_BYTES = 3.5 * 1024 * 1024; // ~3.5MB
     let imageCount = 0;
     let hasPdf = false;
 
@@ -85,7 +88,6 @@ FORMATO (POR PUNTOS):
       const base64 = String(f?.base64 || "");
       if (!mimeType || !base64) continue;
 
-      // Rechazo amable si un part es gigante (evita Internal Error del proveedor)
       const approxBytes = Math.floor(base64.length * 0.75);
       if (approxBytes > MAX_PART_BYTES) {
         return {
@@ -114,7 +116,7 @@ FORMATO (POR PUNTOS):
     parts.push({
       text: `
 Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada en español.
-No devuelvas JSON ni Markdown, solo texto corrido (o viñetas si el tipo lo pide).`.trim(),
+No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).`.trim(),
     });
 
     const result = await model.generateContent({
