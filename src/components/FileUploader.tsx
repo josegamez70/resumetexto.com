@@ -2,8 +2,7 @@ import React, { useMemo, useState } from "react";
 import { SummaryType } from "../types";
 
 export interface FileUploaderProps {
-  // Nuevo: podemos subir varios archivos (1 PDF o hasta 6 fotos)
-  onUpload: (files: File[], summaryType: SummaryType) => Promise<void> | void;
+  onUpload: (fileOrFiles: any, summaryType: SummaryType) => Promise<void> | void;
   isProcessing?: boolean;
 }
 
@@ -13,7 +12,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
   const [dragActive, setDragActive] = useState(false);
   const [msg, setMsg] = useState("");
 
-  /** Validación: 1 PDF o hasta 6 fotos, sin mezclar */
+  /** Validación: o 1 PDF o 1–6 fotos (sin mezclar) */
   const isValid = useMemo(() => {
     if (!selected.length) return false;
     const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
@@ -24,36 +23,52 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     return true;
   }, [selected]);
 
+  function appendImages(newImages: File[]) {
+    // Si ya había PDF, reemplazamos por imágenes
+    const hadPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
+    if (hadPDF) {
+      setMsg("Has elegido fotos, he reemplazado el PDF por las fotos.");
+      setSelected(newImages.slice(0, 6));
+      return;
+    }
+    // Acumular imágenes (cámara devuelve 1 cada vez)
+    const currentImages = selected.filter(f => /^image\//i.test(f.type));
+    let next = [...currentImages, ...newImages];
+    if (next.length > 6) {
+      next = next.slice(0, 6);
+      setMsg("Máximo 6 fotos. He mantenido las primeras 6.");
+    }
+    setSelected(next);
+  }
+
   function pickFiles(filesList: FileList | null) {
     setMsg("");
     const incoming = Array.from(filesList ?? []);
-    if (!incoming.length) {
-      setSelected([]);
-      return;
-    }
+    if (!incoming.length) return;
 
     const pdfs   = incoming.filter(f => /^application\/pdf$/i.test(f.type));
     const images = incoming.filter(f => /^image\//i.test(f.type));
 
-    // Reglas: o 1 PDF o hasta 6 fotos
+    // Si viene PDF, reemplaza siempre
     if (pdfs.length > 0) {
       const hadOnlyImages = selected.length && selected.every(f => /^image\//i.test(f.type));
-      if (hadOnlyImages) {
-        setMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
-      }
-      if (pdfs.length > 1) {
-        setMsg("Solo se admite 1 PDF. He seleccionado el primero.");
-      }
+      if (hadOnlyImages) setMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
+      if (pdfs.length > 1) setMsg("Solo se admite 1 PDF. He seleccionado el primero.");
       setSelected([pdfs[0]]);
       return;
     }
 
-    if (images.length > 6) {
-      setMsg("Máximo 6 fotos. He seleccionado las 6 primeras.");
-      setSelected(images.slice(0, 6));
-      return;
+    // Si vienen imágenes, acumulamos hasta 6
+    if (images.length > 0) {
+      appendImages(images);
     }
-    setSelected(images);
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    pickFiles(e.target.files);
+    // Limpia el valor para que futuras selecciones/capturas vuelvan a disparar onChange
+    // incluso si se selecciona el mismo archivo/foto
+    e.target.value = "";
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -76,7 +91,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
       if (!isValid) setMsg("Selecciona 1 PDF o hasta 6 fotos (no mezcles).");
       return;
     }
-    await onUpload(selected, summaryType);
+    const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
+    if (hasPDF) {
+      await onUpload(selected[0], summaryType);    // 1 PDF
+    } else {
+      await onUpload(selected, summaryType);       // varias fotos
+    }
   }
 
   return (
@@ -129,7 +149,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           accept=".pdf,image/*"
           multiple
           capture="environment"
-          onChange={(e) => pickFiles(e.target.files)}
+          onChange={handleInputChange}
           className="hidden"
         />
       </label>
@@ -171,8 +191,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-yellow-400 focus:outline-none text-sm sm:text-base"
         >
           <option value={SummaryType.Short}>📄 Corto</option>
-          <option value={SummaryType.Long}>📜 Largo</option>
-          <option value={SummaryType.Bullets}>🔹 Por Puntos</option>
+          <option value={SummaryType.Medium}>📃 Medio</option>
+          <option value={SummaryType.Detailed}>📜 Detallado</option>
+          <option value={SummaryType.Bullet}>🔹 Por Puntos</option>
         </select>
       </div>
 
