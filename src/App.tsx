@@ -403,7 +403,7 @@ const AppInner: React.FC = () => {
 
       {view === ViewState.UPLOADER && (
         <div className="max-w-3xl mx-auto">
-          <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+          <FileUploader onUpload={handleFileUpload} isProcessing={isProcessing} />
         </div>
       )}
 
