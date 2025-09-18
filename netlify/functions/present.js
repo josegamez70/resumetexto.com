@@ -1,4 +1,3 @@
-// netlify/functions/present.js
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -24,11 +23,14 @@ exports.handler = async (event) => {
     }
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
+    }
 
     const summaryText = String(payload.summaryText || "");
-    const presentationType = String(payload.presentationType || "Extensive"); // Extensive | Complete | Integro | Kids
+    const presentationType = String(payload.presentationType || "Extensive");
     if (!summaryText) {
       return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar { summaryText: string }." }) };
     }
@@ -48,27 +50,27 @@ exports.handler = async (event) => {
       },
       Complete: {
         title: "Completa (+50% más detalle)",
-        sectionsMax: 6,
-        subsectionsMaxPerLevel: 6,
-        maxDepth: 4,
-        contentLen: "5–6 frases por sección o subsección",
-        extra: "Incluye causas, consecuencias, ejemplos y mini-casos.",
+        sectionsMax: 7,
+        subsectionsMaxPerLevel: 7,
+        maxDepth: 5,
+        contentLen: "6–8 frases por sección o subsección",
+        extra: "Cobertura máxima sin redundancias. Estructura jerárquica muy clara.",
       },
       Integro: {
-  title: "Íntegro (muy completo, máximo alcance)",
-  sectionsMax: 6,
-  subsectionsMaxPerLevel: 7, // opcional subir a 7
-  maxDepth: 5,               // ← antes 4; ahora permite sub-subdesplegables
-  contentLen: "5–6 frases por sección o subsección",
-  extra: "Incluye definición, causas, consecuencias, ejemplos, mini-casos y notas aclaratorias.",
-},
+        title: "Íntegro (muy completo, máximo alcance)",
+        sectionsMax: 7,
+        subsectionsMaxPerLevel: 7,
+        maxDepth: 5,
+        contentLen: "6–8 frases por sección o subsección",
+        extra: "Cobertura máxima sin redundancias. Jerarquía clara.",
+      },
       Kids: {
         title: "Para Niños",
         sectionsMax: 6,
         subsectionsMaxPerLevel: 3,
         maxDepth: 3,
         contentLen: "2–3 frases simples por sección o subsección",
-        extra: "Lenguaje sencillo, positivo, con emojis aptos.",
+        extra: "Lenguaje muy sencillo, positivo, con emojis aptos.",
       },
     }[presentationType] || {
       title: "Extensa (en detalle)",
@@ -86,9 +88,11 @@ exports.handler = async (event) => {
 - Evita ejemplos extensos; céntrate en definiciones, causas y consecuencias.
 `,
       Complete: `
-- Amplía con 5–6 frases por punto.
-- Incluye causas, consecuencias, ejemplos y mini-casos.
-- Señala relaciones y comparaciones cuando aporten valor.
+- Diferénciate claramente de "Extensa": más amplitud y variedad.
+- Para cada sección principal, intenta cubrir: ¿qué es?, ¿por qué importa?, ¿cómo funciona?, ejemplos y contraejemplos, errores frecuentes, micro-escenarios y comparativas si aplican.
+- Introduce contexto/antecedentes, referencias o normativa relevante (solo si aparece en el texto original), riesgos/limitaciones, recomendaciones prácticas y notas aclaratorias.
+- Puedes cerrar algunas secciones con "Preguntas frecuentes" o "Glosario".
+- Evita repetir frases de otras secciones. Varía redacción y organización.
 `,
       Integro: `
 - Diferénciate claramente de "Extensa": más amplitud y variedad.
@@ -107,21 +111,25 @@ exports.handler = async (event) => {
 `,
     }[presentationType] || "";
 
-    // --- PROMPTS ---
-    // Prompt LITERAL del archivo adjunto para Complete
+    // --- Prompt para Complete e Integro (ejemplo con sub-sub)
     const promptForComplete = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
+
 Estilo: ${rules.title}
 - Máximo ${rules.sectionsMax} secciones.
 - Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
-- Profundidad máxima: ${rules.maxDepth} niveles (Sección = nivel 1).
+- Profundidad máxima: ${rules.maxDepth} niveles.
 - Longitud: ${rules.contentLen}.
 - ${rules.extra}
+
+Directrices específicas:
+${styleByType}
 
 Muy importante:
 - La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Devuelve **EXCLUSIVAMENTE** JSON válido (sin comentarios/explicaciones/bloques \`\`\`).
+- Mantén coherencia y no repitas ideas: aporta siempre ángulos distintos.
+- Devuelve **EXCLUSIVAMENTE** JSON válido.
 
 Formato EXACTO (recursivo):
 {
@@ -155,13 +163,13 @@ TEXTO:
 ${safe}
 `.trim();
 
-    // Prompt enriquecido para el resto (usa styleByType)
+    // --- Prompt para los demás
     const promptRich = `
 Genera un "Mapa conceptual" (desplegables y subdesplegables) en ESPAÑOL a partir del TEXTO.
 
 Estilo: ${rules.title}
 - Máximo ${rules.sectionsMax} secciones.
-- Máximo ${rules.subsectionsMaxPerLevel} "subsections" por nivel.
+- Máximo ${rules.subsectionsMaxPerLevel} elementos "subsections" por cada nivel.
 - Profundidad máxima: ${rules.maxDepth}.
 - Longitud: ${rules.contentLen}.
 - ${rules.extra}
@@ -170,9 +178,10 @@ Directrices específicas:
 ${styleByType}
 
 Muy importante:
-- La clave "subsections" puede aparecer en cualquier nivel hasta ${rules.maxDepth}.
+- La clave "subsections" puede aparecer **en cualquier nivel** hasta la profundidad ${rules.maxDepth}.
 - Evita listas muy largas en un mismo nivel; reparte jerárquicamente.
-- Devuelve solo JSON válido.
+- Mantén coherencia y no repitas ideas.
+- Devuelve **EXCLUSIVAMENTE** JSON válido.
 
 Formato EXACTO:
 {
@@ -182,14 +191,8 @@ Formato EXACTO:
       {
         "emoji": "📌",
         "title": "Sección",
-        "content": "Párrafo corto con ideas clave.",
-        "subsections": [
-          {
-            "emoji": "🔹",
-            "title": "Subsección",
-            "content": "Detalle relevante."
-          }
-        ]
+        "content": "Texto breve.",
+        "subsections": []
       }
     ]
   }
@@ -199,26 +202,23 @@ TEXTO:
 ${safe}
 `.trim();
 
-    // Selección de prompt y temperatura
+    // --- Selección de prompt y temperatura
     let prompt;
     let temperature;
 
-    if (presentationType === "Complete") {
-      prompt = promptForComplete;     // literal del archivo adjunto
-      temperature = 0.45;             // temperatura del adjunto
+    if (presentationType === "Complete" || presentationType === "Integro") {
+      prompt = promptForComplete;
+      temperature = presentationType === "Integro" ? 0.60 : 0.45;
     } else {
       prompt = promptRich;
       temperature = {
         Extensive: 0.35,
-        Complete: 0.40, // no se usa aquí
-        Integro: 0.60,
         Kids: 0.45,
       }[presentationType] ?? 0.45;
     }
 
-    // --- Modelo único (flash) ---
+    // --- Modelo único
     const modelName = "gemini-1.5-flash";
-
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
     const model = genAI.getGenerativeModel({ model: modelName });
@@ -230,29 +230,32 @@ ${safe}
 
     let raw = result.response.text().trim();
 
-    // --- Parse robusto ---
+    // Parse robusto
     let data;
-    try { data = JSON.parse(raw); }
-    catch {
+    try {
+      data = JSON.parse(raw);
+    } catch {
       const cleaned = raw
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
         .replace(/```$/i, "")
         .trim();
-      try { data = JSON.parse(cleaned); }
-      catch {
+      try {
+        data = JSON.parse(cleaned);
+      } catch {
         const start = cleaned.indexOf("{");
         const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1 && end > start) {
           const slice = cleaned.slice(start, end + 1);
-          try { data = JSON.parse(slice); }
-          catch {
+          try {
+            data = JSON.parse(slice);
+          } catch {
             console.error("[present] JSON inválido. raw:", raw);
-            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 2000) }) };
+            return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
           }
         } else {
           console.error("[present] No se encontró bloque JSON. raw:", raw);
-          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 2000) }) };
+          return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió JSON válido.", raw: raw.slice(0, 5000) }) };
         }
       }
     }
