@@ -12,24 +12,26 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
   const [dragActive, setDragActive] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const hasPDF = selected.some((f) => /^application\/pdf$/i.test(f.type));
+  const allImages = selected.length > 0 && selected.every((f) => /^image\//i.test(f.type));
+  const remainingPhotos = Math.max(0, 6 - selected.filter((f) => /^image\//i.test(f.type)).length);
+
   const isValid = useMemo(() => {
     if (!selected.length) return false;
-    const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
-    const hasIMG = selected.some(f => /^image\//i.test(f.type));
+    const hasIMG = selected.some((f) => /^image\//i.test(f.type));
     if (hasPDF && hasIMG) return false;
     if (hasPDF && selected.length !== 1) return false;
     if (!hasPDF && hasIMG && selected.length > 6) return false;
     return true;
-  }, [selected]);
+  }, [selected, hasPDF]);
 
   function appendImages(newImages: File[]) {
-    const hadPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
-    if (hadPDF) {
+    if (hasPDF) {
       setMsg("Has elegido fotos, he reemplazado el PDF por las fotos.");
       setSelected(newImages.slice(0, 6));
       return;
     }
-    const currentImages = selected.filter(f => /^image\//i.test(f.type));
+    const currentImages = selected.filter((f) => /^image\//i.test(f.type));
     let next = [...currentImages, ...newImages];
     if (next.length > 6) {
       next = next.slice(0, 6);
@@ -43,11 +45,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     const incoming = Array.from(filesList ?? []);
     if (!incoming.length) return;
 
-    const pdfs   = incoming.filter(f => /^application\/pdf$/i.test(f.type));
-    const images = incoming.filter(f => /^image\//i.test(f.type));
+    const pdfs = incoming.filter((f) => /^application\/pdf$/i.test(f.type));
+    const images = incoming.filter((f) => /^image\//i.test(f.type));
 
     if (pdfs.length > 0) {
-      const hadOnlyImages = selected.length && selected.every(f => /^image\//i.test(f.type));
+      const hadOnlyImages = selected.length && selected.every((f) => /^image\//i.test(f.type));
       if (hadOnlyImages) setMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
       if (pdfs.length > 1) setMsg("Solo se admite 1 PDF. He seleccionado el primero.");
       setSelected([pdfs[0]]);
@@ -61,6 +63,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     pickFiles(e.target.files);
+    // Limpia para que onChange dispare de nuevo aunque repitas captura
     e.target.value = "";
   }
 
@@ -84,17 +87,16 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
       if (!isValid) setMsg("Selecciona 1 PDF o hasta 6 fotos (no mezcles).");
       return;
     }
-    const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
     if (hasPDF) {
-      await onUpload(selected[0], summaryType);
+      await onUpload(selected[0], summaryType); // 1 PDF
     } else {
-      await onUpload(selected, summaryType);
+      await onUpload(selected, summaryType); // varias fotos
     }
   }
 
   return (
     <div className="bg-brand-surface p-6 rounded-2xl shadow-lg max-w-md mx-auto animate-fadeIn">
-      {/* Encabezado recuperado (arriba del recuadro) */}
+      {/* Cabecera sobre el recuadro */}
       <div className="flex flex-col items-center text-center mb-6">
         <div className="flex items-center mb-3">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -113,7 +115,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
         </p>
       </div>
 
-      {/* Área de subida */}
+      {/* Dropzone */}
       <label
         htmlFor="fileInput"
         onDragOver={handleDragOver}
@@ -131,21 +133,28 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
         </svg>
 
+        {/* Texto principal del cajón:
+            - Si son fotos: no mostramos nombres, solo contador de seleccionadas
+            - Si es PDF: mostramos el nombre
+            - Si no hay nada: texto por defecto */}
         <span className="text-lg font-semibold text-gray-200 mb-1">
-          {selected.length
-            ? selected.length === 1
-              ? selected[0].name
-              : `${selected.length} archivos seleccionados`
-            : "Haz clic o arrastra tus archivos aquí"}
+          {selected.length === 0
+            ? "Haz clic o arrastra tus archivos aquí"
+            : allImages
+              ? `${selected.length} fotos seleccionadas`
+              : hasPDF
+                ? selected[0].name
+                : `${selected.length} archivos seleccionados`}
         </span>
-        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6), no mezclar</span>
 
-        {/* Mensaje contador CENTRADO dentro del recuadro */}
-        {selected.length > 0 &&
-         selected.every(f => /^image\//i.test(f.type)) &&
-         selected.length < 6 && (
+        <span className="text-sm text-gray-400">
+          PDF o Imágenes (máx. 6){!hasPDF ? ", no mezclar" : ""}
+        </span>
+
+        {/* Mensaje centrado: “Puedes tomar hasta N fotos más” (solo en modo fotos) */}
+        {allImages && selected.length < 6 && (
           <div className="absolute inset-0 flex items-center justify-center text-gray-200 font-bold text-lg pointer-events-none">
-            Puedes tomar hasta {6 - selected.length} fotos más
+            Puedes tomar hasta {remainingPhotos} {remainingPhotos === 1 ? "foto" : "fotos"} más
           </div>
         )}
 
@@ -160,10 +169,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
         />
       </label>
 
-      {/* Aviso dinámico */}
+      {/* Aviso dinámico (reemplazos, límites, etc.) */}
       {msg && <div className="text-yellow-300 text-sm mt-2 text-center">{msg}</div>}
 
-      {/* Thumbnails */}
+      {/* Thumbnails (sin nombre para fotos) */}
       {selected.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
           {selected.map((f, idx) => (
