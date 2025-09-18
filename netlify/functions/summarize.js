@@ -40,7 +40,7 @@ exports.handler = async (event) => {
     if (s.includes("bullet") || s.includes("punto") || s.includes("viñet") || s.includes("vinet")) flavor = "bullet";
     else if (s.includes("long") || s.includes("largo") || s.includes("detall") || s.includes("extenso")) flavor = "long";
 
-    // --- Instrucciones por tipo (restauradas del original) ---
+    // --- Instrucciones por tipo ---
     let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
     if (flavor === "short") {
@@ -52,9 +52,9 @@ FORMATO (CORTO / BREVE / EXPRESS):
     } else if (flavor === "long") {
       styleInstruction += `
 FORMATO (LARGO / EXTENSO / DETALLADO):
-- Devuelve entre 6 y 12 frases completas.
-- Organiza el texto en 2 a 4 párrafos.
-- Explica con mayor contexto, ejemplos o consecuencias si aplica.
+- Devuelve entre 9 y 15 frases completas.
+- Organiza el texto en 4 a 6 párrafos.
+- Explica con contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.`;
     } else {
       styleInstruction += `

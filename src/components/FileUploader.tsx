@@ -12,7 +12,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
   const [dragActive, setDragActive] = useState(false);
   const [msg, setMsg] = useState("");
 
-  /** Validación: o 1 PDF o 1–6 fotos (sin mezclar) */
   const isValid = useMemo(() => {
     if (!selected.length) return false;
     const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
@@ -87,33 +86,14 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     }
     const hasPDF = selected.some(f => /^application\/pdf$/i.test(f.type));
     if (hasPDF) {
-      await onUpload(selected[0], summaryType);    // 1 PDF
+      await onUpload(selected[0], summaryType);
     } else {
-      await onUpload(selected, summaryType);       // varias fotos
+      await onUpload(selected, summaryType);
     }
   }
 
   return (
     <div className="bg-brand-surface p-6 rounded-2xl shadow-lg max-w-md mx-auto animate-fadeIn">
-      {/* Encabezado */}
-      <div className="flex flex-col items-center text-center mb-6">
-        <div className="flex items-center mb-3">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-          <span className="text-xl font-bold text-yellow-400 mr-2">+</span>
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <rect x="3" y="4" width="18" height="14" rx="2" ry="2" strokeWidth="2" />
-            <path strokeWidth="2" d="M8 20h8" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-2">RESÚMELO!</h1>
-        <p className="text-gray-300 text-sm max-w-sm">
-          Sube un <strong>PDF</strong> o hasta <strong>6 fotos</strong> y deja que la IA cree un <strong>resumen</strong>,
-          que después puedes convertir en un <strong>Mapa Mental</strong>.
-        </p>
-      </div>
-
       {/* Área de subida */}
       <label
         htmlFor="fileInput"
@@ -122,13 +102,17 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
         onDrop={handleDrop}
         className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300
           ${dragActive ? 'border-yellow-400 bg-gray-700/50' : 'border-gray-500'}
-          p-6 sm:p-10
+          p-10 sm:p-12
           max-w-[280px] sm:max-w-full
-          mx-auto`}
+          mx-auto
+          relative`}
       >
+        {/* Icono central */}
         <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-yellow-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
         </svg>
+
+        {/* Texto dinámico */}
         <span className="text-lg font-semibold text-gray-200 mb-1">
           {selected.length
             ? selected.length === 1
@@ -136,7 +120,17 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
               : `${selected.length} archivos seleccionados`
             : "Haz clic o arrastra tus archivos aquí"}
         </span>
-        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6), no mezclar</span>
+        <span className="text-sm text-gray-400">PDF o Imágenes (máx. 6)</span>
+
+        {/* Mensaje contador en el centro */}
+        {selected.length > 0 &&
+         selected.every(f => /^image\//i.test(f.type)) &&
+         selected.length < 6 && (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-200 font-bold text-lg pointer-events-none">
+            Puedes tomar hasta {6 - selected.length} fotos más
+          </div>
+        )}
+
         <input
           id="fileInput"
           type="file"
@@ -151,7 +145,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
       {/* Aviso dinámico */}
       {msg && <div className="text-yellow-300 text-sm mt-2 text-center">{msg}</div>}
 
-      {/* Mini thumbnails */}
+      {/* Thumbnails */}
       {selected.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
           {selected.map((f, idx) => (
