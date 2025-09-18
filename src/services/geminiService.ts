@@ -1,14 +1,22 @@
 // src/services/geminiService.ts
+
+/* ---------------------------------------------------------
+   Importa TODOS los tipos desde src/types
+--------------------------------------------------------- */
 import type {
   SummaryType,
   PresentationType,
   PresentationData,
   PresentationSection,
   MindMapData,
+  // MindMapNode,  // ⟵ eliminado: no se usa
   Flashcard,
 } from "../types";
 
-/* PDF.js worker guard */
+/* ---------------------------------------------------------
+   Configuración PDF.js (evitar "Setting up fake worker")
+   Usamos el worker oficial por URL, compatible con CRA.
+--------------------------------------------------------- */
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const pdfjsLib = require("pdfjs-dist");
@@ -16,9 +24,14 @@ try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   }
-} catch { /* noop */ }
+} catch {
+  // si no hay pdfjs-dist en este contexto, ignoramos
+}
 
-/* Helpers */
+/* ---------------------------------------------------------
+   Helpers
+--------------------------------------------------------- */
+
 function extractJson<T = any>(raw: string): T {
   if (!raw) throw new Error("Respuesta vacía del modelo");
   const fenced = /```json([\s\S]*?)```/i.exec(raw);
@@ -29,8 +42,9 @@ function extractJson<T = any>(raw: string): T {
   candidate = candidate
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/,\s*([}\]])/g, "$1");
-  try { return JSON.parse(candidate) as T; }
-  catch {
+  try {
+    return JSON.parse(candidate) as T;
+  } catch {
     const cleaned = candidate.replace(/```+.*?```+/gs, "").trim();
     return JSON.parse(cleaned) as T;
   }
@@ -65,62 +79,36 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
       throw new Error(`Error ${resp.status} en ${fnName}: ${text.slice(0, 500)}`);
     }
   }
-  try { return JSON.parse(text) as T; }
-  catch { return extractJson<T>(text); }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return extractJson<T>(text);
+  }
 }
 
-/* ------------------------ API pública ------------------------ */
+/* ---------------------------------------------------------
+   API pública
+--------------------------------------------------------- */
 
-export async function summarizeContents(
-  files: File[],
+export async function summarizeContent(
+  file: File,
   summaryType: SummaryType
 ): Promise<string> {
-  // Validación: o 1 PDF o 1-6 imágenes
-  const pdfs   = files.filter((f) => /^application\/pdf$/i.test(f.type));
-  const images = files.filter((f) => /^image\//i.test(f.type));
+  const mime = file?.type || "";
+  const payload: any = { summaryType };
 
-  if (pdfs.length > 0 && images.length > 0) {
-    throw new Error("No mezcles PDF con fotos. Sube 1 PDF o hasta 6 fotos.");
-  }
-  let normalized: File[] = [];
-  if (pdfs.length > 0) {
-    if (pdfs.length > 1) throw new Error("Solo se admite 1 PDF.");
-    normalized = [pdfs[0]];
+  if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
+    const base64 = await fileToBase64(file);
+    payload.file = { base64, mimeType: mime };
   } else {
-    if (images.length === 0) throw new Error("Sube 1 PDF o hasta 6 fotos.");
-    if (images.length > 6) throw new Error("Máximo 6 fotos.");
-    normalized = images.slice(0, 6);
-  }
-
-  const payload: any = {
-    summaryType,
-    files: [] as { base64: string; mimeType: string }[],
-    textChunks: [] as string[],
-  };
-
-  for (const file of normalized) {
-    const mime = file?.type || "";
-    if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
-      const base64 = await fileToBase64(file);
-      payload.files.push({ base64, mimeType: mime });
-    } else {
-      const text = await file.text();
-      payload.textChunks.push(text.slice(0, 20000));
-    }
+    const text = await file.text();
+    payload.text = text.slice(0, 20000);
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
   const summary = String(data?.summary ?? "").trim();
   if (!summary) throw new Error("La IA no devolvió un resumen.");
   return summary;
-}
-
-// Compat: versión anterior (1 archivo)
-export async function summarizeContent(
-  file: File,
-  summaryType: SummaryType
-): Promise<string> {
-  return summarizeContents([file], summaryType);
 }
 
 export async function createPresentation(
@@ -148,7 +136,11 @@ export function flattenPresentationToText(p: PresentationData): string {
     const pad = "  ".repeat(depth - 1);
     lines.push(`${pad}- ${s.emoji ? s.emoji + " " : ""}${s.title}`);
     if (s.content) lines.push(`${pad}  ${s.content}`);
-    (s.subsections || []).forEach((x) => walk(x, depth + 1));
+    const subs = [
+      ...(s.subsections || []),
+      ...(s.children || []), // soporta alias "children"
+    ];
+    subs.forEach((x) => walk(x, depth + 1));
   };
   (p.sections || []).forEach((sec) => walk(sec, 1));
   return lines.join("\n");
