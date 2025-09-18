@@ -6,7 +6,8 @@ import AuthScreen from "./auth/AuthScreen";
 import UpdatePasswordView from "./auth/UpdatePasswordView";
 
 /* ─── UI / Views ──────────────────────────────────────────────────────── */
-import FileUploader from "./components/FileUploader";
+// Eliminamos el FileUploader clásico y usamos un uploader integrado aquí
+// import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
 import MindMapView from "./components/MindMapView";
@@ -17,6 +18,7 @@ import UpgradeModal from "./components/UpgradeModal";
 /* ─── Servicios IA ────────────────────────────────────────────────────── */
 import {
   summarizeContent,
+  summarizeContents, // ⟵ nuevo multi-archivo
   createPresentation,
   createMindMapFromText,
   flattenPresentationToText,
@@ -224,7 +226,6 @@ const AppInner: React.FC = () => {
       } catch (e) {
         console.error("verify checkout error", e);
       } finally {
-        // limpiar la URL (usar window.history para evitar ESLint no-restricted-globals)
         url.searchParams.delete("session_id");
         url.searchParams.delete("checkout_success");
         window.history.replaceState({}, "", url.toString());
@@ -270,39 +271,96 @@ const AppInner: React.FC = () => {
     }
   }
 
-  /** Subir y resumir (consume intento tras éxito) */
-  const handleFileUpload = async (file: File, selectedSummaryType: SummaryType) => {
-    setError(null);
+  // ⟵ Nuevo: estado para uploader integrado
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploaderMsg, setUploaderMsg] = useState<string>(""); // mensajes UX (punto 4)
+  const [selectedSummaryType, setSelectedSummaryType] = useState<SummaryType>(SummaryType.Medium);
 
-    // Pre-check de intentos local
-    const attempts = getAttempts(userKey);
-    if (attempts >= FREE_LIMIT) {
-      setShowUpgrade(true);
+  function handleFilesSelection(filesList: FileList | null) {
+    setUploaderMsg("");
+    const incoming = Array.from(filesList ?? []);
+    if (incoming.length === 0) {
+      setSelectedFiles([]);
       return;
     }
 
-    setIsProcessing(true);
-    setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
+    const pdfs   = incoming.filter((f) => /^application\/pdf$/i.test(f.type));
+    const images = incoming.filter((f) => /^image\//i.test(f.type));
 
+    // Regla: o 1 PDF o hasta 6 fotos, sin mezclar
+    if (pdfs.length > 0) {
+      // Si ya había imágenes seleccionadas, las reemplazamos por el PDF
+      if (selectedFiles.length && selectedFiles.every(f => /^image\//i.test(f.type))) {
+        setUploaderMsg("Has elegido un PDF, he reemplazado las fotos por el PDF.");
+      }
+      // Solo 1 PDF
+      if (pdfs.length > 1) {
+        setUploaderMsg("Solo se admite 1 PDF. He seleccionado el primero.");
+      }
+      setSelectedFiles([pdfs[0]]);
+      return;
+    }
+
+    // No hay PDFs → aceptamos imágenes hasta 6
+    if (images.length > 6) {
+      setUploaderMsg("Máximo 6 fotos. He seleccionado las 6 primeras.");
+      setSelectedFiles(images.slice(0, 6));
+      return;
+    }
+
+    setSelectedFiles(images);
+  }
+
+  function selectionIsValid() {
+    if (selectedFiles.length === 0) return false;
+    const hasPDF = selectedFiles.some((f) => /^application\/pdf$/i.test(f.type));
+    const hasIMG = selectedFiles.some((f) => /^image\//i.test(f.type));
+    if (hasPDF && hasIMG) return false;
+    if (hasPDF) return selectedFiles.length === 1;
+    // solo imágenes
+    return selectedFiles.length >= 1 && selectedFiles.length <= 6;
+  }
+
+  async function handleSummarizeFromUploader() {
     try {
-      const generatedSummary = await summarizeContent(file, selectedSummaryType);
+      setError(null);
+      setUploaderMsg("");
+
+      // Pre-check de intentos local
+      const attempts = getAttempts(userKey);
+      if (attempts >= FREE_LIMIT) {
+        setShowUpgrade(true);
+        return;
+      }
+
+      if (!selectionIsValid()) {
+        setUploaderMsg("Selecciona 1 PDF o hasta 6 fotos (sin mezclar).");
+        return;
+      }
+
+      setIsProcessing(true);
+      setLoadingMessage("⏳ Generando resumen, puede tardar unos minutos...");
+
+      // Invoca multi-archivo si hay varias imágenes; si es un PDF, sirve igual
+      const generatedSummary =
+        selectedFiles.length === 1
+          ? await summarizeContent(selectedFiles[0], selectedSummaryType)
+          : await summarizeContents(selectedFiles, selectedSummaryType);
+
       setSummary(generatedSummary);
       setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
       setView(ViewState.SUMMARY);
 
-      // +1 intento (local + BD)
       incAttempt(userKey);
       await recordAttemptInSupabase();
     } catch (err) {
       console.error(err);
-      setError(
-        err instanceof Error ? err.message : "Error desconocido al generar el resumen."
-      );
+      setError(err instanceof Error ? err.message : "Error desconocido al generar el resumen.");
     } finally {
       setLoadingMessage(null);
       setIsProcessing(false);
     }
-  };
+  }
 
   const handleGeneratePresentation = async () => {
     if (!summary) return;
@@ -374,6 +432,82 @@ const AppInner: React.FC = () => {
 
   const handleBackToSummary = () => setView(ViewState.SUMMARY);
 
+  // Uploader integrado (sustituye al FileUploader clásico)
+  const Uploader = (
+    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6">
+      <h1 className="text-xl sm:text-2xl font-bold mb-2">Sube 1 PDF o hasta 6 fotos</h1>
+      <p className="text-gray-300 mb-4 text-sm">
+        No mezcles PDF con fotos. Si eliges PDF tras fotos, reemplazaré la selección por el PDF.
+      </p>
+
+      <div className="grid sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">Tipo de resumen</label>
+          <select
+            className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-full"
+            value={selectedSummaryType}
+            onChange={(e) => setSelectedSummaryType(e.target.value as SummaryType)}
+          >
+            <option value={SummaryType.Short}>Breve (5–7 frases)</option>
+            <option value={SummaryType.Medium}>Medio (1 página)</option>
+            <option value={SummaryType.Detailed}>Detallado</option>
+            <option value={SummaryType.Bullet}>Viñetas</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">Selecciona archivos</label>
+          <input
+            type="file"
+            accept="application/pdf,image/*"
+            multiple
+            capture="environment"
+            onChange={(e) => handleFilesSelection(e.target.files)}
+            className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-full"
+          />
+        </div>
+      </div>
+
+      {uploaderMsg && <div className="text-yellow-300 text-sm mb-3">{uploaderMsg}</div>}
+
+      {selectedFiles.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-3">
+          {selectedFiles.map((f, idx) => (
+            <div key={idx} className="border border-gray-700 rounded p-2 text-xs text-gray-300">
+              {/^image\//i.test(f.type) ? (
+                <img
+                  src={URL.createObjectURL(f)}
+                  alt={f.name}
+                  className="w-full h-24 object-cover rounded"
+                />
+              ) : (
+                <div className="h-24 flex items-center justify-center bg-gray-900 rounded">
+                  📄 PDF
+                </div>
+              )}
+              <div className="truncate mt-1" title={f.name}>{f.name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={handleSummarizeFromUploader}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:opacity-50"
+          disabled={!selectionIsValid() || isProcessing}
+        >
+          Generar resumen
+        </button>
+        <button
+          onClick={() => { setSelectedFiles([]); setUploaderMsg(""); }}
+          className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded"
+        >
+          Limpiar selección
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       {error && (
@@ -396,7 +530,7 @@ const AppInner: React.FC = () => {
 
       {view === ViewState.UPLOADER && (
         <div className="max-w-3xl mx-auto">
-          <FileUploader onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+          {Uploader}
         </div>
       )}
 
