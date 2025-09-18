@@ -50,13 +50,13 @@ FORMATO (CORTO / BREVE / EXPRESS):
 - Solo texto corrido, sin viñetas ni numeración.
 - Resume lo esencial en pocas palabras.`;
     } else if (flavor === "long") {
-      styleInstruction += `
+  styleInstruction += `
 FORMATO (LARGO / EXTENSO / DETALLADO):
 - Devuelve entre 18 y 30 frases completas.
 - Organiza el texto en 8 a 12 párrafos.
-- Explica con contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
+- Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.`;
-    } else {
+} else {
       styleInstruction += `
 FORMATO (POR PUNTOS / BULLETS):
 - Devuelve de 5 a 10 frases en viñetas.
