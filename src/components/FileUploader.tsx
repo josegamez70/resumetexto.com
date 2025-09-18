@@ -14,7 +14,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
 
   const hasPDF = selected.some((f) => /^application\/pdf$/i.test(f.type));
   const allImages = selected.length > 0 && selected.every((f) => /^image\//i.test(f.type));
-  const remainingPhotos = Math.max(0, 6 - selected.filter((f) => /^image\//i.test(f.type)).length);
+  const imagesCount = selected.filter((f) => /^image\//i.test(f.type)).length;
+  const remainingPhotos = Math.max(0, 6 - imagesCount);
+  const showOverlay = allImages && imagesCount < 6; // mostrar mensaje centrado
 
   const isValid = useMemo(() => {
     if (!selected.length) return false;
@@ -45,7 +47,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     const incoming = Array.from(filesList ?? []);
     if (!incoming.length) return;
 
-    const pdfs = incoming.filter((f) => /^application\/pdf$/i.test(f.type));
+    const pdfs   = incoming.filter((f) => /^application\/pdf$/i.test(f.type));
     const images = incoming.filter((f) => /^image\//i.test(f.type));
 
     if (pdfs.length > 0) {
@@ -90,7 +92,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
     if (hasPDF) {
       await onUpload(selected[0], summaryType); // 1 PDF
     } else {
-      await onUpload(selected, summaryType); // varias fotos
+      await onUpload(selected, summaryType);    // varias fotos
     }
   }
 
@@ -126,35 +128,40 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
           p-10 sm:p-12
           max-w-[280px] sm:max-w-full
           mx-auto
-          relative`}
+          relative overflow-hidden`}
       >
         {/* Icono */}
         <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-yellow-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115 8h1a5 5 0 011 9.9M12 12v9m0 0l-3-3m3 3l3-3"/>
         </svg>
 
-        {/* Texto principal del cajón:
-            - Si son fotos: no mostramos nombres, solo contador de seleccionadas
-            - Si es PDF: mostramos el nombre
-            - Si no hay nada: texto por defecto */}
-        <span className="text-lg font-semibold text-gray-200 mb-1">
-          {selected.length === 0
-            ? "Haz clic o arrastra tus archivos aquí"
-            : allImages
-              ? `${selected.length} fotos seleccionadas`
-              : hasPDF
-                ? selected[0].name
-                : `${selected.length} archivos seleccionados`}
-        </span>
+        {/* Texto base: lo ocultamos cuando mostramos overlay para evitar solapes */}
+        {!showOverlay && (
+          <>
+            <span className="text-lg font-semibold text-gray-200 mb-1">
+              {selected.length === 0
+                ? "Haz clic o arrastra tus archivos aquí"
+                : allImages
+                  ? `${selected.length} fotos seleccionadas`
+                  : hasPDF
+                    ? selected[0].name
+                    : `${selected.length} archivos seleccionados`}
+            </span>
+            <span className="text-sm text-gray-400">
+              PDF o Imágenes (máx. 6){!hasPDF ? ", no mezclar" : ""}
+            </span>
+          </>
+        )}
 
-        <span className="text-sm text-gray-400">
-          PDF o Imágenes (máx. 6){!hasPDF ? ", no mezclar" : ""}
-        </span>
-
-        {/* Mensaje centrado: “Puedes tomar hasta N fotos más” (solo en modo fotos) */}
-        {allImages && selected.length < 6 && (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-200 font-bold text-lg pointer-events-none">
-            Puedes tomar hasta {remainingPhotos} {remainingPhotos === 1 ? "foto" : "fotos"} más
+        {/* Overlay centrado (solo fotos y <6) */}
+        {showOverlay && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center pointer-events-none">
+            <div className="text-white font-bold text-xl sm:text-2xl leading-tight drop-shadow">
+              Puedes tomar hasta {remainingPhotos} {remainingPhotos === 1 ? "foto" : "fotos"} más
+            </div>
+            <div className="text-gray-200/90 text-sm sm:text-base mt-2">
+              {imagesCount} {imagesCount === 1 ? "foto seleccionada" : "fotos seleccionadas"}
+            </div>
           </div>
         )}
 
@@ -169,10 +176,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onUpload, isProcessing }) =
         />
       </label>
 
-      {/* Aviso dinámico (reemplazos, límites, etc.) */}
+      {/* Avisos dinámicos (reemplazos, límites, etc.) */}
       {msg && <div className="text-yellow-300 text-sm mt-2 text-center">{msg}</div>}
 
-      {/* Thumbnails (sin nombre para fotos) */}
+      {/* Thumbnails (sin nombre en fotos) */}
       {selected.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
           {selected.map((f, idx) => (
