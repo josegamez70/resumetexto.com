@@ -1,21 +1,16 @@
 // src/services/geminiService.ts
 
-/* ---------------------------------------------------------
-   Importa TODOS los tipos desde src/types
---------------------------------------------------------- */
 import type {
   SummaryType,
   PresentationType,
   PresentationData,
   PresentationSection,
   MindMapData,
-  // MindMapNode,  // ⟵ eliminado: no se usa
   Flashcard,
 } from "../types";
 
 /* ---------------------------------------------------------
    Configuración PDF.js (evitar "Setting up fake worker")
-   Usamos el worker oficial por URL, compatible con CRA.
 --------------------------------------------------------- */
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -24,14 +19,11 @@ try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   }
-} catch {
-  // si no hay pdfjs-dist en este contexto, ignoramos
-}
+} catch { /* no-op */ }
 
 /* ---------------------------------------------------------
    Helpers
 --------------------------------------------------------- */
-
 function extractJson<T = any>(raw: string): T {
   if (!raw) throw new Error("Respuesta vacía del modelo");
   const fenced = /```json([\s\S]*?)```/i.exec(raw);
@@ -42,9 +34,8 @@ function extractJson<T = any>(raw: string): T {
   candidate = candidate
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/,\s*([}\]])/g, "$1");
-  try {
-    return JSON.parse(candidate) as T;
-  } catch {
+  try { return JSON.parse(candidate) as T; }
+  catch {
     const cleaned = candidate.replace(/```+.*?```+/gs, "").trim();
     return JSON.parse(cleaned) as T;
   }
@@ -79,36 +70,80 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
       throw new Error(`Error ${resp.status} en ${fnName}: ${text.slice(0, 500)}`);
     }
   }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return extractJson<T>(text);
-  }
+  try { return JSON.parse(text) as T; }
+  catch { return extractJson<T>(text); }
 }
 
 /* ---------------------------------------------------------
    API pública
 --------------------------------------------------------- */
 
-export async function summarizeContent(
-  file: File,
+/**
+ * NUEVO: admite 1 PDF o hasta 6 fotos (sin mezclar).
+ * Si recibes mezcla, prioriza validación/errores en backend.
+ */
+export async function summarizeContents(
+  files: File[],
   summaryType: SummaryType
 ): Promise<string> {
-  const mime = file?.type || "";
-  const payload: any = { summaryType };
+  // Normalizamos y validamos de forma suave (backend valida estrictamente)
+  const pdfs   = files.filter(f => /^application\/pdf$/i.test(f.type));
+  const images = files.filter(f => /^image\//i.test(f.type));
 
-  if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
-    const base64 = await fileToBase64(file);
-    payload.file = { base64, mimeType: mime };
+  let normalized: File[] = [];
+
+  if (pdfs.length > 0 && images.length === 0) {
+    normalized = [pdfs[0]]; // solo 1 PDF (si llegan varios, tomamos el primero)
+  } else if (pdfs.length === 0 && images.length > 0) {
+    normalized = images.slice(0, 6); // hasta 6 fotos
+  } else if (pdfs.length === 0 && images.length === 0) {
+    // Caso texto plano u otros tipos: se envía como textoChunks
+    normalized = [];
   } else {
-    const text = await file.text();
-    payload.text = text.slice(0, 20000);
+    // Mezcla: dejamos que lo rechace el backend con un error claro
+    normalized = files;
+  }
+
+  const payload: any = {
+    summaryType,
+    files: [] as { base64: string; mimeType: string }[],
+    textChunks: [] as string[],
+  };
+
+  if (normalized.length) {
+    for (const file of normalized) {
+      const mime = file?.type || "";
+      if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
+        const base64 = await fileToBase64(file);
+        payload.files.push({ base64, mimeType: mime });
+      } else {
+        const text = await file.text();
+        payload.textChunks.push(text.slice(0, 20000));
+      }
+    }
+  } else {
+    // Si no hay archivos (p.ej. input de texto en otras rutas), intenta leer como texto
+    for (const file of files) {
+      const text = await file.text().catch(() => "");
+      if (text) payload.textChunks.push(text.slice(0, 20000));
+    }
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
   const summary = String(data?.summary ?? "").trim();
   if (!summary) throw new Error("La IA no devolvió un resumen.");
   return summary;
+}
+
+/**
+ * Compatibilidad: firma antigua (1 archivo).
+ * Internamente usa summarizeContents para unificar lógica.
+ */
+export async function summarizeContent(
+  file: File,
+  summaryType: SummaryType
+): Promise<string> {
+  return summarizeContents([file], summaryType);
 }
 
 export async function createPresentation(
@@ -136,11 +171,7 @@ export function flattenPresentationToText(p: PresentationData): string {
     const pad = "  ".repeat(depth - 1);
     lines.push(`${pad}- ${s.emoji ? s.emoji + " " : ""}${s.title}`);
     if (s.content) lines.push(`${pad}  ${s.content}`);
-    const subs = [
-      ...(s.subsections || []),
-      ...(s.children || []), // soporta alias "children"
-    ];
-    subs.forEach((x) => walk(x, depth + 1));
+    (s.subsections || []).forEach((x) => walk(x, depth + 1));
   };
   (p.sections || []).forEach((sec) => walk(sec, 1));
   return lines.join("\n");

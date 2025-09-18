@@ -1,38 +1,65 @@
-// Acepta: { fileParts, summaryType } | { text, summaryType } | { summaryType, file:{base64,mimeType} }
-// Formatos:
-//  - corto/breve/express  -> párrafo 2–4 frases, sin viñetas
-//  - puntos/bullets       -> • una frase por viñeta
-//  - largo/long/extenso   -> 6–12 frases en 2–4 párrafos, sin viñetas
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-function norm(x = "") {
-  return String(x).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-}
-function pickFlavor(summaryType) {
-  const s = norm(summaryType);
-  if (/(short|corto|breve|express)/.test(s)) return "short";
-  if (/(puntos|bullets|viñetas|vinyetas|lista|bullet)/.test(s)) return "bullets";
-  if (/(long|largo|extenso|extensa|extendido|extendida|detallado|detallada|completo|completa)/.test(s)) return "long";
-  return "default";
-}
+// netlify/functions/summarize.js
+// Acepta: { summaryType, files: [{base64,mimeType}, ...], textChunks: [string, ...] }
+// Reglas server-side: 1 PDF o hasta 6 imágenes (sin mezclar)
 
 exports.handler = async (event) => {
   try {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: "Falta GOOGLE_AI_API_KEY" }) };
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
-    let body = {};
-    try { body = JSON.parse(event.body || "{}"); }
-    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido" }) }; }
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
-    const { fileParts, text, summaryType, file } = body;
-    if (!summaryType) return { statusCode: 400, body: JSON.stringify({ error: "Falta summaryType" }) };
+    const apiKey =
+      process.env.GOOGLE_AI_API_KEY ||
+      process.env.VITE_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      "";
 
-    const flavor = pickFlavor(summaryType);
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY)." }),
+      };
+    }
+
+    let payload = {};
+    try { payload = JSON.parse(event.body || "{}"); }
+    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
+
+    const summaryType = String(payload.summaryType || "short");
+    const files = Array.isArray(payload.files) ? payload.files : (payload.file ? [payload.file] : []);
+    const textChunks = Array.isArray(payload.textChunks) ? payload.textChunks : (payload.text ? [payload.text] : []);
+
+    if (!files.length && !textChunks.length) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar al menos un archivo (pdf/imagen) o texto." }) };
+    }
+
+    // Validación estricta: 1 PDF o hasta 6 imágenes, sin mezclar
+    const pdfs   = files.filter(f => String(f?.mimeType || "").toLowerCase() === "application/pdf");
+    const images = files.filter(f => String(f?.mimeType || "").toLowerCase().startsWith("image/"));
+
+    if (pdfs.length > 0 && images.length > 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: "No mezcles PDF con fotos. Sube 1 PDF o hasta 6 fotos." }) };
+    }
+    if (pdfs.length > 1) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Solo se admite 1 PDF." }) };
+    }
+    if (pdfs.length === 0 && images.length > 6) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Máximo 6 fotos." }) };
+    }
+
+    // Construcción del “estilo” por tipo de resumen (compatible con tus valores actuales)
+    function norm(x = "") {
+      return String(x).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    }
+    const flavor = (() => {
+      const s = norm(summaryType);
+      if (/(short|corto|breve|express)/.test(s)) return "short";
+      if (/(puntos|bullets|viñetas|vinyetas|lista|bullet)/.test(s)) return "bullets";
+      if (/(long|largo|extenso|extensa|extendido|extendida|detallado|detallada|completo|completa)/.test(s)) return "long";
+      return "default";
+    })();
 
     let styleInstruction = `
 Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tono acorde a "${summaryType}".`;
@@ -60,37 +87,46 @@ FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
+    const genAI = new GGA(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+    // Construcción de parts: texto + binarios
     const parts = [{ text: styleInstruction.trim() }];
 
-    if (Array.isArray(fileParts) && fileParts.length) {
-      for (const p of fileParts) {
-        if (p?.text) parts.push({ text: String(p.text) });
-        else if (p?.inlineData?.data && p?.inlineData?.mimeType) {
-          parts.push({ inlineData: { data: p.inlineData.data, mimeType: p.inlineData.mimeType } });
-        }
-      }
-    } else if (typeof text === "string" && text.trim()) {
-      parts.push({ text: text.trim() });
-    } else if (file?.base64 && file?.mimeType) {
-      parts.push({ inlineData: { data: file.base64, mimeType: file.mimeType } });
-    } else {
-      return { statusCode: 400, body: JSON.stringify({ error: "Falta 'fileParts' o 'text' o 'file'." }) };
+    const MAX_TOK_TEXT = 18000;
+    for (const t of textChunks) {
+      if (!t) continue;
+      parts.push({ text: String(t).slice(0, MAX_TOK_TEXT) });
     }
+
+    for (const f of files) {
+      const mimeType = String(f?.mimeType || "");
+      const data = String(f?.base64 || "");
+      if (!mimeType || !data) continue;
+      parts.push({ inlineData: { mimeType, data } });
+    }
+
+    parts.push({
+      text: `
+Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada.
+Formato de salida: texto plano en español.
+No devuelvas JSON ni Markdown, solo texto corrido (puedes usar viñetas si el tipo lo pide).`.trim(),
+    });
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts }],
       generationConfig: { temperature: 0.35 },
     });
 
-    const out = result?.response?.text?.() || "";
-    const summary = String(out || "").trim();
+    const summary = String(result?.response?.text?.() || "").trim();
+    if (!summary) {
+      return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
+    }
 
     return { statusCode: 200, body: JSON.stringify({ summary }) };
-  } catch (error) {
-    console.error("[summarize] ERROR:", error);
-    return { statusCode: 500, body: JSON.stringify({ error: error?.message || "Error interno en summarize" }) };
+  } catch (err) {
+    console.error("[summarize] error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en summarize" }) };
   }
 };
