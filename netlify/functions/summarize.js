@@ -55,14 +55,17 @@ FORMATO (PUNTOS):
 - Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
 - No numeres, no añadas títulos.`;
     } else if (flavor === "long") {
-  styleInstruction += `
-FORMATO (LARGO, SIN VIÑETAS):
-- Extensión objetivo: 350–650 palabras (mínimo 320 palabras).
-- Devuelve entre 18 y 30 frases completas organizadas en 6 a 10 párrafos.
-- Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
+      // *** MODIFICACIÓN PRINCIPAL AQUÍ: Se duplican/triplican los rangos de palabras y frases. ***
+      // Extensión original: 350–650 palabras (mínimo 320 palabras).
+      // Ahora objetivo: 700-1300 palabras (mínimo 650 palabras).
+      styleInstruction += `
+FORMATO (LARGO Y EXTENSO, SIN VIÑETAS):
+- Extensión objetivo: 700–1300 palabras (mínimo 650 palabras).
+- Devuelve entre 35 y 60 frases completas organizadas en 10 a 20 párrafos.
+- Explica con mucho contexto, causas, consecuencias detalladas, múltiples ejemplos o comparaciones si aplica. Desglosa los temas en subsecciones lógicas con párrafos bien estructurados.
 - No uses viñetas ni numeración. Solo párrafos corridos.
-- Si el material fuente es breve, amplía con explicaciones, conexiones y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
-} else {
+- Si el material fuente es breve, amplía con explicaciones profundas, conexiones relevantes y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto. Prioriza la exhaustividad basada en el contenido.`;
+    } else {
       styleInstruction += `
 FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
@@ -121,7 +124,7 @@ FORMATO (GENERAL):
   text: `
 Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada en español.
 No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).
-Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 320 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar.`.trim(),
+Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar, profundizando en los temas tratados.`.trim(), // *** MODIFICACIÓN AQUÍ en la validación ***
 });
 
 
@@ -132,7 +135,7 @@ const result = await model.generateContent({
   contents: [{ role: "user", parts }],
   generationConfig: {
     temperature: 0.45,
-    maxOutputTokens: isLong ? 3072 : 1024, // más tokens para 'largo'
+    maxOutputTokens: isLong ? 4096 : 1024, // *** MODIFICACIÓN AQUÍ: Aumentado de 3072 a 4096 para 'long' ***
     candidateCount: 1,
   },
 });
