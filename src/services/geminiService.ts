@@ -83,26 +83,35 @@ async function compressImageToJpegBase64(file: File, maxDim = 1600, quality = 0.
   }
 }
 
-/** Si es imagen grande, comprime; si es PDF u otro, pasa tal cual. */
-async function fileToBase64Smart(file: File): Promise<{ base64: string; mimeType: string }> {
+/** Si es imagen grande, comprime; si es PDF u otro, pasa tal cual.
+ *  RETORNA en el formato esperado por 'fileParts' en la función Netlify.
+ */
+async function fileToGeminiPart(file: File): Promise<{ inlineData?: { data: string; mimeType: string }; text?: string }> {
   const mime = file.type || "";
-  // Solo comprimimos JPEG/PNG (los navegadores decodifican bien). HEIC puede fallar en canvas → lo enviamos crudo.
   const isJpegPng = /^image\/(jpeg|jpg|png)$/i.test(mime);
   const isImage = /^image\//i.test(mime);
+  const isPdf = /^application\/pdf$/i.test(mime);
 
+  // Si es JPEG/PNG y grande, comprimir y devolver como inlineData
   if (isJpegPng && file.size > 1.5 * 1024 * 1024) {
     const base64 = await compressImageToJpegBase64(file);
-    return { base64, mimeType: "image/jpeg" };
+    return { inlineData: { data: base64, mimeType: "image/jpeg" } };
   }
 
-  if (isImage || /^application\/pdf$/i.test(mime)) {
+  // Si es otra imagen o PDF, convertir a base64 y devolver como inlineData
+  if (isImage || isPdf) {
     const base64 = await fileToBase64(file);
-    return { base64, mimeType: mime };
+    return { inlineData: { data: base64, mimeType: mime } };
   }
 
-  // Otros tipos: lo intentamos como texto en capas superiores; aquí devolvemos vacío
-  const base64 = await fileToBase64(file);
-  return { base64, mimeType: mime };
+  // Para otros tipos de archivo, intentar leer como texto y devolver
+  try {
+    const textContent = await file.text();
+    return { text: textContent.slice(0, 20000) }; // Truncar texto para evitar payloads excesivos
+  } catch {
+    console.warn(`No se pudo leer el archivo ${file.name} como texto o imagen/pdf. Se ignorará.`);
+    return {}; // Devolver un objeto vacío si no se puede procesar
+  }
 }
 
 async function postJson<T = any>(fnName: string, body: any): Promise<T> {
@@ -131,22 +140,24 @@ export async function summarizeContents(
   files: File[],
   summaryType: SummaryType
 ): Promise<string> {
+  // *** CAMBIO PRINCIPAL AQUÍ: Construir el payload con 'fileParts' ***
   const payload: any = {
     summaryType,
-    files: [] as { base64: string; mimeType: string }[],
-    textChunks: [] as string[],
+    fileParts: [] as Array<{ inlineData?: { data: string; mimeType: string }; text?: string }>,
   };
 
-  // Máximo 6 imágenes
+  // Procesar cada archivo para convertirlo en una "parte" de Gemini
+  // Limitamos a 6 archivos como en tu lógica original
   for (const f of files.slice(0, 6)) {
-    const mime = f?.type || "";
-    if (/^application\/pdf$/i.test(mime) || /^image\//i.test(mime)) {
-      const { base64, mimeType } = await fileToBase64Smart(f);
-      payload.files.push({ base64, mimeType });
-    } else {
-      const text = await f.text().catch(() => "");
-      if (text) payload.textChunks.push(text.slice(0, 20000));
+    const part = await fileToGeminiPart(f);
+    if (part.inlineData || part.text) { // Solo añadir si hay contenido válido
+      payload.fileParts.push(part);
     }
+  }
+
+  // Si no se pudo extraer contenido válido de ningún archivo, lanzar un error
+  if (payload.fileParts.length === 0) {
+      throw new Error("No se pudo extraer contenido válido de los archivos proporcionados para resumir.");
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
@@ -159,6 +170,7 @@ export async function summarizeContent(
   file: File,
   summaryType: SummaryType
 ): Promise<string> {
+  // *** CAMBIO AQUÍ: Llamar a summarizeContents para unificar la lógica ***
   return summarizeContents([file], summaryType);
 }
 
