@@ -45,30 +45,26 @@ exports.handler = async (event) => {
 
     if (flavor === "short") {
       styleInstruction += `
-FORMATO (CORTO, SIN VIÑETAS):
-- Devuelve 2–4 frases completas en un único bloque de texto.
-- No uses guiones, numeración ni viñetas.`;
-    } else if (flavor === "bullet") {
-      styleInstruction += `
-FORMATO (PUNTOS):
-- Devuelve SÓLO viñetas con el símbolo "• " al inicio.
-- Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
-- No numeres, no añadas títulos.`;
+FORMATO (CORTO / BREVE / EXPRESS):
+- Devuelve entre 2 y 4 frases.
+- Solo texto corrido, sin viñetas ni numeración.
+- Resume lo esencial en pocas palabras.`;
     } else if (flavor === "long") {
-      // *** MODIFICACIÓN PRINCIPAL AQUÍ: Se duplican/triplican los rangos de palabras y frases. ***
-      // Extensión original: 350–650 palabras (mínimo 320 palabras).
-      // Ahora objetivo: 700-1300 palabras (mínimo 650 palabras).
+      // *** MODIFICADO AQUÍ PARA QUE SEA MÁS LARGO Y DETALLADO ***
       styleInstruction += `
-FORMATO (LARGO Y EXTENSO, SIN VIÑETAS):
+FORMATO (LARGO / EXTENSO / DETALLADO):
 - Extensión objetivo: 700–1300 palabras (mínimo 650 palabras).
-- Devuelve entre 35 y 60 frases completas organizadas en 10 a 20 párrafos.
-- Explica con mucho contexto, causas, consecuencias detalladas, múltiples ejemplos o comparaciones si aplica. Desglosa los temas en subsecciones lógicas con párrafos bien estructurados.
+- Devuelve entre 35 y 60 frases completas.
+- Organiza el texto en 10 a 20 párrafos.
+- Explica con mucho contexto, causas, consecuencias detalladas, múltiples ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.
 - Si el material fuente es breve, amplía con explicaciones profundas, conexiones relevantes y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto. Prioriza la exhaustividad basada en el contenido.`;
-    } else {
+    } else { // Este 'else' cubre el flavor === "bullet"
       styleInstruction += `
-FORMATO (GENERAL):
-- Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
+FORMATO (POR PUNTOS / BULLETS):
+- Devuelve de 5 a 10 frases en viñetas.
+- Cada viñeta comienza con "• " y contiene UNA sola idea.
+- No uses numeración ni texto corrido. Solo viñetas.`;
     }
 
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
@@ -120,26 +116,22 @@ FORMATO (GENERAL):
       }
     }
 
-   parts.push({
-  text: `
+    parts.push({
+      text: `
 Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada en español.
 No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).
-Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar, profundizando en los temas tratados.`.trim(), // *** MODIFICACIÓN AQUÍ en la validación ***
-});
+Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar, profundizando en los temas tratados.`.trim(), // *** MODIFICADO AQUÍ LA VALIDACIÓN FINAL ***
+    });
 
-
-   // ++ Dar más espacio de salida cuando es 'long'
-const isLong = flavor === "long";
-
-const result = await model.generateContent({
-  contents: [{ role: "user", parts }],
-  generationConfig: {
-    temperature: 0.45,
-    maxOutputTokens: isLong ? 4096 : 1024, // *** MODIFICACIÓN AQUÍ: Aumentado de 3072 a 4096 para 'long' ***
-    candidateCount: 1,
-  },
-});
-
+    const isLong = flavor === "long"; // Detectar si el flavor es "long"
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts }],
+      generationConfig: {
+        temperature: 0.35, // Mantener la temperatura si es lo que prefieres
+        maxOutputTokens: isLong ? 4096 : 1024, // *** RE-INTRODUCIDO maxOutputTokens para 'long' ***
+        candidateCount: 1, // Añadido para asegurar una única respuesta
+      },
+    });
 
     const summary = String(result?.response?.text?.() || "").trim();
     if (!summary) {
