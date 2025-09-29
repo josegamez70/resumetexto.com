@@ -183,3 +183,5 @@ export async function generateFlashcards(
   if (!arr.length) throw new Error("No se generaron flashcards.");
   return arr;
 }
+// Alias para compatibilidad con código que lo importa en plural
+export const summarizeContents = summarizeContent;
