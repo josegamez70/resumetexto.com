@@ -1,3 +1,5 @@
+// netlify/functions/present.js
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -215,7 +217,8 @@ ${safe}
 }
 
     // --- Modelo único
-    const modelName = "gemini-1.5-flash";
+    // Se ha cambiado 'gemini-1.5-flash' a 'gemini-2.0-flash' para que coincida con el modelo disponible.
+    const modelName = "gemini-2.0-flash"; // <<-- ¡Línea corregida aquí!
     const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
     const genAI = new GGA(apiKey);
     const model = genAI.getGenerativeModel({ model: modelName });
@@ -235,7 +238,7 @@ ${safe}
       const cleaned = raw
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
-        .replace(/```$/i, "")
+        .replace(/```$/s, "") // 's' flag for multiline dotall match
         .trim();
       try {
         data = JSON.parse(cleaned);
