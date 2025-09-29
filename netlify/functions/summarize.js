@@ -1,5 +1,3 @@
---- START OF FILE summarize.js ---
-
 // netlify/functions/summarize.js
 // Retrocompatible: {file,text} y {files[],textChunks[]}
 // Tipos soportados: short | long | bullet
@@ -10,6 +8,7 @@ exports.handler = async (event) => {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
+    // Se usa 'import' para que la función sea compatible con ES Modules en Netlify
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
     const apiKey =
@@ -27,8 +26,11 @@ exports.handler = async (event) => {
 
     // Body
     let payload = {};
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) };
+    }
 
     const files = Array.isArray(payload.files) ? payload.files : (payload.file ? [payload.file] : []);
     const textChunks = Array.isArray(payload.textChunks) ? payload.textChunks : (payload.text ? [payload.text] : []);
@@ -66,7 +68,7 @@ FORMATO (LARGO, SIN VIÑETAS):
 - Devuelve entre 35 y 60 frases completas organizadas en 10 a 20 párrafos.
 - Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.
-- Si el material fuente es breve, amplía con explicaciones, conexiones y y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
+- Si el material fuente es breve, amplía con explicaciones, conexiones y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
     } else {
       styleInstruction += `
 FORMATO (GENERAL):
@@ -77,8 +79,11 @@ FORMATO (GENERAL):
     const genAI = new GGA(apiKey);
 
     // --- Modelo con fallback ---
+    // Usamos "gemini-pro" que es más estable y está ampliamente disponible.
+    // Si quieres usar "flash", verifica el nombre exacto en la consola de Google AI Studio.
     const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro";
     let modelId = PREFERRED;
+    // Si se especificó un modelo '-latest', forzamos a 'gemini-pro' para evitar nombres obsoletos.
     if (/-latest$/.test(modelId)) modelId = "gemini-pro";
     const model = genAI.getGenerativeModel({ model: modelId });
 
@@ -120,7 +125,7 @@ FORMATO (GENERAL):
 
       if (mimeType.startsWith("image/")) {
         if (imageCount >= MAX_IMAGES) continue;
-        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic";
+        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic"; // Compatibilidad con HEIC
         parts.push({ inlineData: { mimeType, data: base64 } });
         imageCount++;
       }
@@ -133,7 +138,7 @@ No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide
 Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar.`.trim(),
     });
 
-    // Cambiado de "// ++ Dar más espacio..." a un comentario válido "// Dar más espacio..."
+    // Dar más espacio de salida cuando es 'long'
     const isLong = flavor === "long";
 
     const result = await model.generateContent({
@@ -150,7 +155,7 @@ Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 65
       return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
     }
 
-    return { statusCode: 200, body: JSON.stringify({ summary }) };
+    return { statusCode: 200, body: JSON.stringify({ summary }) });
   } catch (err) {
     console.error("[summarize] error:", err);
     return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en summarize" }) };
