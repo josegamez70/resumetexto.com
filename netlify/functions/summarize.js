@@ -66,7 +66,7 @@ FORMATO (LARGO, SIN VIÑETAS):
 - Devuelve entre 35 y 60 frases completas organizadas en 10 a 20 párrafos.
 - Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.
-- Si el material fuente es breve, amplía con explicaciones, conexiones y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
+- Si el material fuente es breve, amplía con explicaciones, conexiones y y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
     } else {
       styleInstruction += `
 FORMATO (GENERAL):
@@ -77,14 +77,9 @@ FORMATO (GENERAL):
     const genAI = new GGA(apiKey);
 
     // --- Modelo con fallback ---
-    // ANTERIOR: const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-1.5-flash";
-    // ANTERIOR: let modelId = PREFERRED;
-    // ANTERIOR: if (/-latest$/.test(modelId)) modelId = "gemini-1.5-flash"; // fallback
-    // NUEVO: Usamos "gemini-pro" que es más estable y está ampliamente disponible.
-    // Si quieres usar "flash", verifica el nombre exacto en la consola de Google AI Studio.
-    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro"; // CAMBIO AQUÍ: Usamos "gemini-pro"
+    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro";
     let modelId = PREFERRED;
-    if (/-latest$/.test(modelId)) modelId = "gemini-pro"; // CAMBIO AQUÍ: Fallback también a "gemini-pro"
+    if (/-latest$/.test(modelId)) modelId = "gemini-pro";
     const model = genAI.getGenerativeModel({ model: modelId });
 
 
@@ -138,7 +133,7 @@ No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide
 Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar.`.trim(),
     });
 
-    // ++ Dar más espacio de salida cuando es 'long'
+    // Cambiado de "// ++ Dar más espacio..." a un comentario válido "// Dar más espacio..."
     const isLong = flavor === "long";
 
     const result = await model.generateContent({
