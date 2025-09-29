@@ -8,7 +8,7 @@ exports.handler = async (event) => {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
-    // Volvemos a 'import' ya que tu package.json es moderno y Netlify podría preferirlo.
+    // Se usa 'import' para que la función sea compatible con ES Modules en Netlify
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
     const apiKey =
@@ -75,18 +75,15 @@ FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
     }
 
-    // Renombramos para evitar conflicto, aunque con 'import' no debería ser problema.
-    // Usamos la API directamente del objeto importado.
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // --- Modelo con fallback ---
     // ¡¡¡CAMBIO CRÍTICO AQUÍ!!!
-    // Probamos con "gemini-pro-vision", que es el modelo diseñado específicamente para contenido multimodal (texto e imágenes/PDFs)
-    // y suele tener un nombre más estable para 'generateContent'.
-    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro-vision"; // CAMBIO AQUÍ: Usamos "gemini-pro-vision"
+    // Basado en la documentación, usamos "gemini-2.0-flash" que es el nombre más actual mostrado en los ejemplos.
+    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-2.0-flash"; // CAMBIO AQUÍ: Usamos "gemini-2.0-flash"
     let modelId = PREFERRED;
-    // Si se especificó un modelo '-latest', forzamos a 'gemini-pro-vision' para evitar nombres obsoletos.
-    if (/-latest$/.test(modelId)) modelId = "gemini-pro-vision"; // CAMBIO AQUÍ: Fallback también a "gemini-pro-vision"
+    // Si se especificó un modelo '-latest', forzamos a 'gemini-2.0-flash' para usar el nombre compatible.
+    if (/-latest$/.test(modelId)) modelId = "gemini-2.0-flash"; // CAMBIO AQUÍ: Fallback también a "gemini-2.0-flash"
     const model = genAI.getGenerativeModel({ model: modelId });
 
 
