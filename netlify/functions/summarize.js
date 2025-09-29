@@ -1,3 +1,5 @@
+--- START OF FILE summarize.js ---
+
 // netlify/functions/summarize.js
 // Retrocompatible: {file,text} y {files[],textChunks[]}
 // Tipos soportados: short | long | bullet
@@ -75,10 +77,16 @@ FORMATO (GENERAL):
     const genAI = new GGA(apiKey);
 
     // --- Modelo con fallback ---
-    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-1.5-flash";
+    // ANTERIOR: const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-1.5-flash";
+    // ANTERIOR: let modelId = PREFERRED;
+    // ANTERIOR: if (/-latest$/.test(modelId)) modelId = "gemini-1.5-flash"; // fallback
+    // NUEVO: Usamos "gemini-pro" que es más estable y está ampliamente disponible.
+    // Si quieres usar "flash", verifica el nombre exacto en la consola de Google AI Studio.
+    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro"; // CAMBIO AQUÍ: Usamos "gemini-pro"
     let modelId = PREFERRED;
-    if (/-latest$/.test(modelId)) modelId = "gemini-1.5-flash"; // fallback
+    if (/-latest$/.test(modelId)) modelId = "gemini-pro"; // CAMBIO AQUÍ: Fallback también a "gemini-pro"
     const model = genAI.getGenerativeModel({ model: modelId });
+
 
     const parts = [{ text: styleInstruction }];
 
