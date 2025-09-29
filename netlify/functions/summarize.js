@@ -78,7 +78,8 @@ FORMATO (GENERAL):
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // Usamos gemini-1.5-pro por su mayor capacidad para resúmenes detallados
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
 
 
     const parts = [{ text: styleInstruction.trim() }];
