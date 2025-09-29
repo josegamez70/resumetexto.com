@@ -8,7 +8,7 @@ exports.handler = async (event) => {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
-    // Se usa 'import' para que la función sea compatible con ES Modules en Netlify
+    // Volvemos a 'import' ya que tu package.json es moderno y Netlify podría preferirlo.
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
 
     const apiKey =
@@ -75,13 +75,18 @@ FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
     }
 
-    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
-    const genAI = new GGA(apiKey);
+    // Renombramos para evitar conflicto, aunque con 'import' no debería ser problema.
+    // Usamos la API directamente del objeto importado.
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     // --- Modelo con fallback ---
-    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro";
+    // ¡¡¡CAMBIO CRÍTICO AQUÍ!!!
+    // Probamos con "gemini-pro-vision", que es el modelo diseñado específicamente para contenido multimodal (texto e imágenes/PDFs)
+    // y suele tener un nombre más estable para 'generateContent'.
+    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro-vision"; // CAMBIO AQUÍ: Usamos "gemini-pro-vision"
     let modelId = PREFERRED;
-    if (/-latest$/.test(modelId)) modelId = "gemini-pro";
+    // Si se especificó un modelo '-latest', forzamos a 'gemini-pro-vision' para evitar nombres obsoletos.
+    if (/-latest$/.test(modelId)) modelId = "gemini-pro-vision"; // CAMBIO AQUÍ: Fallback también a "gemini-pro-vision"
     const model = genAI.getGenerativeModel({ model: modelId });
 
 
@@ -122,7 +127,7 @@ FORMATO (GENERAL):
 
       if (mimeType.startsWith("image/")) {
         if (imageCount >= MAX_IMAGES) continue;
-        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic";
+        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic"; // Compatibilidad con HEIC
         parts.push({ inlineData: { mimeType, data: base64 } });
         imageCount++;
       }
@@ -152,7 +157,6 @@ Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 65
       return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
     }
 
-    // ¡¡¡CORRECCIÓN AQUI!!! Faltaba un '}' para cerrar el objeto del body.
     return { statusCode: 200, body: JSON.stringify({ summary }) };
   } catch (err) {
     console.error("[summarize] error:", err);
