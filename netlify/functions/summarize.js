@@ -79,11 +79,8 @@ FORMATO (GENERAL):
     const genAI = new GGA(apiKey);
 
     // --- Modelo con fallback ---
-    // Usamos "gemini-pro" que es más estable y está ampliamente disponible.
-    // Si quieres usar "flash", verifica el nombre exacto en la consola de Google AI Studio.
     const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-pro";
     let modelId = PREFERRED;
-    // Si se especificó un modelo '-latest', forzamos a 'gemini-pro' para evitar nombres obsoletos.
     if (/-latest$/.test(modelId)) modelId = "gemini-pro";
     const model = genAI.getGenerativeModel({ model: modelId });
 
@@ -125,7 +122,7 @@ FORMATO (GENERAL):
 
       if (mimeType.startsWith("image/")) {
         if (imageCount >= MAX_IMAGES) continue;
-        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic"; // Compatibilidad con HEIC
+        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic";
         parts.push({ inlineData: { mimeType, data: base64 } });
         imageCount++;
       }
@@ -155,7 +152,8 @@ Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 65
       return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
     }
 
-    return { statusCode: 200, body: JSON.stringify({ summary }) });
+    // ¡¡¡CORRECCIÓN AQUI!!! Faltaba un '}' para cerrar el objeto del body.
+    return { statusCode: 200, body: JSON.stringify({ summary }) };
   } catch (err) {
     console.error("[summarize] error:", err);
     return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en summarize" }) };
