@@ -1,148 +1,155 @@
 // netlify/functions/summarize.js
-// Acepta: { fileParts, summaryType } | { text, summaryType } | { summaryType, file:{base64,mimeType} }
-// Formatos:
-//  - short/corto/breve/express  -> párrafo 2–4 frases, sin viñetas
-//  - bullets/puntos             -> • una frase por viñeta
-//  - long/largo/extenso         -> objetivo 700–1300 palabras, muy detallado
-//
-// Usa gemini-1.5-pro por su mayor capacidad y calidad.
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-function norm(x = "") {
-  return String(x).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-}
-
-function pickFlavor(summaryType) {
-  const s = norm(summaryType);
-  if (/(short|corto|breve|express)/.test(s)) return "short";
-  if (/(puntos|bullets|viñetas|vinyetas|lista|bullet)/.test(s)) return "bullets";
-  if (/(long|largo|extenso|extensa|extendido|extendida|detallado|detallada|completo|completa)/.test(s)) return "long";
-  return "default"; // Fallback para cualquier otro tipo
-}
+// Retrocompatible: {file,text} y {files[],textChunks[]}
+// Tipos soportados: short | long | bullet
 
 exports.handler = async (event) => {
   try {
-    const apiKey =
-      process.env.GOOGLE_AI_API_KEY ||
-      process.env.VITE_API_KEY || // En caso de que uses VITE_API_KEY para dev, aunque para Netlify es GOOGLE_AI_API_KEY
-      process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Falta la API Key (GOOGLE_AI_API_KEY)." }) };
-    }
     if (event.httpMethod !== "POST") {
       return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
     }
 
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+
+    const apiKey =
+      process.env.GOOGLE_AI_API_KEY ||
+      process.env.VITE_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      "";
+
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Falta la API Key (GOOGLE_AI_API_KEY / VITE_API_KEY / GEMINI_API_KEY)." }),
+      };
+    }
+
+    // Body
     let payload = {};
     try { payload = JSON.parse(event.body || "{}"); }
-    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body JSON inválido." }) }; }
+    catch { return { statusCode: 400, body: JSON.stringify({ error: "Body no es JSON válido." }) }; }
 
-    const { fileParts, text, summaryType, file } = payload; // Acepta múltiples formatos de entrada
-    if (!summaryType) return { statusCode: 400, body: JSON.stringify({ error: "Falta summaryType." }) };
+    const files = Array.isArray(payload.files) ? payload.files : (payload.file ? [payload.file] : []);
+    const textChunks = Array.isArray(payload.textChunks) ? payload.textChunks : (payload.text ? [payload.text] : []);
+    const summaryType = String(payload.summaryType || "short");
 
-    const flavor = pickFlavor(summaryType);
+    if (!files.length && !textChunks.length) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar al menos un archivo (pdf/imagen) o texto." }) };
+    }
 
-    let styleInstruction = `
-Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tono acorde a "${summaryType}".`;
+    // --- Normalización tipos ---
+    const norm = (s = "") => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const s = norm(summaryType);
+    let flavor = "short";
+    if (s.includes("bullet") || s.includes("punto") || s.includes("viñet") || s.includes("vinet")) flavor = "bullet";
+    else if (s.includes("long") || s.includes("largo") || s.includes("detall") || s.includes("extenso")) flavor = "long";
+
+    // --- Instrucciones por tipo ---
+    let styleInstruction = `Eres un asistente que resume en ESPAÑOL. Sé fiel al contenido, sin inventar. Tipo de resumen: "${summaryType}".`;
 
     if (flavor === "short") {
       styleInstruction += `
-FORMATO (CORTO / BREVE / EXPRESS, SIN VIÑETAS):
+FORMATO (CORTO, SIN VIÑETAS):
 - Devuelve 2–4 frases completas en un único bloque de texto.
-- No uses guiones, numeración ni viñetas.
-- Resume lo esencial en pocas palabras.`;
-    } else if (flavor === "bullets") {
+- No uses guiones, numeración ni viñetas.`;
+    } else if (flavor === "bullet") {
       styleInstruction += `
-FORMATO (POR PUNTOS / BULLETS):
+FORMATO (PUNTOS):
 - Devuelve SÓLO viñetas con el símbolo "• " al inicio.
 - Cada viñeta debe ser UNA frase. 5–10 viñetas máx.
-- No uses numeración ni texto corrido. Solo viñetas.`;
+- No numeres, no añadas títulos.`;
     } else if (flavor === "long") {
-      // *** INSTRUCCIONES PARA RESUMEN LARGO (DOBLE/TRIPLE) ***
       styleInstruction += `
-FORMATO (LARGO / EXTENSO / DETALLADO, SIN VIÑETAS):
+FORMATO (LARGO, SIN VIÑETAS):
 - Extensión objetivo: 700–1300 palabras (mínimo 650 palabras).
-- Devuelve entre 35 y 60 frases completas.
-- Organiza el texto en 10 a 20 párrafos.
-- Explica con mucho contexto, causas, consecuencias detalladas, múltiples ejemplos o comparaciones si aplica. Desglosa los temas en subsecciones lógicas con párrafos bien estructurados.
+- Devuelve entre 35 y 60 frases completas organizadas en 10 a 20 párrafos.
+- Explica con mucho contexto, causas, consecuencias, ejemplos o comparaciones si aplica.
 - No uses viñetas ni numeración. Solo párrafos corridos.
-- No añadas títulos o etiquetas, solo el resumen estructurado en párrafos.
-- Si el material fuente es breve, amplía con explicaciones profundas, conexiones relevantes y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto. Prioriza la exhaustividad basada en el contenido.`;
-    } else { // 'default'
+- Si el material fuente es breve, amplía con explicaciones, conexiones y ejemplos prudentes para cumplir la longitud, sin inventar hechos que no estén en el texto.`;
+    } else {
       styleInstruction += `
 FORMATO (GENERAL):
 - Usa párrafos breves o viñetas si ayudan, pero prioriza claridad.`;
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // Usamos gemini-1.5-pro por su mayor capacidad para resúmenes detallados
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const { GoogleGenerativeAI: GGA } = { GoogleGenerativeAI };
+    const genAI = new GGA(apiKey);
 
+    // --- Modelo con fallback ---
+    const PREFERRED = process.env.GEMINI_MODEL_SUMMARY || "gemini-1.5-flash";
+    let modelId = PREFERRED;
+    if (/-latest$/.test(modelId)) modelId = "gemini-1.5-flash"; // fallback
+    const model = genAI.getGenerativeModel({ model: modelId });
 
+    const parts = [{ text: styleInstruction }];
 
-    const parts = [{ text: styleInstruction.trim() }];
+    // Texto (truncado)
+    const MAX_TOK_TEXT = 18000;
+    for (const t of textChunks) {
+      if (!t) continue;
+      parts.push({ text: String(t).slice(0, MAX_TOK_TEXT) });
+    }
 
-    // Adaptación para manejar los diferentes formatos de entrada (fileParts, text, file)
-    let hasContent = false;
-    if (Array.isArray(fileParts) && fileParts.length) {
-      for (const p of fileParts) {
-        if (p?.text) parts.push({ text: String(p.text) });
-        else if (p?.inlineData?.data && p?.inlineData?.mimeType) {
-          parts.push({ inlineData: { data: p.inlineData.data, mimeType: p.inlineData.mimeType } });
-        }
+    // Archivos con límites
+    const MAX_IMAGES = 6;
+    const MAX_PART_BYTES = 3.5 * 1024 * 1024; // ~3.5MB
+    let imageCount = 0;
+    let hasPdf = false;
+
+    for (const f of files) {
+      let mimeType = String(f?.mimeType || "").toLowerCase();
+      const base64 = String(f?.base64 || "");
+      if (!mimeType || !base64) continue;
+
+      const approxBytes = Math.floor(base64.length * 0.75);
+      if (approxBytes > MAX_PART_BYTES) {
+        return {
+          statusCode: 413,
+          body: JSON.stringify({ error: "Imagen demasiado grande tras compresión. Toma la foto en calidad media o súbela más pequeña." }),
+        };
       }
-      hasContent = true;
-    } else if (typeof text === "string" && text.trim()) {
-      parts.push({ text: text.trim() });
-      hasContent = true;
-    } else if (file?.base64 && file?.mimeType) {
-      parts.push({ inlineData: { data: file.base64, mimeType: file.mimeType } });
-      hasContent = true;
+
+      if (mimeType === "application/pdf") {
+        if (hasPdf) continue;
+        hasPdf = true;
+        parts.push({ inlineData: { mimeType, data: base64 } });
+        continue;
+      }
+
+      if (mimeType.startsWith("image/")) {
+        if (imageCount >= MAX_IMAGES) continue;
+        if (/^image\/(heic|heif)$/.test(mimeType)) mimeType = "image/heic";
+        parts.push({ inlineData: { mimeType, data: base64 } });
+        imageCount++;
+      }
     }
 
-    if (!hasContent) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Debes enviar al menos un archivo o texto para resumir." }) };
-    }
-
-    // *** AGREGADA INSTRUCCIÓN DE VALIDACIÓN FINAL ***
     parts.push({
       text: `
 Tarea: Resume todos los materiales anteriores (texto + archivos) de forma integrada en español.
 No devuelvas JSON ni Markdown. Solo texto corrido (o viñetas si el tipo lo pide).
-Validación final: si el tipo de resumen es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar, profundizando en los temas tratados.`.trim(),
+Validación final: si el tipo es "largo", asegúrate de cumplir el mínimo de 650 palabras. Si no llegas, añade contexto y ejemplos del material sin inventar.`.trim(),
     });
 
+    // ++ Dar más espacio de salida cuando es 'long'
     const isLong = flavor === "long";
+
     const result = await model.generateContent({
       contents: [{ role: "user", parts }],
       generationConfig: {
         temperature: 0.35,
-        // *** maxOutputTokens ajustado para tipo 'long' usando gemini-1.5-pro ***
-        // 8192 es un buen valor para pro si esperamos respuestas muy largas.
-        // Flash usa 4096. Pro puede manejar más.
-        maxOutputTokens: isLong ? 8192 : 1024,
-        candidateCount: 1, // Asegura una única respuesta
+        maxOutputTokens: isLong ? 8192 : 2048,
       },
     });
 
-    const out = result?.response?.text?.() || "";
-    const summary = String(out || "").trim();
-
-    // Pequeña validación extra en el backend para longitud mínima (solo advertencia)
-    if (isLong && summary.split(/\s+/).length < 600 && summary.split(/\s+/).length > 50) { // Un poco menos de 650 para flexibilidad
-      console.warn(`[summarize] El resumen 'largo' fue más corto de lo esperado (${summary.split(/\s+/).length} palabras). Se solicitó un mínimo de 650.`);
-    }
-
+    const summary = String(result?.response?.text?.() || "").trim();
     if (!summary) {
       console.error("[summarize] Respuesta vacía del modelo");
       return { statusCode: 500, body: JSON.stringify({ error: "La IA no devolvió contenido." }) };
     }
 
     return { statusCode: 200, body: JSON.stringify({ summary }) };
-  } catch (error) {
-    console.error("[summarize] ERROR:", error);
-    return { statusCode: 500, body: JSON.stringify({ error: error?.message || "Error interno en summarize" }) };
+  } catch (err) {
+    console.error("[summarize] error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || "Error en summarize" }) };
   }
 };
