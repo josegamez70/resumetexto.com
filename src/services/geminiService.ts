@@ -49,18 +49,8 @@ function extractJson<T = any>(raw: string): T {
   }
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onerror = () => reject(fr.error);
-    fr.onload = () => {
-      const res = String(fr.result || "");
-      const base64 = res.includes(",") ? res.split(",")[1] : res;
-      resolve(base64);
-    };
-    fr.readAsDataURL(file);
-  });
-}
+// *** La función 'fileToBase64' que generaba el error ha sido eliminada aquí. ***
+// *** Ya no es necesaria porque 'summarizeContent' tiene su propia versión. ***
 
 async function postJson<T = any>(fnName: string, body: any): Promise<T> {
   const url = `/.netlify/functions/${fnName}`;
@@ -93,6 +83,7 @@ export async function summarizeContent(
   fileOrFiles: File | File[],
   summaryType: SummaryType
 ): Promise<string> {
+  // Esta es la función toBase64 interna que se usa correctamente
   const toBase64 = (f: File) =>
     new Promise<string>((resolve, reject) => {
       const fr = new FileReader();
