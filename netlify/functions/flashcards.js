@@ -59,7 +59,7 @@ exports.handler = async (event, context) => {
     };
   }
 
-  const model = genAIInstance.getGenerativeModel({ model: "gemini-1.5-pro" });
+  const model = genAIInstance.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   // --- CAMBIO AQUÍ PARA PEDIR 10-20 FLASHCARDS ---
   const prompt = `A partir del siguiente resumen, genera entre 10 y 20 flashcards. Cada flashcard debe tener una "pregunta" basada en una idea principal y una "respuesta" concisa y directa. Asegúrate de que la pregunta y la respuesta sean claras y distintas.
