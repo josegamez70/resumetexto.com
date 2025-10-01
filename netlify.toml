@@ -1,10 +1,15 @@
+# netlify.toml
+
 [build]
   command = "npm run build"
   publish = "build"
-  functions = "netlify/functions"
-  node_bundler = "esbuild"
-  external_node_modules = ["stripe"]
 
+# Configuración específica para Netlify Functions
+[functions]
+  directory = "netlify/functions" # Indica dónde están tus funciones (aunque ya lo tienes en [build], es buena práctica aquí también)
+  node_bundler = "esbuild"
+  external_node_modules = ["@google/generative-ai", "stripe"] # <--- ¡CAMBIO CRÍTICO AQUÍ!
+  timeout = 30 # <--- ¡Añadido o modificado el timeout!
 
 [build.environment]
   NODE_VERSION = "18"
