@@ -4,14 +4,12 @@
   command = "npm run build"
   publish = "build"
 
-# Configuración específica para Netlify Functions
+# Configuración principal para Netlify Functions
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  # Aquí es donde van las propiedades directas del bloque [functions]
-  timeout = 30 # <-- ¡CORREGIDO! El timeout va directamente aquí.
-  external_node_modules = ["@google/generative-ai", "stripe"] # <-- ¡CORREGIDO! También va directamente aquí.
-
+  timeout = 30 # <-- ¡Aquí! Como una propiedad directa de [functions]
+  external_node_modules = ["@google/generative-ai", "stripe"] # <-- ¡Aquí! Como una propiedad directa de [functions]
 
 [build.environment]
   NODE_VERSION = "18"
