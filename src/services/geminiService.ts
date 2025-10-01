@@ -1,8 +1,5 @@
 // src/services/geminiService.ts
 
-/* ---------------------------------------------------------
-   Importa TODOS los tipos desde src/types
---------------------------------------------------------- */
 import type {
   SummaryType,
   PresentationType,
@@ -12,10 +9,7 @@ import type {
   Flashcard,
 } from "../types";
 
-/* ---------------------------------------------------------
-   Configuración PDF.js (evitar "Setting up fake worker")
-   Usamos el worker oficial por URL, compatible con CRA.
---------------------------------------------------------- */
+/* PDF.js worker */
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const pdfjsLib = require("pdfjs-dist");
@@ -23,13 +17,9 @@ try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
   }
-} catch {
-  // si no hay pdfjs-dist en este contexto, ignoramos
-}
+} catch {}
 
-/* ---------------------------------------------------------
-   Helpers
---------------------------------------------------------- */
+/* ----------------------------- Helpers -------------------------------- */
 
 function extractJson<T = any>(raw: string): T {
   if (!raw) throw new Error("Respuesta vacía del modelo");
@@ -39,18 +29,90 @@ function extractJson<T = any>(raw: string): T {
   const b = candidate.lastIndexOf("}");
   if (a !== -1 && b !== -1 && b > a) candidate = candidate.slice(a, b + 1);
   candidate = candidate
-    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u201C-\u201F]/g, '"')
     .replace(/,\s*([}\]])/g, "$1");
-  try {
-    return JSON.parse(candidate) as T;
-  } catch {
+  try { return JSON.parse(candidate) as T; }
+  catch {
     const cleaned = candidate.replace(/```+.*?```+/gs, "").trim();
     return JSON.parse(cleaned) as T;
   }
 }
 
-// *** La función 'fileToBase64' que generaba el error ha sido eliminada aquí. ***
-// *** Ya no es necesaria porque 'summarizeContent' tiene su propia versión. ***
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(fr.error);
+    fr.onload = () => {
+      const res = String(fr.result || "");
+      resolve(res.includes(",") ? res.split(",")[1] : res);
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/** Reescala JPEG/PNG en el cliente si pesa > ~1.5MB. Convierte a JPEG. */
+async function compressImageToJpegBase64(file: File, maxDim = 1600, quality = 0.72): Promise<string> {
+  // Si el navegador no puede leer (p.ej. HEIC en algunos), devolvemos tal cual (lo atrapará el server).
+  const blobUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error("No se pudo cargar la imagen para comprimir."));
+      im.src = blobUrl;
+    });
+
+    const { width, height } = img;
+    let tw = width, th = height;
+    if (width > height && width > maxDim) {
+      tw = maxDim; th = Math.round(height * (maxDim / width));
+    } else if (height >= width && height > maxDim) {
+      th = maxDim; tw = Math.round(width * (maxDim / height));
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = tw; canvas.height = th;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no disponible");
+    ctx.drawImage(img, 0, 0, tw, th);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    return dataUrl.split(",")[1] || "";
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+/** Si es imagen grande, comprime; si es PDF u otro, pasa tal cual.
+ *  RETORNA en el formato esperado por 'fileParts' en la función Netlify.
+ */
+async function fileToGeminiPart(file: File): Promise<{ inlineData?: { data: string; mimeType: string }; text?: string }> {
+  const mime = file.type || "";
+  const isJpegPng = /^image\/(jpeg|jpg|png)$/i.test(mime);
+  const isImage = /^image\//i.test(mime);
+  const isPdf = /^application\/pdf$/i.test(mime);
+
+  // Si es JPEG/PNG y grande, comprimir y devolver como inlineData
+  if (isJpegPng && file.size > 1.5 * 1024 * 1024) {
+    const base64 = await compressImageToJpegBase64(file);
+    return { inlineData: { data: base64, mimeType: "image/jpeg" } };
+  }
+
+  // Si es otra imagen o PDF, convertir a base64 y devolver como inlineData
+  if (isImage || isPdf) {
+    const base64 = await fileToBase64(file);
+    return { inlineData: { data: base64, mimeType: mime } };
+  }
+
+  // Para otros tipos de archivo, intentar leer como texto y devolver
+  try {
+    const textContent = await file.text();
+    return { text: textContent.slice(0, 20000) }; // Truncar texto para evitar payloads excesivos
+  } catch {
+    console.warn(`No se pudo leer el archivo ${file.name} como texto o imagen/pdf. Se ignorará.`);
+    return {}; // Devolver un objeto vacío si no se puede procesar
+  }
+}
 
 async function postJson<T = any>(fnName: string, body: any): Promise<T> {
   const url = `/.netlify/functions/${fnName}`;
@@ -68,71 +130,48 @@ async function postJson<T = any>(fnName: string, body: any): Promise<T> {
       throw new Error(`Error ${resp.status} en ${fnName}: ${text.slice(0, 500)}`);
     }
   }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return extractJson<T>(text);
-  }
+  try { return JSON.parse(text) as T; }
+  catch { return extractJson<T>(text); }
 }
 
-/* ---------------------------------------------------------
-   API pública
---------------------------------------------------------- */
+/* ------------------------------ API ----------------------------------- */
 
-export async function summarizeContent(
-  fileOrFiles: File | File[],
+export async function summarizeContents(
+  files: File[],
   summaryType: SummaryType
 ): Promise<string> {
-  // Esta es la función toBase64 interna que se usa correctamente
-  const toBase64 = (f: File) =>
-    new Promise<string>((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onerror = () => reject(fr.error);
-      fr.onload = () => {
-        const res = String(fr.result || "");
-        resolve(res.includes(",") ? res.split(",")[1] : res);
-      };
-      fr.readAsDataURL(f);
-    });
+  // *** CAMBIO PRINCIPAL AQUÍ: Construir el payload con 'fileParts' ***
+  const payload: any = {
+    summaryType,
+    fileParts: [] as Array<{ inlineData?: { data: string; mimeType: string }; text?: string }>,
+  };
 
-  const payload: any = { summaryType };
+  // Procesar cada archivo para convertirlo en una "parte" de Gemini
+  // Limitamos a 6 archivos como en tu lógica original
+  for (const f of files.slice(0, 6)) {
+    const part = await fileToGeminiPart(f);
+    if (part.inlineData || part.text) { // Solo añadir si hay contenido válido
+      payload.fileParts.push(part);
+    }
+  }
 
-  if (Array.isArray(fileOrFiles)) {
-    // Varias fotos
-    const images = fileOrFiles.filter(f => /^image\//i.test(f.type)).slice(0, 6);
-    if (images.length > 0) {
-      const list = await Promise.all(
-        images.map(async (f) => ({
-          base64: await toBase64(f),
-          mimeType: f.type || "image/jpeg",
-        }))
-      );
-      payload.files = list;
-    }
-  } else if (fileOrFiles) {
-    // Un único archivo: PDF o una imagen
-    const f = fileOrFiles;
-    if (/^application\/pdf$/i.test(f.type)) {
-      payload.file = {
-        base64: await toBase64(f),
-        mimeType: f.type || "application/pdf",
-      };
-    } else if (/^image\//i.test(f.type)) {
-      payload.files = [{
-        base64: await toBase64(f),
-        mimeType: f.type || "image/jpeg",
-      }];
-    } else {
-      // Texto plano (si alguna vez llamas con un .txt)
-      const text = await f.text();
-      payload.text = text.slice(0, 20000);
-    }
+  // Si no se pudo extraer contenido válido de ningún archivo, lanzar un error
+  if (payload.fileParts.length === 0) {
+      throw new Error("No se pudo extraer contenido válido de los archivos proporcionados para resumir.");
   }
 
   const data = await postJson<{ summary: string }>("summarize", payload);
   const summary = String(data?.summary ?? "").trim();
   if (!summary) throw new Error("La IA no devolvió un resumen.");
   return summary;
+}
+
+export async function summarizeContent(
+  file: File,
+  summaryType: SummaryType
+): Promise<string> {
+  // *** CAMBIO AQUÍ: Llamar a summarizeContents para unificar la lógica ***
+  return summarizeContents([file], summaryType);
 }
 
 export async function createPresentation(
@@ -174,5 +213,3 @@ export async function generateFlashcards(
   if (!arr.length) throw new Error("No se generaron flashcards.");
   return arr;
 }
-// Alias para compatibilidad con código que lo importa en plural
-export const summarizeContents = summarizeContent;
