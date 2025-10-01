@@ -8,8 +8,12 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  timeout = 30 # <-- ¡Aquí! Como una propiedad directa de [functions]
-  external_node_modules = ["@google/generative-ai", "stripe"] # <-- ¡Aquí! Como una propiedad directa de [functions]
+
+  # Sigo la "Valid syntax" de Netlify: [functions.timeout] es una subsección.
+  # Y dentro de ella, ponemos el 'timeout' como una propiedad simple, y las dependencias.
+  [functions.timeout]
+    timeout = 30 # <-- ¡Definimos el timeout aquí, dentro de la subsección!
+    external_node_modules = ["@google/generative-ai", "stripe"]
 
 [build.environment]
   NODE_VERSION = "18"
