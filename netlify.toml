@@ -6,10 +6,12 @@
 
 # Configuración específica para Netlify Functions
 [functions]
-  directory = "netlify/functions" # Indica dónde están tus funciones (aunque ya lo tienes en [build], es buena práctica aquí también)
+  directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["@google/generative-ai", "stripe"] # <--- ¡CAMBIO CRÍTICO AQUÍ!
-  timeout = 30 # <--- ¡Añadido o modificado el timeout!
+  # Aquí es donde van las propiedades directas del bloque [functions]
+  timeout = 30 # <-- ¡CORREGIDO! El timeout va directamente aquí.
+  external_node_modules = ["@google/generative-ai", "stripe"] # <-- ¡CORREGIDO! También va directamente aquí.
+
 
 [build.environment]
   NODE_VERSION = "18"
