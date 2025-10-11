@@ -65,7 +65,14 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   .box{background:#1f2937;border:1px solid #374151;padding:16px;border-radius:10px;white-space:pre-wrap;line-height:1.5}
   .actions{margin-top:16px}
   .btn{padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:0;cursor:pointer}
-  @media print{.actions{display:none!important}body{background:#fff;color:#000}.box{background:#fff;border-color:#ddd}}
+   @media print{
+-   .actions{display:none!important}
+-   body{background:#fff;color:#000}
+-   .box{background:#fff;border-color:#ddd}
++   .actions{display:none!important}
++   body{background:#fff!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
++   .box{background:#fff!important;border-color:#000!important;color:#000!important}
+  }
 </style>
 <script>window.addEventListener('load',()=>{try{window.print()}catch(e){}});</script>
 </head>
