@@ -149,7 +149,7 @@ const PrivacyPolicyView: React.FC<PrivacyPolicyViewProps> = ({ onGoBack }) => {
         <p>
           Si deseas ponerte en contacto con nosotros para obtener más información sobre esta Política o sobre cualquier asunto
           relacionado con el uso de cookies, puedes hacerlo a través de la siguiente dirección de correo electrónico:{" "}
-          <a href="mailto:quizzmaker@outlook.com" className="text-purple-400 hover:underline">
+          <a href="mailto:info@quizzmaker.es" className="text-purple-400 hover:underline">
             quizzmaker@outlook.com
           </a>
         </p>
