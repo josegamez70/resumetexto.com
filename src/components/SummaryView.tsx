@@ -65,13 +65,26 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   .box{background:#1f2937;border:1px solid #374151;padding:16px;border-radius:10px;white-space:pre-wrap;line-height:1.5}
   .actions{margin-top:16px}
   .btn{padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:0;cursor:pointer}
-   @media print{
--   .actions{display:none!important}
--   body{background:#fff;color:#000}
--   .box{background:#fff;border-color:#ddd}
-+   .actions{display:none!important}
-+   body{background:#fff!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-+   .box{background:#fff!important;border-color:#000!important;color:#000!important}
+  @media print{
+    .actions{display:none!important}
+    body{
+      background:#fff!important;
+      color:#000!important;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+    /* Fuerza color negro absoluto en todo el texto */
+    h1,h2,h3,h4,h5,h6,p,div,span,li,strong,em,blockquote,code,pre,.box,.content{
+      color:#000!important;
+      -webkit-text-fill-color:#000!important;
+      opacity:1!important;
+      filter:none!important;
+    }
+    .box{
+      background:#fff!important;
+      border-color:#000!important;
+      color:#000!important;
+    }
   }
 </style>
 <script>window.addEventListener('load',()=>{try{window.print()}catch(e){}});</script>
@@ -80,7 +93,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   <div class="wrap">
     <h1>Resumen</h1>
     <h3>${esc(summaryTitle || "")}</h3>
-    <div class="box">${esc(summary)}</div>
+    <div class="box"><div class="content">${esc(summary)}</div></div>
     <div class="actions"><button class="btn" onclick="window.print()">Imprimir</button></div>
   </div>
 </body></html>`;
