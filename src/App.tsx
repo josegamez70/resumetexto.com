@@ -11,8 +11,8 @@ import UpdatePasswordView from "./auth/UpdatePasswordView";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
-import MindMapView from "./components/MindMapView"; // Este será tu componente "clásico" de cajas
-import MindMapDiagramView from "./components/MindMapDiagramView"; // Este componente ya no se usará
+import MindMapView from "./components/MindMapView"; // Este es tu componente "clásico" de cajas
+// import MindMapDiagramView from "./components/MindMapDiagramView"; // <-- ¡ELIMINAR ESTA LÍNEA!
 import FlashcardView from "./components/FlashcardView";
 import UpgradeModal from "./components/UpgradeModal";
 
@@ -33,7 +33,7 @@ import {
   PresentationData,
   PresentationType,
   MindMapData,
-  MindMapColorMode, // Mantenemos el import si `onOpenMindMap` en SummaryView lo usa en su definición
+  MindMapColorMode, 
   Flashcard,
 } from "./types";
 
@@ -140,7 +140,7 @@ const AppInner: React.FC = () => {
   );
 
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
-  // ELIMINAMOS el estado `mindMapColorMode` ya que no lo usaremos para diferenciar vistas
+  // Eliminamos el estado `mindMapColorMode` ya que no lo usaremos para diferenciar vistas
   // const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
 
   const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
@@ -451,7 +451,7 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+      <UpgradeModal open={showUpgrade} onClose={() => onCloseShowUpgrade(false)} />
     </div>
   );
 };
