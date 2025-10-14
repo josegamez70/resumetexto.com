@@ -1,3 +1,5 @@
+// --- START OF FILE SummaryView.tsx ---
+
 // components/SummaryView.tsx
 
 import React, { useEffect, useRef, useState } from "react";
@@ -9,7 +11,7 @@ interface SummaryViewProps {
   presentationType: PresentationType;
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
-  onOpenMindMap: (colorMode: MindMapColorMode) => void;
+  onOpenMindMap: (colorMode: MindMapColorMode) => void; // Esta prop sigue esperando un colorMode
   onGenerateFlashcards: () => void;
   onReset: () => void;
 }
@@ -20,11 +22,12 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   presentationType,
   setPresentationType,
   onGeneratePresentation,
-  onOpenMindMap,
+  onOpenMindMap, 
   onGenerateFlashcards,
   onReset,
 }) => {
-  const [colorMode, setColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
+  // Eliminamos el estado `colorMode` ya que no lo necesitamos para una selección de usuario
+  // const [colorMode, setColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
   const [speaking, setSpeaking] = useState(false);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -127,7 +130,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        {/* Caja Mapa Conceptual */}
+        {/* Caja Mapa Conceptual (Sin cambios) */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
           <h2 className="text-xl sm:text-2xl font-bold mb-2">🧩 Mapa conceptual</h2>
           <p className="text-gray-300 mb-4 text-sm sm:text-base">
@@ -151,13 +154,15 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           </div>
         </div>
 
-        {/* Caja Mapa Mental */}
+        {/* Caja Mapa Mental - MODIFICADA */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
           <h2 className="text-xl sm:text-2xl font-bold mb-2">🧠 Mapa mental</h2>
           <p className="text-gray-300 mb-4 text-sm sm:text-base">
             <strong>¿Qué es?</strong> Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
           </p>
 
+          {/* ELIMINADO: selector de "Modo: Clásico / Más detalle" */}
+          {/*
           <label className="block text-sm text-gray-300 mb-2">Modo:</label>
           <div className="flex flex-col sm:flex-row gap-3">
             <label className="flex items-center gap-2">
@@ -179,14 +184,16 @@ const SummaryView: React.FC<SummaryViewProps> = ({
               Más detalle
             </label>
           </div>
+          */}
 
           <div className="mt-4">
-            <button onClick={() => onOpenMindMap(colorMode)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
+            {/* Llamamos a onOpenMindMap directamente con MindMapColorMode.BlancoNegro */}
+            <button onClick={() => onOpenMindMap(MindMapColorMode.BlancoNegro)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
           </div>
         </div>
       </div>
 
-      {/* Flashcards */}
+      {/* Flashcards (Sin cambios) */}
       <div className="mt-4 bg-gray-800 rounded-xl p-4 sm:p-5 border border-gray-700">
         <h2 className="text-xl sm:text-2xl font-bold mb-2">📇 Flashcards</h2>
         <p className="text-gray-300 mb-4 text-sm sm:text-base">
