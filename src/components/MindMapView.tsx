@@ -1,3 +1,5 @@
+// --- START OF FILE MindMapView.tsx ---
+
 import React, { useEffect, useMemo, useState } from "react";
 import { MindMapData, MindMapNode, MindMapColorMode } from "../types";
 
@@ -73,14 +75,7 @@ function styleTag(level: number): React.CSSProperties {
   }
 }
 
-// Ya no necesitamos styleChildrenBorder para líneas laterales, usaremos padding y quizá viñetas CSS
-// Si quieres una línea vertical sutil, se puede hacer con un div separado en NodeBox o un pseudo-elemento
-// function styleChildrenBorder(): React.CSSProperties {
-//   return { borderLeft: "1px solid #374151" };
-// }
-
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
-  // Cambia el caret a un estilo más sutil, como un triángulo hacia abajo/derecha
   <span
     aria-hidden="true"
     className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
@@ -97,7 +92,7 @@ const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   />
 );
 
-const NodeBox: React.FC<{
+interface NodeBoxProps { // Define las props de NodeBox
   node: MindMapNode;
   level: number;
   idx: number;
@@ -105,7 +100,10 @@ const NodeBox: React.FC<{
   collapseAllSeq: number;
   accordionIndex: number | null;
   setAccordionIndex: (idx: number | null) => void;
-}> = ({
+  rootNote: string | undefined; // Nueva prop: la nota del nodo raíz global
+}
+
+const NodeBox: React.FC<NodeBoxProps> = ({ // Usa las props definidas
   node,
   level,
   idx,
@@ -113,6 +111,7 @@ const NodeBox: React.FC<{
   collapseAllSeq,
   accordionIndex,
   setAccordionIndex,
+  rootNote, // Recibe la nueva prop
 }) => {
   const [open, setOpen] = useState(level === 0);
   useEffect(() => setOpen(true), [expandAllSeq]);
@@ -155,7 +154,8 @@ const NodeBox: React.FC<{
         {hasChildren && <Caret open={open} />}
       </button>
 
-      {node.note && (level !== 0 || !data.root.note) && ( // Mostrar nota, pero no la del root si ya se mostró como parte del título
+      {/* MODIFICACIÓN AQUÍ: Usar 'rootNote' en lugar de 'data.root.note' */}
+      {node.note && (level !== 0 || !rootNote) && ( // Mostrar nota, pero no la del root si ya se mostró como parte del título
           <div className="text-[11px] sm:text-xs opacity-80 mt-0.5 leading-tight"
                style={{ marginLeft: level === 0 ? 0 : 20 }} // Indentación para la nota
           >
@@ -178,6 +178,7 @@ const NodeBox: React.FC<{
               collapseAllSeq={collapseAllSeq}
               accordionIndex={accordionIndex}
               setAccordionIndex={setAccordionIndex}
+              rootNote={rootNote} // Pasar la prop a los hijos
             />
           ))}
         </div>
@@ -244,9 +245,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
     URL.revokeObjectURL(url);
   };
 
-  // === Descarga HTML igual que en la presentación ===
-  // Esto genera un HTML con el estilo anterior (cajas), si quieres que el HTML descargado
-  // tenga el nuevo estilo de "notebook lm", deberías modificar esta función también.
+  // === Descarga HTML estilo "notebook" ===
   const downloadHTML = () => {
     const isContentfulLocal = (n?: Partial<MindMapNode>) =>
       Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
@@ -257,17 +256,22 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
       const has = kids.length > 0;
       const label = esc(String(node.label ?? ""));
       const note = esc(String(node.note ?? ""));
-      const indent = "  ".repeat(level); // Indentación en HTML para pre-formateado
+      // const indent = "  ".repeat(level); // Indentación en HTML para pre-formateado
 
       let nodeHtml = '';
 
-      if (level === 0) { // Raíz, como título
-        nodeHtml += `<h1 style="margin-left:${0}px">${label}</h1>\n`;
-        if (note) nodeHtml += `<p style="margin-left:${0}px; opacity:0.9">${note}</p>\n`;
-        nodeHtml += `<ul style="list-style:none; padding-left:0;">\n`; // Los hijos de la raíz serán unranked list
-      } else {
-        nodeHtml += `<li style="margin-left:${level * 20}px; font-weight:${700 - level * 100}; font-size:${18 - level * 2}px; color:${level === 1 ? '#cbd5e1' : level === 2 ? '#a0aec0' : '#718096'};">${label}\n`;
-        if (note) nodeHtml += `<p style="margin-left:${(level + 1) * 20}px; font-size:12px; opacity:0.8">${note}</p>\n`;
+      // El nivel 0 real en esta función es el primer hijo de la raíz
+      const effectiveLevel = level + 1; // Para ajustar estilos si se prefiere
+
+      if (level === 0) { // Los hijos directos de la raíz
+        nodeHtml += `<li style="margin-left:${0}px; font-weight:600; font-size:1.1rem; color:#cbd5e1;">${label}\n`;
+        if (note) nodeHtml += `<p style="margin-left:${20}px; font-size:12px; opacity:0.8; color:#a0aec0;">${note}</p>\n`;
+        if (has) {
+          nodeHtml += `<ul style="list-style:none; padding-left:0;">\n`;
+        }
+      } else { // Subniveles
+        nodeHtml += `<li style="margin-left:${level * 20}px; font-weight:${700 - effectiveLevel * 100}; font-size:${18 - effectiveLevel * 2}px; color:${effectiveLevel === 1 ? '#cbd5e1' : effectiveLevel === 2 ? '#a0aec0' : '#718096'};">${label}\n`;
+        if (note) nodeHtml += `<p style="margin-left:${(level + 1) * 20}px; font-size:12px; opacity:0.8; color:${effectiveLevel === 1 ? '#a0aec0' : '#718096'};">${note}</p>\n`;
         if (has) {
           nodeHtml += `<ul style="list-style:none; padding-left:0;">\n`;
         }
@@ -277,26 +281,15 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
         nodeHtml += kids.map((c) => serializeToNotebookHtml(c, level + 1)).join("");
       }
 
-      if (level === 0) {
-        nodeHtml += `</ul>\n`;
-      } else if (has) {
+      if (has) { // Cerrar ul si tiene hijos
         nodeHtml += `</ul>\n`;
       }
-      if (level !== 0) nodeHtml += `</li>\n`;
-
+      nodeHtml += `</li>\n`; // Cerrar li
 
       return nodeHtml;
     };
 
-    // La función downloadHTML original generaba una vista interactiva de botones,
-    // si ahora quieres que descargue el estilo de esquema, debemos cambiar `serialize`.
-    // Por simplicidad, podríamos usar la misma lógica que `generateNotebookLmText` pero envolviendo en <pre> o usando <ul/li>.
-    // Mantendré el `downloadHTML` original que crea las "cajas" porque es lo que ya funciona y tienes estilos.
-    // Si quieres que el HTML descargado también sea el estilo de texto indentado, se necesitaría más refactor.
-    // Por ahora, el downloadHTML sigue siendo la versión de "cajas" para que no pierdas esa funcionalidad.
-
-    // Si quieres que downloadHTML también sea estilo notebook-lm, tendrías que cambiar esto:
-    const notebookHtmlContent = serializeToNotebookHtml(data.root);
+    const rootChildrenHtml = (data.root.children || []).filter(isContentfulLocal).map(c => serializeToNotebookHtml(c, 0)).join("");
 
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pageTitle)}</title>
@@ -312,7 +305,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
   <h1>${esc(data.root.label)}</h1>
   ${data.root.note ? `<p>${esc(data.root.note)}</p>` : ''}
   <ul>
-    ${(data.root.children || []).filter(isContentfulLocal).map(c => serializeToNotebookHtml(c, 0)).join("")}
+    ${rootChildrenHtml}
   </ul>
 </body>
 </html>`;
@@ -321,7 +314,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${pageTitle}_notebook.html`; // Cambiado a .html para el nuevo estilo
+    a.download = `${pageTitle}_notebook.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -398,6 +391,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
                 collapseAllSeq={collapseAllSeq}
                 accordionIndex={accordionIndex}
                 setAccordionIndex={setAccordionIndex}
+                rootNote={data.root.note} // ¡AQUÍ ESTÁ LA CORRECCIÓN! Pasamos la nota del root
               />
             ))}
           </div>
