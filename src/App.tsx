@@ -12,7 +12,7 @@ import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
 import MindMapView from "./components/MindMapView"; // Este es tu componente "clásico" de cajas
-import MindMapDiagramView from "./components/MindMapDiagramView"; // Este componente ya no se usará
+// import MindMapDiagramView from "./components/MindMapDiagramView"; // <-- ¡ELIMINADA ESTA LÍNEA!
 import FlashcardView from "./components/FlashcardView";
 import UpgradeModal from "./components/UpgradeModal";
 
@@ -329,8 +329,7 @@ const AppInner: React.FC = () => {
     }
   };
 
-  const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
-    // setMindMapColorMode(colorMode); // Esta línea se elimina del App.tsx porque SummaryView ya no manda el estado
+  const handleOpenMindMap = async () => { // Ya no recibe 'colorMode'
     setIsProcessing(true);
     setLoadingMessage("🧠 Generando mapa mental... puede tardar unos minutos"); // Mensaje único
 
@@ -411,7 +410,7 @@ const AppInner: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap} 
+          onOpenMindMap={handleOpenMindMap} // <- Llama a la función ahora simplificada (sin argumento)
           onGenerateFlashcards={handleGenerateFlashcards}
           onReset={handleResetAll}
         />
@@ -430,7 +429,7 @@ const AppInner: React.FC = () => {
       {view === ViewState.MINDMAP && mindmap && (
         <>
           {/* SIMPLIFICADO: Siempre renderiza MindMapView (tu componente clásico de cajas) */}
-          <MindMapView 
+          <MindMapView // Ahora este es el componente que siempre queremos mostrar para el mapa mental
             data={mindmap}
             summaryTitle={summaryTitle}
             colorMode={MindMapColorMode.BlancoNegro} // Fija el colorMode a BlancoNegro (clásico)
@@ -450,7 +449,7 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} /> {/* CORRECCIÓN AQUÍ */}
     </div>
   );
 };
