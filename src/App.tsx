@@ -33,7 +33,7 @@ import {
   PresentationData,
   PresentationType,
   MindMapData,
-  MindMapColorMode, // Mantenemos el import si `onOpenMindMap` en SummaryView lo usa en su definición
+  MindMapColorMode, 
   Flashcard,
 } from "./types";
 
@@ -329,9 +329,8 @@ const AppInner: React.FC = () => {
     }
   };
 
-  // handleOpenMindMap MODIFICADO: ya no recibe colorMode como argumento
-  const handleOpenMindMap = async () => {
-    // Eliminamos setMindMapColorMode si ya no se usa el estado
+  const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
+    // setMindMapColorMode(colorMode); // Esta línea se elimina del App.tsx porque SummaryView ya no manda el estado
     setIsProcessing(true);
     setLoadingMessage("🧠 Generando mapa mental... puede tardar unos minutos"); // Mensaje único
 
@@ -412,7 +411,7 @@ const AppInner: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap} // <- Llama a la función ahora simplificada (sin argumento)
+          onOpenMindMap={handleOpenMindMap} 
           onGenerateFlashcards={handleGenerateFlashcards}
           onReset={handleResetAll}
         />
@@ -431,7 +430,7 @@ const AppInner: React.FC = () => {
       {view === ViewState.MINDMAP && mindmap && (
         <>
           {/* SIMPLIFICADO: Siempre renderiza MindMapView (tu componente clásico de cajas) */}
-          <MindMapView // Ahora este es el componente que siempre queremos mostrar para el mapa mental
+          <MindMapView 
             data={mindmap}
             summaryTitle={summaryTitle}
             colorMode={MindMapColorMode.BlancoNegro} // Fija el colorMode a BlancoNegro (clásico)
@@ -451,7 +450,7 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      <UpgradeModal open={showUpgrade} onClose={() => onCloseShowUpgrade(false)} />
+      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );
 };
