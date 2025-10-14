@@ -1,3 +1,5 @@
+// --- START OF FILE App.tsx ---
+
 import React, { useEffect, useState } from "react";
 
 /* ─── Auth ─────────────────────────────────────────────────────────────── */
@@ -9,8 +11,8 @@ import UpdatePasswordView from "./auth/UpdatePasswordView";
 import FileUploader from "./components/FileUploader";
 import SummaryView from "./components/SummaryView";
 import PresentationView from "./components/PresentationView";
-import MindMapView from "./components/MindMapView";
-import MindMapDiagramView from "./components/MindMapDiagramView";
+import MindMapView from "./components/MindMapView"; // Este es tu componente "clásico" de cajas
+import MindMapDiagramView from "./components/MindMapDiagramView"; // Este componente ya no se usará
 import FlashcardView from "./components/FlashcardView";
 import UpgradeModal from "./components/UpgradeModal";
 
@@ -31,7 +33,7 @@ import {
   PresentationData,
   PresentationType,
   MindMapData,
-  MindMapColorMode,
+  MindMapColorMode, // Mantenemos el import si `onOpenMindMap` en SummaryView lo usa en su definición
   Flashcard,
 } from "./types";
 
@@ -138,9 +140,8 @@ const AppInner: React.FC = () => {
   );
 
   const [mindmap, setMindmap] = useState<MindMapData | null>(null);
-  const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(
-    MindMapColorMode.Color
-  );
+  // ELIMINAMOS el estado `mindMapColorMode` ya que no lo usaremos para diferenciar vistas
+  // const [mindMapColorMode, setMindMapColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
 
   const [flashcards, setFlashcards] = useState<Flashcard[] | null>(null);
 
@@ -328,14 +329,11 @@ const AppInner: React.FC = () => {
     }
   };
 
-  const handleOpenMindMap = async (colorMode: MindMapColorMode) => {
-    setMindMapColorMode(colorMode);
+  // handleOpenMindMap MODIFICADO: ya no recibe colorMode como argumento
+  const handleOpenMindMap = async () => {
+    // Eliminamos setMindMapColorMode si ya no se usa el estado
     setIsProcessing(true);
-    setLoadingMessage(
-      colorMode === MindMapColorMode.BlancoNegro
-        ? "🧠 Generando mapa mental (clásico)... puede tardar unos minutos"
-        : "🧠 Generando mapa mental (más detalle)... puede tardar unos minutos"
-    );
+    setLoadingMessage("🧠 Generando mapa mental... puede tardar unos minutos"); // Mensaje único
 
     try {
       const baseText =
@@ -414,7 +412,7 @@ const AppInner: React.FC = () => {
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
-          onOpenMindMap={handleOpenMindMap}
+          onOpenMindMap={handleOpenMindMap} // <- Llama a la función ahora simplificada (sin argumento)
           onGenerateFlashcards={handleGenerateFlashcards}
           onReset={handleResetAll}
         />
@@ -432,26 +430,16 @@ const AppInner: React.FC = () => {
 
       {view === ViewState.MINDMAP && mindmap && (
         <>
-          {mindMapColorMode === MindMapColorMode.BlancoNegro ? (
-            <MindMapDiagramView
-              data={mindmap}
-              summaryTitle={summaryTitle}
-              onBack={() =>
-                setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
-              }
-              onHome={handleResetAll}
-            />
-          ) : (
-            <MindMapView
-              data={mindmap}
-              summaryTitle={summaryTitle}
-              colorMode={mindMapColorMode}
-              onBack={() =>
-                setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
-              }
-              onHome={handleResetAll}
-            />
-          )}
+          {/* SIMPLIFICADO: Siempre renderiza MindMapView (tu componente clásico de cajas) */}
+          <MindMapView // Ahora este es el componente que siempre queremos mostrar para el mapa mental
+            data={mindmap}
+            summaryTitle={summaryTitle}
+            colorMode={MindMapColorMode.BlancoNegro} // Fija el colorMode a BlancoNegro (clásico)
+            onBack={() =>
+              setView(presentation ? ViewState.PRESENTATION : ViewState.SUMMARY)
+            }
+            onHome={handleResetAll}
+          />
         </>
       )}
 
@@ -463,7 +451,7 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+      <UpgradeModal open={showUpgrade} onClose={() => onCloseShowUpgrade(false)} />
     </div>
   );
 };

@@ -11,7 +11,7 @@ interface SummaryViewProps {
   presentationType: PresentationType;
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
-  onOpenMindMap: (colorMode: MindMapColorMode) => void; // Esta prop sigue esperando un colorMode
+  onOpenMindMap: (colorMode: MindMapColorMode) => void; 
   onGenerateFlashcards: () => void;
   onReset: () => void;
 }
@@ -54,10 +54,13 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
   const handlePrintSummary = () => {
+    // Generar un título más descriptivo para el PDF, como "Resumelo - [Título del Resumen]"
+    const pdfTitle = `Resumelo - ${summaryTitle || "Resumen"}`;
+
     const html = `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(summaryTitle || "Resumen")}</title>
+<title>${esc(pdfTitle)}</title> <!-- Título del documento HTML/PDF -->
 <style>
   :root{color-scheme:dark light}
   *{box-sizing:border-box}
