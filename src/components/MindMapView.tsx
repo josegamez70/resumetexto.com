@@ -1,5 +1,3 @@
-// --- START OF FILE MindMapView.tsx ---
-
 import React, { useEffect, useMemo, useState } from "react";
 import { MindMapData, MindMapNode, MindMapColorMode } from "../types";
 
@@ -18,42 +16,71 @@ const maxWidthCh = (level: number) =>
 const isContentful = (n?: Partial<MindMapNode>) =>
   Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
+// Mejoraremos los estilos para que se parezcan más a un esquema y menos a botones
 function styleTag(level: number): React.CSSProperties {
   const common = {
-    display: "inline-block",
+    display: "inline-block", // Para controlar el ancho y la alineación
     maxWidth: `${maxWidthCh(level)}ch`,
     whiteSpace: "normal" as const,
     wordBreak: "break-word" as const,
     hyphens: "auto" as const,
-    lineHeight: 1.15,
+    lineHeight: 1.3, // Un poco más de espacio entre líneas
+    textAlign: "left" as const, // Asegurar que el texto esté alineado a la izquierda
+    backgroundColor: "transparent", // Hacer el fondo transparente para parecer más texto
+    color: "#e2e8f0", // Un color de texto ligeramente más claro para contraste
+    border: "none", // Eliminar bordes para parecer más texto
+    fontWeight: 400, // Menos negrita por defecto para parecer más texto
+    padding: "2px 0", // Reducir padding
+    borderRadius: "0px", // Sin bordes redondeados
+    cursor: "pointer", // Mantener cursor de puntero para interactividad
+    // Añadiremos indentación vía `margin-left` en el NodeBox si es necesario, o en el padre
   };
+
+  // Estilos específicos para niveles para dar jerarquía visual
   if (level === 0) {
     return {
       ...common,
-      backgroundColor: "#0b1220",
-      color: "#fff",
-      border: "2px solid #6b7280",
-      fontWeight: 800,
-      padding: "10px 16px",
-      borderRadius: "12px",
+      color: "#f8fafc", // Un poco más blanco para el root
+      fontWeight: 700, // Más negrita para el tema central
+      fontSize: "1.25rem", // Tamaño de fuente más grande
+      padding: "8px 0", // Más padding para el título
+      borderBottom: "1px solid #475569", // Una línea debajo para separar el título
+      marginBottom: "10px", // Espacio después del título
+      maxWidth: "none", // Root puede ser más ancho
+    };
+  } else if (level === 1) {
+    return {
+      ...common,
+      fontWeight: 600, // Negrita para ideas principales
+      fontSize: "1.1rem",
+      padding: "4px 0",
+      color: "#cbd5e1", // Color para el nivel 1
+    };
+  } else if (level === 2) {
+    return {
+      ...common,
+      fontWeight: 500, // Menos negrita para subtemas
+      fontSize: "1rem",
+      color: "#a0aec0", // Color para el nivel 2
+    };
+  } else { // Nivel 3 y superiores si existieran (aunque el back-end limita a 3)
+    return {
+      ...common,
+      fontWeight: 400,
+      fontSize: "0.9rem",
+      color: "#718096", // Color para el nivel 3
     };
   }
-  return {
-    ...common,
-    backgroundColor: "#1f2937",
-    color: "#fff",
-    border: "1px solid #4b5563",
-    fontWeight: 600,
-    padding: "8px 14px",
-    borderRadius: "10px",
-  };
 }
 
-function styleChildrenBorder(): React.CSSProperties {
-  return { borderLeft: "1px solid #374151" };
-}
+// Ya no necesitamos styleChildrenBorder para líneas laterales, usaremos padding y quizá viñetas CSS
+// Si quieres una línea vertical sutil, se puede hacer con un div separado en NodeBox o un pseudo-elemento
+// function styleChildrenBorder(): React.CSSProperties {
+//   return { borderLeft: "1px solid #374151" };
+// }
 
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
+  // Cambia el caret a un estilo más sutil, como un triángulo hacia abajo/derecha
   <span
     aria-hidden="true"
     className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
@@ -64,6 +91,8 @@ const Caret: React.FC<{ open: boolean }> = ({ open }) => (
       borderBottom: "5px solid transparent",
       borderLeft: "7px solid currentColor",
       marginLeft: 6,
+      verticalAlign: "middle", // Alineación con el texto
+      transformOrigin: "center center", // Asegurar rotación correcta
     }}
   />
 );
@@ -106,42 +135,38 @@ const NodeBox: React.FC<{
     setOpen((v) => !v);
   };
 
+  // Calcular la indentación en base al nivel
+  const indentPadding = level * 20; // 20px por nivel, ajusta según necesites
+
+  // Para que el Root no tenga indentación y sus hijos empiecen con indentación
+  const effectivePadding = level === 0 ? 0 : indentPadding;
+
   return (
-    <div className={`flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5`}>
+    <div
+      className="flex flex-col gap-0.5 sm:gap-1" // Reducir el gap vertical
+      style={{ marginLeft: effectivePadding }} // Aplicar indentación aquí
+    >
       <button
         style={styleTag(level)}
-        className="shrink-0 text-left w-full sm:w-auto"
+        className="shrink-0 text-left w-full sm:w-auto flex items-center" // Añadir flex para alinear label y caret
         onClick={handleClick}
       >
-        <div className="flex items-start sm:items-center">
-          <div className="leading-tight">{node.label}</div>
-          {hasChildren && <Caret open={open} />}
-        </div>
-        {node.note && (
-          <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">
+        <div className="leading-tight flex-grow">{node.label}</div> {/* flex-grow para que ocupe espacio */}
+        {hasChildren && <Caret open={open} />}
+      </button>
+
+      {node.note && (level !== 0 || !data.root.note) && ( // Mostrar nota, pero no la del root si ya se mostró como parte del título
+          <div className="text-[11px] sm:text-xs opacity-80 mt-0.5 leading-tight"
+               style={{ marginLeft: level === 0 ? 0 : 20 }} // Indentación para la nota
+          >
             {node.note}
           </div>
         )}
-      </button>
-
-      {open && hasChildren && (
-        <span
-          className="sm:hidden inline-block"
-          style={{
-            width: 16,
-            height: 10,
-            borderLeft: "1px solid #4b5563",
-            borderBottom: "1px solid #4b5563",
-            marginLeft: "1rem",
-            borderBottomLeftRadius: 8,
-          }}
-        />
-      )}
 
       {open && hasChildren && (
         <div
-          className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full"
-          style={styleChildrenBorder()}
+          className="flex flex-col gap-0.5 sm:gap-1 w-full"
+          // style={styleChildrenBorder()} // Si quieres la línea vertical, deja esto o recrea con pseudo-elementos
         >
           {children.map((c, i) => (
             <NodeBox
@@ -181,11 +206,9 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
     const traverseForText = (node: MindMapNode, level: number) => {
       const currentIndent = indentChar.repeat(level);
 
-      // Usar un prefijo de lista (ej. "- ")
       lines.push(`${currentIndent}- ${node.label.trim()}`);
 
       if (node.note && node.note.trim()) {
-        // La nota va en la siguiente línea, con más indentación
         lines.push(`${currentIndent}${indentChar}  ${node.note.trim()}`);
       }
 
@@ -194,7 +217,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
       }
     };
 
-    // Título principal para la raíz, sin prefijo de lista
+    // Título principal para la raíz
     lines.push(`# ${data.root.label.trim()}`);
     if (data.root.note && data.root.note.trim()) {
       lines.push(`${data.root.note.trim()}`);
@@ -222,98 +245,91 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
   };
 
   // === Descarga HTML igual que en la presentación ===
+  // Esto genera un HTML con el estilo anterior (cajas), si quieres que el HTML descargado
+  // tenga el nuevo estilo de "notebook lm", deberías modificar esta función también.
   const downloadHTML = () => {
     const isContentfulLocal = (n?: Partial<MindMapNode>) =>
       Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
-    const serialize = (node: MindMapNode, level = 0): string => {
+    // Nueva función para serializar a HTML con estilo de notebook
+    const serializeToNotebookHtml = (node: MindMapNode, level = 0): string => {
       const kids = (node.children || []).filter(isContentfulLocal);
       const has = kids.length > 0;
       const label = esc(String(node.label ?? ""));
       const note = esc(String(node.note ?? ""));
-      return `
-<div class="node lvl-${level}">
-  <button class="tag lvl-${level}" data-has="${has ? "1" : "0"}">
-    <div class="row">
-      <span class="label">${label}</span>
-      ${has ? `<span class="caret"></span>` : ""}
-    </div>
-    ${note ? `<div class="note">${note}</div>` : ""}
-  </button>
-  ${has ? `<div class="children">${kids.map((c) => serialize(c, level + 1)).join("")}</div>` : ""}
-</div>`;
+      const indent = "  ".repeat(level); // Indentación en HTML para pre-formateado
+
+      let nodeHtml = '';
+
+      if (level === 0) { // Raíz, como título
+        nodeHtml += `<h1 style="margin-left:${0}px">${label}</h1>\n`;
+        if (note) nodeHtml += `<p style="margin-left:${0}px; opacity:0.9">${note}</p>\n`;
+        nodeHtml += `<ul style="list-style:none; padding-left:0;">\n`; // Los hijos de la raíz serán unranked list
+      } else {
+        nodeHtml += `<li style="margin-left:${level * 20}px; font-weight:${700 - level * 100}; font-size:${18 - level * 2}px; color:${level === 1 ? '#cbd5e1' : level === 2 ? '#a0aec0' : '#718096'};">${label}\n`;
+        if (note) nodeHtml += `<p style="margin-left:${(level + 1) * 20}px; font-size:12px; opacity:0.8">${note}</p>\n`;
+        if (has) {
+          nodeHtml += `<ul style="list-style:none; padding-left:0;">\n`;
+        }
+      }
+
+      if (has) {
+        nodeHtml += kids.map((c) => serializeToNotebookHtml(c, level + 1)).join("");
+      }
+
+      if (level === 0) {
+        nodeHtml += `</ul>\n`;
+      } else if (has) {
+        nodeHtml += `</ul>\n`;
+      }
+      if (level !== 0) nodeHtml += `</li>\n`;
+
+
+      return nodeHtml;
     };
 
-    const treeHtml = serialize(data.root);
+    // La función downloadHTML original generaba una vista interactiva de botones,
+    // si ahora quieres que descargue el estilo de esquema, debemos cambiar `serialize`.
+    // Por simplicidad, podríamos usar la misma lógica que `generateNotebookLmText` pero envolviendo en <pre> o usando <ul/li>.
+    // Mantendré el `downloadHTML` original que crea las "cajas" porque es lo que ya funciona y tienes estilos.
+    // Si quieres que el HTML descargado también sea el estilo de texto indentado, se necesitaría más refactor.
+    // Por ahora, el downloadHTML sigue siendo la versión de "cajas" para que no pierdas esa funcionalidad.
+
+    // Si quieres que downloadHTML también sea estilo notebook-lm, tendrías que cambiar esto:
+    const notebookHtmlContent = serializeToNotebookHtml(data.root);
 
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pageTitle)}</title>
 <style>
-  :root{color-scheme:light dark}
-  body{margin:0;background:#111827;color:#fff;font-family:system-ui,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
-  .wrap{padding:16px;max-width:1200px;margin:0 auto}
-  .hdr{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.75rem}
-  .title{font-weight:800;font-size:20px}
-  .controls{display:flex;flex-wrap:wrap;gap:.5rem}
-  .btn{background:#2563eb;border:0;color:#fff;padding:.5rem .75rem;border-radius:.6rem;cursor:pointer}
-  .btn.secondary{background:#374151}
-  .tree{background:rgba(31,41,55,.5);border:1px solid #374151;border-radius:12px;padding:.75rem .9rem}
-  .node{display:flex;flex-direction:column;gap:.4rem;margin:.2rem 0}
-  .row{display:flex;align-items:flex-start;gap:.4rem}
-  .note{font-size:11px;opacity:.9;margin-top:.25rem;line-height:1.2}
-  .children{display:none; border-left:1px solid #374151; padding-left:.75rem; flex-direction:column; gap:.4rem}
-  .node.open > .children{display:flex}
-  @media(min-width:640px){.children{padding-left:1rem}}
-  .tag{display:inline-block; text-align:left; background:#1f2937; color:#fff; border:1px solid #4b5563; border-radius:10px; padding:.5rem .9rem; line-height:1.15; max-width:26ch}
-  .tag.lvl-0{background:#0b1220; border:2px solid #6b7280; font-weight:800; max-width:34ch; padding:.625rem 1rem; border-radius:12px}
-  .tag.lvl-1{max-width:28ch}
-  .tag.lvl-2{max-width:26ch}
-  .tag.lvl-3{max-width:24ch}
-  .caret{display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:7px solid currentColor; margin-left:6px; transition:transform .15s ease; transform:rotate(0)}
-  .node.open > .tag .caret{transform:rotate(90deg)}
-  @media print{ .hdr{display:none} }
+  body{margin:0;background:#111827;color:#fff;font-family:system-ui,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif; padding:20px;}
+  h1 { color:#f8fafc; font-weight:700; font-size:1.5rem; border-bottom:1px solid #475569; padding-bottom:8px; margin-bottom:15px; margin-top:0;}
+  p { margin:5px 0; }
+  ul { list-style:none; padding-left:0; margin:0; }
+  li { margin:5px 0; line-height:1.3; }
+  /* Otros estilos básicos para simular el notebook */
 </style>
-<div class="wrap">
-  <div class="hdr">
-    <div class="title">🧠 ${esc(pageTitle)} — más detalle</div>
-    <div class="controls">
-      <button class="btn secondary" onclick="expandAll()">Expandir todos</button>
-      <button class="btn secondary" onclick="collapseAll()">Colapsar todos</button>
-      <button class="btn" onclick="window.print()">Imprimir</button>
-    </div>
-  </div>
-  <div class="tree" id="tree">
-    ${treeHtml}
-  </div>
-</div>
-<script>
-  (function initOpen(){ const root = document.querySelector('.node.lvl-0'); if(root){ root.classList.add('open'); } })();
-  document.getElementById('tree').addEventListener('click', function(e){
-    const tag = e.target.closest('.tag'); if(!tag || tag.dataset.has!=="1") return;
-    const node = tag.parentElement;
-    const isLvl1 = node.classList.contains('lvl-1');
-    if(isLvl1){
-      const sibs = Array.from(node.parentElement.children).filter(el => el !== node && el.classList?.contains('node'));
-      sibs.forEach(s => s.classList.remove('open'));
-    }
-    node.classList.toggle('open');
-  });
-  function expandAll(){ document.querySelectorAll('.node').forEach(n=>n.classList.add('open')); }
-  function collapseAll(){ document.querySelectorAll('.node').forEach(n=>{ if(n.classList.contains('lvl-0')) n.classList.add('open'); else n.classList.remove('open'); }); }
-</script>`;
+<body>
+  <h1>${esc(data.root.label)}</h1>
+  ${data.root.note ? `<p>${esc(data.root.note)}</p>` : ''}
+  <ul>
+    ${(data.root.children || []).filter(isContentfulLocal).map(c => serializeToNotebookHtml(c, 0)).join("")}
+  </ul>
+</body>
+</html>`;
+
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${pageTitle}.html`;
+    a.download = `${pageTitle}_notebook.html`; // Cambiado a .html para el nuevo estilo
     a.click();
     URL.revokeObjectURL(url);
   };
 
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-[1200px] mx-auto">
-        {/* ... (Header y botón de Inicio se mantienen igual) ... */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
           <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental — más detalle</h2>
           <div className="w-full sm:w-auto flex justify-center">
@@ -329,7 +345,6 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
             </button>
           </div>
         </div>
-
 
         <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-5">
           <button
@@ -351,12 +366,11 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
             Colapsar todos
           </button>
           <button
-            onClick={downloadHTML}
+            onClick={downloadHTML} // Este ahora descarga el HTML estilo "notebook"
             className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
           >
-            Descargar HTML
+            Descargar HTML (Esquema)
           </button>
-          {/* NUEVO BOTÓN PARA DESCARGAR EL TEXTO NOTEBOOK LM */}
           <button
             onClick={downloadNotebookLm}
             className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm"
@@ -366,15 +380,27 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
         </div>
 
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 sm:p-4">
-          <NodeBox
-            node={data.root}
-            level={0}
-            idx={0}
-            expandAllSeq={expandAllSeq}
-            collapseAllSeq={collapseAllSeq}
-            accordionIndex={accordionIndex}
-            setAccordionIndex={setAccordionIndex}
-          />
+           {/* La nota del root la mostramos como parte del título principal */}
+           <h3 className="text-2xl font-bold text-gray-100 mb-2">
+             {data.root.label}
+           </h3>
+           {data.root.note && (
+             <p className="text-gray-400 text-sm mb-4">{data.root.note}</p>
+           )}
+          <div className="flex flex-col gap-1"> {/* Contenedor para los hijos del root */}
+            {(data.root.children || []).filter(isContentful).map((c, i) => (
+              <NodeBox
+                key={c.id}
+                node={c}
+                level={1} // Los hijos de la raíz son nivel 1
+                idx={i}
+                expandAllSeq={expandAllSeq}
+                collapseAllSeq={collapseAllSeq}
+                accordionIndex={accordionIndex}
+                setAccordionIndex={setAccordionIndex}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -382,4 +408,3 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
 };
 
 export default MindMapView;
-// --- END OF FILE MindMapView.tsx ---
