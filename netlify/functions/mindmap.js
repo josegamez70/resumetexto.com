@@ -120,6 +120,7 @@ REGLAS:
 - Nivel 1: máx. 4 palabras; Nivel 2: máx. 5 palabras (etiquetas cortas).
 - Profundidad máxima: 3 (root -> 1 -> 2 -> 3).
 - Nivel 3 es HOJA. Si no hay nada que indicar, su "label" puede quedar VACÍO (y luego se ocultará).
+- Intenta generar al menos 3 sub-conceptos para cada nodo cuando sea relevante y el contenido lo permita.
 - JSON puro (sin viñetas ni Markdown).
 `;
 
