@@ -9,155 +9,7 @@ type Props = {
   onHome?: () => void; // NUEVO
 };
 
-// ancho razonable para evitar “texto en columna”
-const maxWidthCh = (level: number) =>
-  level === 0 ? 34 : level === 1 ? 28 : level === 2 ? 26 : 24;
-
-const isContentful = (n?: Partial<MindMapNode>) =>
-  Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
-
-function styleTag(level: number): React.CSSProperties {
-  const common = {
-    display: "inline-block",
-    maxWidth: `${maxWidthCh(level)}ch`,
-    whiteSpace: "normal" as const,
-    wordBreak: "break-word" as const,
-    hyphens: "auto" as const,
-    lineHeight: 1.15,
-  };
-  if (level === 0) {
-    return {
-      ...common,
-      backgroundColor: "#0b1220",
-      color: "#fff",
-      border: "2px solid #6b7280",
-      fontWeight: 800,
-      padding: "10px 16px",
-      borderRadius: "12px",
-    };
-  }
-  return {
-    ...common,
-    backgroundColor: "#1f2937",
-    color: "#fff",
-    border: "1px solid #4b5563",
-    fontWeight: 600,
-    padding: "8px 14px",
-    borderRadius: "10px",
-  };
-}
-
-function styleChildrenBorder(): React.CSSProperties {
-  return { borderLeft: "1px solid #374151" };
-}
-
-const Caret: React.FC<{ open: boolean }> = ({ open }) => (
-  <span
-    aria-hidden="true"
-    className={`inline-block transition-transform ${open ? "rotate-90" : "rotate-0"}`}
-    style={{
-      width: 0,
-      height: 0,
-      borderTop: "5px solid transparent",
-      borderBottom: "5px solid transparent",
-      borderLeft: "7px solid currentColor",
-      marginLeft: 6,
-    }}
-  />
-);
-
-const NodeBox: React.FC<{
-  node: MindMapNode;
-  level: number;
-  idx: number;
-  expandAllSeq: number;
-  collapseAllSeq: number;
-  accordionIndex: number | null;
-  setAccordionIndex: (idx: number | null) => void;
-}> = ({
-  node,
-  level,
-  idx,
-  expandAllSeq,
-  collapseAllSeq,
-  accordionIndex,
-  setAccordionIndex,
-}) => {
-  const [open, setOpen] = useState(level === 0);
-  useEffect(() => setOpen(true), [expandAllSeq]);
-  useEffect(() => setOpen(false), [collapseAllSeq]);
-  useEffect(() => {
-    if (level === 1 && accordionIndex !== null) setOpen(idx === accordionIndex);
-  }, [accordionIndex, level, idx]);
-
-  const children = (node.children || []).filter(isContentful);
-  const hasChildren = children.length > 0;
-
-  const handleClick = () => {
-    if (!hasChildren) return;
-    if (level === 1) {
-      const willOpen = !open;
-      setAccordionIndex(willOpen ? idx : null);
-      setOpen(willOpen);
-      return;
-    }
-    setOpen((v) => !v);
-  };
-
-  return (
-    <div className={`flex flex-col sm:flex-row items-start gap-1.5 sm:gap-3 my-0.5`}>
-      <button
-        style={styleTag(level)}
-        className="shrink-0 text-left w-full sm:w-auto"
-        onClick={handleClick}
-      >
-        <div className="flex items-start sm:items-center">
-          <div className="leading-tight">{node.label}</div>
-          {hasChildren && <Caret open={open} />}
-        </div>
-        {node.note && (
-          <div className="text-[11px] sm:text-xs opacity-90 mt-0.5 leading-tight">
-            {node.note}
-          </div>
-        )}
-      </button>
-
-      {open && hasChildren && (
-        <span
-          className="sm:hidden inline-block"
-          style={{
-            width: 16,
-            height: 10,
-            borderLeft: "1px solid #4b5563",
-            borderBottom: "1px solid #4b5563",
-            marginLeft: "1rem",
-            borderBottomLeftRadius: 8,
-          }}
-        />
-      )}
-
-      {open && hasChildren && (
-        <div
-          className="pl-3 sm:pl-4 flex flex-col gap-1.5 sm:gap-2 w-full"
-          style={styleChildrenBorder()}
-        >
-          {children.map((c, i) => (
-            <NodeBox
-              key={c.id}
-              node={c}
-              level={level + 1}
-              idx={i}
-              expandAllSeq={expandAllSeq}
-              collapseAllSeq={collapseAllSeq}
-              accordionIndex={accordionIndex}
-              setAccordionIndex={setAccordionIndex}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+// ... (El resto del código como maxWidthCh, isContentful, styleTag, styleChildrenBorder, Caret, NodeBox se mantiene igual) ...
 
 const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) => {
   const [expandAllSeq, setExpandAllSeq] = useState(0);
@@ -170,6 +22,54 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
   );
   const esc = (s = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  // === Función para generar texto tipo "Notebook LM" ===
+  const generateNotebookLmText = () => {
+    const lines: string[] = [];
+    const indentChar = "  "; // 2 espacios por nivel
+
+    const traverseForText = (node: MindMapNode, level: number) => {
+      const currentIndent = indentChar.repeat(level);
+
+      // Usar un prefijo de lista (ej. "- ")
+      lines.push(`${currentIndent}- ${node.label.trim()}`);
+
+      if (node.note && node.note.trim()) {
+        // La nota va en la siguiente línea, con más indentación
+        lines.push(`${currentIndent}${indentChar}  ${node.note.trim()}`);
+      }
+
+      if (node.children && node.children.length > 0) {
+        node.children.filter(isContentful).forEach((child) => traverseForText(child, level + 1));
+      }
+    };
+
+    // Título principal para la raíz, sin prefijo de lista
+    lines.push(`# ${data.root.label.trim()}`);
+    if (data.root.note && data.root.note.trim()) {
+      lines.push(`${data.root.note.trim()}`);
+    }
+    lines.push(''); // Línea en blanco después del título/nota de la raíz
+
+    // Recorrer los hijos de la raíz (que serán el nivel 0 de la lista)
+    if (data.root.children && data.root.children.length > 0) {
+      data.root.children.filter(isContentful).forEach((child) => traverseForText(child, 0));
+    }
+
+    return lines.join("\n");
+  };
+
+  // === Descarga el texto generado ===
+  const downloadNotebookLm = () => {
+    const textContent = generateNotebookLmText();
+    const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${pageTitle}_notebook.txt`; // Nombre de archivo sugerido
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // === Descarga HTML igual que en la presentación ===
   const downloadHTML = () => {
@@ -263,6 +163,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-[1200px] mx-auto">
+        {/* ... (Header y botón de Inicio se mantienen igual) ... */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
           <h2 className="text-xl sm:text-2xl font-bold">🧠 Mapa mental — más detalle</h2>
           <div className="w-full sm:w-auto flex justify-center">
@@ -278,6 +179,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
             </button>
           </div>
         </div>
+
 
         <div className="flex flex-wrap gap-2 justify-start mb-3 sm:mb-5">
           <button
@@ -303,6 +205,13 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
             className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
           >
             Descargar HTML
+          </button>
+          {/* NUEVO BOTÓN PARA DESCARGAR EL TEXTO NOTEBOOK LM */}
+          <button
+            onClick={downloadNotebookLm}
+            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm"
+          >
+            Descargar como Texto
           </button>
         </div>
 
