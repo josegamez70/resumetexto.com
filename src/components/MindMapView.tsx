@@ -18,7 +18,7 @@ const maxWidthCh = (level: number) =>
 const isContentful = (n?: Partial<MindMapNode>) =>
   Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
 
-// ESTILOS CLÁSICOS (CAJAS INTERACTIVAS) - MODIFICADOS PARA BORDES DE COLOR
+// ESTILOS CLÁSICOS (CAJAS INTERACTIVAS) - ¡MODIFICADOS PARA BORDES DE COLOR!
 function styleTag(level: number): React.CSSProperties {
   const common = {
     display: "inline-block",
@@ -30,10 +30,10 @@ function styleTag(level: number): React.CSSProperties {
   };
 
   // Definición de colores para los bordes por nivel
-  const borderColorL0 = "#6b7280"; // Gris oscuro para el root (original)
-  const borderColorL1 = "#a78bfa"; // Morado claro para nivel 1
-  const borderColorL2 = "#34d399"; // Verde menta para nivel 2
-  const borderColorL3 = "#fcd34d"; // Amarillo para nivel 3 (hojas)
+  const borderColorL0 = "#a78bfa"; // Morado claro para el root
+  const borderColorL1 = "#34d399"; // Verde menta para nivel 1
+  const borderColorL2 = "#fcd34d"; // Amarillo para nivel 2
+  const borderColorL3 = "#60a5fa"; // Azul claro para nivel 3 (hojas)
   
   if (level === 0) {
     return {
@@ -78,7 +78,7 @@ function styleTag(level: number): React.CSSProperties {
   }
 }
 
-// ESTILOS CLÁSICOS PARA LÍNEAS DE LOS HIJOS
+// ESTILOS CLÁSICOS PARA LÍNEAS DE LOS HIJOS (sin cambios)
 function styleChildrenBorder(): React.CSSProperties {
   return { borderLeft: "1px solid #374151" };
 }
@@ -98,7 +98,7 @@ const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   />
 );
 
-const NodeBox: React.FC<{ // Componente NodeBox con sus props originales
+const NodeBox: React.FC<{
   node: MindMapNode;
   level: number;
   idx: number;
@@ -203,7 +203,7 @@ const MindMapView: React.FC<Props> = ({ data, summaryTitle, onBack, onHome }) =>
   const esc = (s = "") =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  // === Descarga HTML CLÁSICA (la única que quedará) ===
+  // === Descarga HTML CLÁSICA (la vista de cajas) ===
   const downloadHTML = () => {
     const isContentfulLocal = (n?: Partial<MindMapNode>) =>
       Boolean(String(n?.label ?? "").trim() || String(n?.note ?? "").trim());
