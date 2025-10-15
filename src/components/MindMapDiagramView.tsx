@@ -1,3 +1,5 @@
+// --- START OF FILE MindMapDiagramView.tsx ---
+
 import React, { useMemo, useRef, useState } from "react";
 import { MindMapData, MindMapNode } from "../types";
 
@@ -27,6 +29,17 @@ const simplifyLabel = (raw: string, maxWords = 4) => {
 };
 const hasKids = (n: MindMapNode) => (n.children || []).some(c => String(c?.label ?? "").trim());
 
+// Definición de colores para los bordes por nivel (¡NUEVO!)
+const getBorderColor = (level: number) => {
+  switch (level) {
+    case 0: return "#a78bfa"; // Morado claro para el root
+    case 1: return "#34d399"; // Verde menta para nivel 1
+    case 2: return "#fcd34d"; // Amarillo para nivel 2
+    case 3: return "#60a5fa"; // Azul claro para nivel 3 (hojas)
+    default: return "rgba(255,255,255,.15)"; // Fallback
+  }
+};
+
 // UI
 const Caret: React.FC<{ open: boolean }> = ({ open }) => (
   <span
@@ -42,7 +55,8 @@ const Box: React.FC<{ level: number; open?: boolean; clickable?: boolean; childr
     style={{
       background: level === 0 ? "#0b1220" : "#111827",
       color: "#fff",
-      border: "1px solid rgba(255,255,255,.15)",
+      // MODIFICADO: Usar color de borde dinámico
+      border: `1px solid ${getBorderColor(level)}`, // Borde dinámico aquí
       borderRadius: 12,
       padding: level === 0 ? "14px 18px" : "12px 16px",
       fontWeight: level === 0 ? 800 : 600,
@@ -196,22 +210,26 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack, onHom
   const esc = (x = "") =>
     x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+  // MODIFICADA para incluir getBorderColor en el HTML exportado (¡NUEVO!)
   const serialize = (n: MindMapNode, level = 0): string => {
     const kids = (n.children || []).filter(c => String(c?.label ?? "").trim());
     const label = esc(simplifyLabel(n.label));
+    const borderColor = getBorderColor(level); // Obtener el color del borde
+
     if (level === 0) {
       return `<div class="row">
-  <div class="box lvl-0">${label}</div>
+  <div class="box lvl-0" style="border-color:${borderColor};">${label}</div>
   ${kids.length ? `<svg class="conn" viewBox="0 0 42 30"><path d="M2 2 C 2 18, 40 2, 40 28" /></svg>` : ""}
   ${kids.length ? `<div class="row nowrap">${kids.map(k=>serialize(k,1)).join("")}</div>` : ""}
 </div>`;
     }
     const has = kids.length > 0;
     return `<div class="node" data-level="${level}">
-  <button class="box lvl-${level}" data-toggle="${has ? "1" : "0"}">${label}${has ? `<span class="caret"></span>` : ""}</button>
+  <button class="box lvl-${level}" style="border-color:${borderColor};" data-toggle="${has ? "1" : "0"}">${label}${has ? `<span class="caret"></span>` : ""}</button>
   ${has ? `<div class="vline"></div><div class="down">${kids.map(k=>serialize(k, level+1)).join("")}</div>` : ""}
 </div>`;
   };
+
 
   const downloadHTML = () => {
     const html = `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -232,12 +250,13 @@ const MindMapDiagramView: React.FC<Props> = ({ data, summaryTitle, onBack, onHom
   .conn{width:42px;height:30px;display:none}
   @media(min-width:640px){ .conn{display:block} }
   .conn path{stroke:rgba(148,163,184,.6);stroke-width:1.5;fill:none}
+  /* MODIFICADO: Estilos de los boxes en el HTML descargado para usar colores de borde */
   .box{background:#111827;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;min-width:16ch;max-width:26ch;font-weight:600;line-height:1.15;color:#fff}
-  .box.lvl-0{background:#0b1220;border-color:#6b7280;font-weight:800;min-width:18ch;max-width:32ch}
+  .box.lvl-0{background:#0b1220;font-weight:800;min-width:18ch;max-width:32ch} /* border-color ahora se aplica inline */
   .box[data-toggle="1"]{cursor:pointer}
   .caret{display:inline-block;margin-left:8px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;vertical-align:middle;transform:rotate(0);transition:transform .15s ease}
   .node.open > .box .caret{transform:rotate(90deg)}
-  @media print { .toolbar{display:none} .page-title{display:block} #vp{height:auto;overflow:visible} #world{position:static;transform:none !important;margin:0 16px} .row.nowrap{flex-wrap:wrap} .conn{display:none} .box{background:#fff;color:#000;border-color:#bbb} }
+  @media print { .toolbar{display:none} .page-title{display:block} #vp{height:auto;overflow:visible} #world{position:static;transform:none !important;margin:0 16px} .row.nowrap{flex-wrap:wrap} .conn{display:none} .box{background:#fff;color:#000;border-color:#bbb !important} } /* Asegurar que en impresión no rompa */
 </style>
 <div class="toolbar">
   <button class="ctrl" onclick="location.hash='#home'">🏠 Inicio</button>
