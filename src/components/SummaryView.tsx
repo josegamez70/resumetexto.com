@@ -1,6 +1,6 @@
 // components/SummaryView.tsx
 
-import React, { useEffect, useState } from "react"; // Removed useRef
+import React, { useEffect, useRef, useState } from "react"; // <-- `useRef` and `useEffect` are back
 import { PresentationType, MindMapColorMode, SummaryType } from "../types";
 
 interface SummaryViewProps {
@@ -28,11 +28,30 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   onGenerateFlashcards,
   onReset,
 }) => {
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // `speaking` and `utterRef` removed
+  const [speaking, setSpeaking] = useState(false); // <-- Restored
+  const utterRef = useRef<SpeechSynthesisUtterance | null>(null); // <-- Restored
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // No useEffect for speech synthesis cancellation needed anymore
+  // <-- Restored useEffect for speech synthesis cancellation
+  useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
 
-  // `handleSpeak` function removed as it's no longer used
+  const handleSpeak = () => { // <-- Restored handleSpeak function
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
+    const u = new SpeechSynthesisUtterance(summary);
+    const voices = synth.getVoices();
+    const es =
+      voices.find(v => v.lang?.toLowerCase().startsWith("es")) ||
+      voices.find(v => v.lang?.toLowerCase().includes("es")) ||
+      null;
+    if (es) u.voice = es;
+    u.lang = es?.lang || "es-ES";
+    u.rate = 1.0; u.pitch = 1.0;
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    utterRef.current = u; setSpeaking(true); synth.cancel(); synth.speak(u);
+  };
 
   const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -134,7 +153,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         >
           {isGeneratingPdf ? "Generando PDF..." : "🖨 Descargar Resumen (PDF)"}
         </button>
-        {/* El botón de "Escuchar resumen" ha sido eliminado */}
+        {/* <-- Botón "Escuchar resumen" RESTAURADO */}
+        <button onClick={handleSpeak} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">{speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}</button>
       </div>
 
       <div className="bg-gray-800 text-white p-3 sm:p-4 rounded-lg mb-6 sm:mb-8 whitespace-pre-line text-sm sm:text-base">
