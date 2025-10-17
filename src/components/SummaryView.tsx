@@ -1,17 +1,17 @@
+// --- START OF FILE SummaryView.tsx ---
+
 // components/SummaryView.tsx
 
-import React, { useEffect, useRef, useState } from "react"; // <-- `useRef` and `useEffect` are back
-import { PresentationType, MindMapColorMode, SummaryType } from "../types";
+import React, { useEffect, useRef, useState } from "react";
+import { PresentationType, MindMapColorMode } from "../types"; 
 
 interface SummaryViewProps {
   summary: string;
   summaryTitle: string;
-  summaryType: SummaryType;
-  uploadedFileName: string;
   presentationType: PresentationType;
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
-  onOpenMindMap: (colorMode: MindMapColorMode) => void;
+  onOpenMindMap: (colorMode: MindMapColorMode) => void; // Esta prop sigue esperando un colorMode
   onGenerateFlashcards: () => void;
   onReset: () => void;
 }
@@ -19,23 +19,21 @@ interface SummaryViewProps {
 const SummaryView: React.FC<SummaryViewProps> = ({
   summary,
   summaryTitle,
-  summaryType,
-  uploadedFileName,
   presentationType,
   setPresentationType,
   onGeneratePresentation,
-  onOpenMindMap,
+  onOpenMindMap, 
   onGenerateFlashcards,
   onReset,
 }) => {
-  const [speaking, setSpeaking] = useState(false); // <-- Restored
-  const utterRef = useRef<SpeechSynthesisUtterance | null>(null); // <-- Restored
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  // Eliminamos el estado `colorMode` ya que no lo necesitamos para una selección de usuario
+  // const [colorMode, setColorMode] = useState<MindMapColorMode>(MindMapColorMode.Color);
+  const [speaking, setSpeaking] = useState(false);
+  const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // <-- Restored useEffect for speech synthesis cancellation
   useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
 
-  const handleSpeak = () => { // <-- Restored handleSpeak function
+  const handleSpeak = () => {
     const synth = window.speechSynthesis;
     if (!synth) return;
     if (speaking) { synth.cancel(); setSpeaking(false); return; }
@@ -55,86 +53,63 @@ const SummaryView: React.FC<SummaryViewProps> = ({
 
   const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-  const getSummaryTypeName = (type: SummaryType) => {
-    switch (type) {
-      case SummaryType.Short: return "Corto";
-      case SummaryType.Detailed: return "Detallado";
-      case SummaryType.Bulleted: return "Por_Puntos";
-      default: return "General";
-    }
-  };
-
-  const handleDownloadPdf = async () => {
-    setIsGeneratingPdf(true);
-
-    const documentMainTitle = "Resumelo!";
-    const documentSubTitle = `Modalidad: ${getSummaryTypeName(summaryType).replace(/_/g, " ")}`;
-
-    const cleanFileName = uploadedFileName
-      .replace(/\.[^/.]+$/, "")
-      .replace(/[^a-zA-Z0-9\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "_");
-
-    const pdfFileName = `RESUMELO!_${cleanFileName}_${getSummaryTypeName(summaryType)}.pdf`;
-
-    const htmlToConvert = `<!DOCTYPE html>
+  const handlePrintSummary = () => {
+    const html = `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(documentMainTitle)} - ${esc(documentSubTitle)}</title>
+<title>${esc(summaryTitle || "Resumen")}</title>
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#fff;color:#000}
+  :root{color-scheme:dark light}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#111827;color:#fff}
   .wrap{padding:24px}
-  h1{font-size:26px;margin:0 0 6px;color:#000; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-  h3{margin:0 0 18px;color:#333;font-style:italic;font-size:18px; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-  .content{
-    white-space:pre-wrap;
-    line-height:1.5;
-    color:#000;
-    background:#fff;
+  h1{font-size:22px;margin:0 0 6px}
+  h3{margin:0 0 18px;color:#facc15;font-style:italic;font-size:18px}
+  .box{background:#1f2937;border:1px solid #374151;padding:16px;border-radius:10px;white-space:pre-wrap;line-height:1.5}
+  .actions{margin-top:16px}
+  .btn{padding:8px 12px;border-radius:8px;background:#2563eb;color:#fff;border:0;cursor:pointer}
+  @media print{
+    .actions{display:none!important}
+    body{
+      background:#fff!important;
+      color:#000!important;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+    /* Fuerza color negro absoluto en todo el texto */
+    h1,h2,h3,h4,h5,h6,p,div,span,li,strong,em,blockquote,code,pre,.box,.content{
+      color:#000!important;
+      -webkit-text-fill-color:#000!important;
+      opacity:1!important;
+      filter:none!important;
+    }
+    .box{
+      background:#fff!important;
+      border-color:#000!important;
+      color:#000!important;
+    }
   }
 </style>
+<script>window.addEventListener('load',()=>{try{window.print()}catch(e){}});</script>
 </head>
 <body>
   <div class="wrap">
-    <h1>${esc(documentMainTitle)}</h1>
-    <h3>${esc(documentSubTitle)}</h3>
-    <div class="content">${esc(summary)}</div>
+    <h1>Resumen</h1>
+    <h3>${esc(summaryTitle || "")}</h3>
+    <div class="box"><div class="content">${esc(summary)}</div></div>
+    <div class="actions"><button class="btn" onclick="window.print()">Imprimir</button></div>
   </div>
 </body></html>`;
-
-    try {
-      const response = await fetch('/.netlify/functions/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          html: htmlToConvert,
-          filename: pdfFileName,
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = pdfFileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        const errorData = await response.json();
-        console.error('Error al generar el PDF en el servidor:', errorData);
-        alert(`Error al generar el PDF: ${errorData.error || response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error de red o inesperado al generar el PDF:', error);
-      alert('Hubo un problema de conexión al intentar generar el PDF. Inténtalo de nuevo.');
-    } finally {
-      setIsGeneratingPdf(false);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed"; iframe.style.right = "0"; iframe.style.bottom = "0";
+    iframe.style.width = "0"; iframe.style.height = "0"; iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    const cleanup = () => setTimeout(()=>{ try{ document.body.removeChild(iframe); }catch{} }, 1500);
+    if (iframe.contentWindow) {
+      iframe.onload = () => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } finally { cleanup(); } };
+      iframe.srcdoc = html;
+    } else {
+      const blob = new Blob([html], { type: "text/html" }); iframe.src = URL.createObjectURL(blob); iframe.onload = cleanup;
     }
   };
 
@@ -146,14 +121,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        <button
-          onClick={handleDownloadPdf}
-          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-          disabled={isGeneratingPdf}
-        >
-          {isGeneratingPdf ? "Generando PDF..." : "🖨 Descargar Resumen (PDF)"}
-        </button>
-        {/* <-- Botón "Escuchar resumen" RESTAURADO */}
+        <button onClick={handlePrintSummary} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">🖨 Imprimir resumen</button>
         <button onClick={handleSpeak} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">{speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}</button>
       </div>
 
@@ -192,7 +160,34 @@ const SummaryView: React.FC<SummaryViewProps> = ({
           <p className="text-gray-300 mb-4 text-sm sm:text-base">
             <strong>¿Qué es?</strong> Un árbol que parte del tema central, y muestra las claves principales del documento, para una comprensión express.
           </p>
+
+          {/* ELIMINADO: selector de "Modo: Clásico / Más detalle" */}
+          {/*
+          <label className="block text-sm text-gray-300 mb-2">Modo:</label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="colormode"
+                checked={colorMode === MindMapColorMode.BlancoNegro}
+                onChange={() => setColorMode(MindMapColorMode.BlancoNegro)}
+              />
+              Clásico
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="colormode"
+                checked={colorMode === MindMapColorMode.Color}
+                onChange={() => setColorMode(MindMapColorMode.Color)}
+              />
+              Más detalle
+            </label>
+          </div>
+          */}
+
           <div className="mt-4">
+            {/* Llamamos a onOpenMindMap directamente con MindMapColorMode.BlancoNegro */}
             <button onClick={() => onOpenMindMap(MindMapColorMode.BlancoNegro)} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">Generar mapa mental</button>
           </div>
         </div>
