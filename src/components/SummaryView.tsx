@@ -1,6 +1,6 @@
 // components/SummaryView.tsx
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react"; // Removed useRef
 import { PresentationType, MindMapColorMode, SummaryType } from "../types";
 
 interface SummaryViewProps {
@@ -28,13 +28,11 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   onGenerateFlashcards,
   onReset,
 }) => {
-  const [speaking, setSpeaking] = useState(false);
-  const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // Nuevo estado para UI
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // `speaking` and `utterRef` removed
 
-  useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
+  // No useEffect for speech synthesis cancellation needed anymore
 
-  const handleSpeak = () => { /* ... (sin cambios) ... */ };
+  // `handleSpeak` function removed as it's no longer used
 
   const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -42,13 +40,13 @@ const SummaryView: React.FC<SummaryViewProps> = ({
     switch (type) {
       case SummaryType.Short: return "Corto";
       case SummaryType.Detailed: return "Detallado";
-      case SummaryType.Bulleted: return "Por_Puntos"; // Usamos guión bajo para el nombre del archivo
+      case SummaryType.Bulleted: return "Por_Puntos";
       default: return "General";
     }
   };
 
   const handleDownloadPdf = async () => {
-    setIsGeneratingPdf(true); // Activar estado de carga
+    setIsGeneratingPdf(true);
 
     const documentMainTitle = "Resumelo!";
     const documentSubTitle = `Modalidad: ${getSummaryTypeName(summaryType).replace(/_/g, " ")}`;
@@ -61,8 +59,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({
 
     const pdfFileName = `RESUMELO!_${cleanFileName}_${getSummaryTypeName(summaryType)}.pdf`;
 
-    // --- HTML que se enviará a la Netlify Function para la conversión a PDF ---
-    // Incluye todos los estilos directamente en el HTML o referencialos si los tienes en un CDN
     const htmlToConvert = `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -119,7 +115,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       console.error('Error de red o inesperado al generar el PDF:', error);
       alert('Hubo un problema de conexión al intentar generar el PDF. Inténtalo de nuevo.');
     } finally {
-      setIsGeneratingPdf(false); // Desactivar estado de carga
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -134,11 +130,11 @@ const SummaryView: React.FC<SummaryViewProps> = ({
         <button
           onClick={handleDownloadPdf}
           className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-          disabled={isGeneratingPdf} // Deshabilitar el botón mientras se genera el PDF
+          disabled={isGeneratingPdf}
         >
           {isGeneratingPdf ? "Generando PDF..." : "🖨 Descargar Resumen (PDF)"}
         </button>
-        <button onClick={handleSpeak} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">{speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}</button>
+        {/* El botón de "Escuchar resumen" ha sido eliminado */}
       </div>
 
       <div className="bg-gray-800 text-white p-3 sm:p-4 rounded-lg mb-6 sm:mb-8 whitespace-pre-line text-sm sm:text-base">
