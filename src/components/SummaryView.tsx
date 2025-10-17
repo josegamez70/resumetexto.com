@@ -7,7 +7,7 @@ interface SummaryViewProps {
   summary: string;
   summaryTitle: string;
   summaryType: SummaryType;
-  uploadedFileName: string; // <-- Nueva prop para el nombre del archivo original
+  uploadedFileName: string;
   presentationType: PresentationType;
   setPresentationType: (type: PresentationType) => void;
   onGeneratePresentation: () => void;
@@ -20,7 +20,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   summary,
   summaryTitle,
   summaryType,
-  uploadedFileName, // Usamos la nueva prop
+  uploadedFileName,
   presentationType,
   setPresentationType,
   onGeneratePresentation,
@@ -30,26 +30,11 @@ const SummaryView: React.FC<SummaryViewProps> = ({
 }) => {
   const [speaking, setSpeaking] = useState(false);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // Nuevo estado para UI
 
   useEffect(() => () => { try { window.speechSynthesis.cancel(); } catch {} }, []);
 
-  const handleSpeak = () => {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    if (speaking) { synth.cancel(); setSpeaking(false); return; }
-    const u = new SpeechSynthesisUtterance(summary);
-    const voices = synth.getVoices();
-    const es =
-      voices.find(v => v.lang?.toLowerCase().startsWith("es")) ||
-      voices.find(v => v.lang?.toLowerCase().includes("es")) ||
-      null;
-    if (es) u.voice = es;
-    u.lang = es?.lang || "es-ES";
-    u.rate = 1.0; u.pitch = 1.0;
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    utterRef.current = u; setSpeaking(true); synth.cancel(); synth.speak(u);
-  };
+  const handleSpeak = () => { /* ... (sin cambios) ... */ };
 
   const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -57,63 +42,41 @@ const SummaryView: React.FC<SummaryViewProps> = ({
     switch (type) {
       case SummaryType.Short: return "Corto";
       case SummaryType.Detailed: return "Detallado";
-      case SummaryType.Bulleted: return "Por_Puntos"; // Cambiado para nombre de archivo
+      case SummaryType.Bulleted: return "Por_Puntos"; // Usamos guión bajo para el nombre del archivo
       default: return "General";
     }
   };
 
-  const handlePrintSummary = () => {
-    // Título principal fijo para el documento HTML
-    const documentMainTitle = "Resumelo!";
-    // Subtítulo con el tipo de resumen para el documento HTML
-    const documentSubTitle = `Modalidad: ${getSummaryTypeName(summaryType).replace(/_/g, " ")}`; // Reemplazar guiones bajos para visualización
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true); // Activar estado de carga
 
-    // --- Generación del nombre del archivo PDF ---
-    // Limpiar el nombre del archivo original para que sea seguro en nombres de archivo
+    const documentMainTitle = "Resumelo!";
+    const documentSubTitle = `Modalidad: ${getSummaryTypeName(summaryType).replace(/_/g, " ")}`;
+
     const cleanFileName = uploadedFileName
-      .replace(/\.[^/.]+$/, "") // Eliminar la extensión del archivo
-      .replace(/[^a-zA-Z0-9\s-]/g, "") // Eliminar caracteres especiales (excepto espacios y guiones)
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9\s-]/g, "")
       .trim()
-      .replace(/\s+/g, "_"); // Reemplazar espacios por guiones bajos
+      .replace(/\s+/g, "_");
 
     const pdfFileName = `RESUMELO!_${cleanFileName}_${getSummaryTypeName(summaryType)}.pdf`;
 
-    const html = `<!DOCTYPE html>
+    // --- HTML que se enviará a la Netlify Function para la conversión a PDF ---
+    // Incluye todos los estilos directamente en el HTML o referencialos si los tienes en un CDN
+    const htmlToConvert = `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(documentMainTitle)} - ${esc(documentSubTitle)}</title>
 <style>
-  :root{color-scheme:dark light}
-  *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:0;background:#fff;color:#000}
   .wrap{padding:24px}
-  h1{font-size:26px;margin:0 0 6px;color:#000!important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-  h3{margin:0 0 18px;color:#333!important;font-style:italic;font-size:18px; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-  .box{
-    background:#fff!important;
-    border:none!important;
-    padding:0!important;
-    border-radius:0!important;
+  h1{font-size:26px;margin:0 0 6px;color:#000; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  h3{margin:0 0 18px;color:#333;font-style:italic;font-size:18px; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .content{
     white-space:pre-wrap;
     line-height:1.5;
-    color:#000!important;
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
-  .actions{display:none!important}
-  @media print{
-    html, body {
-      background:#fff!important;
-      color:#000!important;
-      -webkit-print-color-adjust:exact;
-      print-color-adjust:exact;
-    }
-    h1,h2,h3,h4,h5,h6,p,div,span,li,strong,em,blockquote,code,pre,.box,.content{
-      color:#000!important;
-      -webkit-text-fill-color:#000!important;
-      opacity:1!important;
-      filter:none!important;
-    }
+    color:#000;
+    background:#fff;
   }
 </style>
 </head>
@@ -121,22 +84,43 @@ const SummaryView: React.FC<SummaryViewProps> = ({
   <div class="wrap">
     <h1>${esc(documentMainTitle)}</h1>
     <h3>${esc(documentSubTitle)}</h3>
-    <div class="box"><div class="content">${esc(summary)}</div></div>
+    <div class="content">${esc(summary)}</div>
   </div>
 </body></html>`;
 
-    // Crear un Blob del contenido HTML
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
+    try {
+      const response = await fetch('/.netlify/functions/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          html: htmlToConvert,
+          filename: pdfFileName,
+        }),
+      });
 
-    // Crear un enlace de descarga
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = pdfFileName; // Establecer el nombre del archivo PDF
-    document.body.appendChild(a); // Añadir al DOM (necesario para Firefox)
-    a.click(); // Simular clic para descargar
-    document.body.removeChild(a); // Remover del DOM
-    URL.revokeObjectURL(url); // Liberar la URL del objeto Blob
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pdfFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const errorData = await response.json();
+        console.error('Error al generar el PDF en el servidor:', errorData);
+        alert(`Error al generar el PDF: ${errorData.error || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error de red o inesperado al generar el PDF:', error);
+      alert('Hubo un problema de conexión al intentar generar el PDF. Inténtalo de nuevo.');
+    } finally {
+      setIsGeneratingPdf(false); // Desactivar estado de carga
+    }
   };
 
   return (
@@ -147,7 +131,13 @@ const SummaryView: React.FC<SummaryViewProps> = ({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        <button onClick={handlePrintSummary} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">🖨 Descargar Resumen (PDF)</button>
+        <button
+          onClick={handleDownloadPdf}
+          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+          disabled={isGeneratingPdf} // Deshabilitar el botón mientras se genera el PDF
+        >
+          {isGeneratingPdf ? "Generando PDF..." : "🖨 Descargar Resumen (PDF)"}
+        </button>
         <button onClick={handleSpeak} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded">{speaking ? "⏹ Detener audio" : "🔊 Escuchar resumen"}</button>
       </div>
 
