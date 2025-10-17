@@ -27,7 +27,7 @@ import {
 /* ─── Types ───────────────────────────────────────────────────────────── */
 import {
   ViewState,
-  SummaryType,
+  SummaryType, // <-- Asegúrate de importar SummaryType aquí
   PresentationData,
   PresentationType,
   MindMapData,
@@ -131,6 +131,8 @@ const AppInner: React.FC = () => {
 
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
+  const [selectedSummaryType, setSelectedSummaryType] = useState<SummaryType>(SummaryType.Detailed); // <-- Nuevo estado para el tipo de resumen
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null); // <-- Nuevo estado para el nombre del archivo
 
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
   const [presentationType, setPresentationType] = useState<PresentationType>(
@@ -245,6 +247,8 @@ const AppInner: React.FC = () => {
     setIsProcessing(false);
     setSummary(null);
     setSummaryTitle(null);
+    setSelectedSummaryType(SummaryType.Detailed); // Resetear a un valor por defecto
+    setUploadedFileName(null); // Resetear el nombre del archivo
     setPresentation(null);
     setMindmap(null);
     setFlashcards(null);
@@ -270,7 +274,7 @@ const AppInner: React.FC = () => {
     }
   }
 
-  const handleFileUpload = async (fileOrFiles: any, selectedSummaryType: SummaryType) => {
+  const handleFileUpload = async (fileOrFiles: any, uploadedSummaryType: SummaryType) => {
     setError(null);
 
     // Pre-check de intentos local
@@ -285,17 +289,23 @@ const AppInner: React.FC = () => {
 
     try {
       let generatedSummary: string;
+      let fileNameToSave: string; // Para guardar el nombre del archivo
 
       if (Array.isArray(fileOrFiles)) {
         // Varias fotos
-        generatedSummary = await summarizeContents(fileOrFiles, selectedSummaryType);
+        generatedSummary = await summarizeContents(fileOrFiles, uploadedSummaryType);
+        // Asumimos que para varias fotos, el nombre es genérico o el de la primera
+        fileNameToSave = fileOrFiles[0]?.name || "Documentos";
       } else {
         // 1 PDF (o una sola imagen)
-        generatedSummary = await summarizeContent(fileOrFiles, selectedSummaryType);
+        generatedSummary = await summarizeContent(fileOrFiles, uploadedSummaryType);
+        fileNameToSave = fileOrFiles.name; // Obtener el nombre del archivo
       }
 
       setSummary(generatedSummary);
       setSummaryTitle(generatedSummary.split(" ").slice(0, 6).join(" "));
+      setSelectedSummaryType(uploadedSummaryType); // <-- Guardar el tipo de resumen seleccionado
+      setUploadedFileName(fileNameToSave); // <-- Guardar el nombre del archivo
       setView(ViewState.SUMMARY);
 
       incAttempt(userKey);
@@ -403,6 +413,7 @@ const AppInner: React.FC = () => {
 
       {view === ViewState.UPLOADER && (
         <div className="max-w-3xl mx-auto">
+          {/* FileUploader debe pasar el SummaryType seleccionado y el archivo/s */}
           <FileUploader onUpload={handleFileUpload} isProcessing={isProcessing} />
         </div>
       )}
@@ -411,6 +422,8 @@ const AppInner: React.FC = () => {
         <SummaryView
           summary={summary}
           summaryTitle={summaryTitle || ""}
+          summaryType={selectedSummaryType} // <-- Pasar el tipo de resumen
+          uploadedFileName={uploadedFileName || "Documento"} // <-- Pasar el nombre del archivo
           presentationType={presentationType}
           setPresentationType={setPresentationType}
           onGeneratePresentation={handleGeneratePresentation}
